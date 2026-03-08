@@ -13,31 +13,28 @@ export default async function handler(req, res) {
     const { message, history } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    if (!apiKey) throw new Error("API Key is missing from Vercel Environment Variables.");
+    if (!apiKey) throw new Error("API Key missing in Vercel environment variables.");
 
-    // Fetch Handbook content
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // We are switching to the absolute most standard production string.
+    // If this fails, the issue is almost certainly the API Key's permissions.
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
     const { data: knowledge } = await supabase
       .from('district_knowledge')
       .select('content')
       .eq('id', 'cmd_handbook')
       .single();
 
-    const districtContext = knowledge?.content || "Handbook not found.";
-
-    // Initialize the SDK
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Using the absolute base model name
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    // We move the system instructions into the first message to avoid 
-    // compatibility issues with older SDK versions.
-    const systemPrompt = `You are the CMD Ordination Mentor. Source: ${districtContext}. Rules: Be Socratic, Christ-centered, and only use provided text.`;
+    const systemPrompt = `You are the CMD Ordination Mentor. 
+    Source: ${knowledge?.content || 'Handbook not found.'}. 
+    Only answer based on the handbook. Be Socratic.`;
 
     const chat = model.startChat({
       history: [
         { role: "user", parts: [{ text: systemPrompt }] },
-        { role: "model", parts: [{ text: "Understood. I am ready to mentor according to the CMD Handbook." }] },
+        { role: "model", parts: [{ text: "Acknowledged. I am ready." }] },
         ...(history || []).map(msg => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.content }],
@@ -54,8 +51,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply: text });
 
   } catch (error) {
-    console.error("API Error:", error);
-    // This will help us see if it's a "Key Invalid" or "API Disabled" error
-    return res.status(500).json({ error: `Detailed Error: ${error.message}` });
+    console.error("FULL API ERROR:", error);
+    return res.status(500).json({ error: `Connection Failure: ${error.message}. Check your API key permissions in Google AI Studio.` });
   }
 }
