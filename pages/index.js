@@ -91,7 +91,7 @@ export default function OrdinationAgent() {
           <img 
             src="https://i.imgur.com/ZHqDQJC.png" 
             alt="Alliance Logo" 
-            style={{ height: '40px', width: 'auto' }} 
+            style={{ height: '45px', width: 'auto' }} 
           />
           <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
             CMD ORDINATION STUDY AGENT
@@ -139,6 +139,7 @@ export default function OrdinationAgent() {
                 <p style={{ opacity: 0.8 }}>How can I help you with your ordination journey today?</p>
               </div>
             )}
+            
             {messages.map((msg, i) => (
               <div key={i} style={{ 
                 alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', 
@@ -153,6 +154,7 @@ export default function OrdinationAgent() {
                 {msg.content}
               </div>
             ))}
+            
             {loading && (
               <div style={{ alignSelf: 'flex-start', color: colors.oceanBlue, fontSize: '0.8rem', fontStyle: 'italic' }}>
                 Mentor is typing...
@@ -161,43 +163,4 @@ export default function OrdinationAgent() {
           </div>
 
           <form onSubmit={handleSendMessage} style={{ 
-            padding: '1.5rem', 
-            borderTop: `1px solid ${colors.cloudGray}`, 
-            display: 'flex', 
-            gap: '1rem',
-            backgroundColor: '#fafafa'
-          }}>
-            <input 
-              type="text" 
-              value={input} 
-              onChange={(e) => setInput(e.target.value)} 
-              placeholder="Ask a question..." 
-              style={{ 
-                flex: 1, 
-                padding: '0.8rem 1.2rem', 
-                border: `1px solid ${colors.oceanBlue}`, 
-                borderRadius: '4px',
-                fontSize: '1rem'
-              }} 
-            />
-            <button 
-              type="submit" 
-              disabled={loading} 
-              style={{ 
-                backgroundColor: colors.deepSea, 
-                color: colors.white, 
-                border: 'none', 
-                padding: '0 2rem', 
-                fontWeight: 'bold', 
-                cursor: 'pointer',
-                borderRadius: '4px'
-              }}
-            >
-              SEND
-            </button>
-          </form>
-        </div>
-      </main>
-
-      <footer style={{ textAlign: 'center', padding: '2rem', color: colors.oceanBlue, fontSize: '0.75rem', opacity: 0.7 }}>
-        &copy; {new Date().getFullYear()} Canadian
+            padding: '1.5
