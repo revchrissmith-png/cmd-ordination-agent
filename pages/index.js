@@ -108,11 +108,8 @@ export default function OrdinationAgent() {
             fontSize: '0.75rem', 
             cursor: 'pointer', 
             fontWeight: 'bold',
-            borderRadius: '2px',
-            transition: 'all 0.2s'
+            borderRadius: '2px'
           }}
-          onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.1)'}
-          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
         >
           {user ? 'LOGOUT' : 'ADMIN LOGIN'}
         </button>
@@ -134,10 +131,73 @@ export default function OrdinationAgent() {
             overflowY: 'auto', 
             display: 'flex', 
             flexDirection: 'column', 
-            gap: '1.2rem',
-            backgroundColor: colors.white
+            gap: '1.2rem'
           }}>
             {messages.length === 0 && (
               <div style={{ textAlign: 'center', color: colors.oceanBlue, marginTop: '5rem' }}>
                 <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Welcome to the CMD Mentor</h2>
-                <p style={{ opacity: 0.8 }}>How can I help you with your ordination
+                <p style={{ opacity: 0.8 }}>How can I help you with your ordination journey today?</p>
+              </div>
+            )}
+            {messages.map((msg, i) => (
+              <div key={i} style={{ 
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', 
+                backgroundColor: msg.role === 'user' ? colors.allianceBlue : colors.cloudGray, 
+                color: msg.role === 'user' ? colors.white : colors.charcoal, 
+                padding: '1rem 1.4rem', 
+                borderRadius: '8px', 
+                maxWidth: '75%', 
+                fontSize: '0.95rem',
+                lineHeight: '1.5'
+              }}>
+                {msg.content}
+              </div>
+            ))}
+            {loading && (
+              <div style={{ alignSelf: 'flex-start', color: colors.oceanBlue, fontSize: '0.8rem', fontStyle: 'italic' }}>
+                Mentor is typing...
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={handleSendMessage} style={{ 
+            padding: '1.5rem', 
+            borderTop: `1px solid ${colors.cloudGray}`, 
+            display: 'flex', 
+            gap: '1rem',
+            backgroundColor: '#fafafa'
+          }}>
+            <input 
+              type="text" 
+              value={input} 
+              onChange={(e) => setInput(e.target.value)} 
+              placeholder="Ask a question..." 
+              style={{ 
+                flex: 1, 
+                padding: '0.8rem 1.2rem', 
+                border: `1px solid ${colors.oceanBlue}`, 
+                borderRadius: '4px',
+                fontSize: '1rem'
+              }} 
+            />
+            <button 
+              type="submit" 
+              disabled={loading} 
+              style={{ 
+                backgroundColor: colors.deepSea, 
+                color: colors.white, 
+                border: 'none', 
+                padding: '0 2rem', 
+                fontWeight: 'bold', 
+                cursor: 'pointer',
+                borderRadius: '4px'
+              }}
+            >
+              SEND
+            </button>
+          </form>
+        </div>
+      </main>
+
+      <footer style={{ textAlign: 'center', padding: '2rem', color: colors.oceanBlue, fontSize: '0.75rem', opacity: 0.7 }}>
+        &copy; {new Date().getFullYear()} Canadian
