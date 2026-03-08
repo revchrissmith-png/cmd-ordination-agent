@@ -1,6 +1,6 @@
 {
-  "name": "fitness-tracker",
-  "version": "0.1.0",
+  "name": "cmd-ordination-agent",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,6 +12,7 @@
     "react": "latest",
     "react-dom": "latest",
     "@supabase/supabase-js": "latest",
+    "@google/generative-ai": "latest",
     "lucide-react": "latest"
   }
 }
