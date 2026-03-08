@@ -2,7 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || '', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '');
+// Initialize Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 export default function OrdinationAgent() {
   const [session, setSession] = useState(null);
@@ -12,193 +16,171 @@ export default function OrdinationAgent() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [voices, setVoices] = useState([]);
   const scrollRef = useRef(null);
 
-  const colors = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff', charcoal: '#040404' };
-  const allianceLogo = "https://i.imgur.com/ZHqDQJC.png";
+  const colors = { 
+    allianceBlue: '#0077C8', 
+    deepSea: '#00426A', 
+    white: '#ffffff', 
+    lightGray: '#f4f4f9',
+    text: '#333' 
+  };
+  const logoUrl = "https://i.imgur.com/ZHqDQJC.png";
 
+  // Auth Listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
-    
-    const loadVoices = () => setVoices(window.speechSynthesis.getVoices());
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, loading]);
+  }, [messages]);
 
-  const speak = (text) => {
-    if (!text) return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    const v = voices.find(v => (v.name.includes('Natural') || v.name.includes('Google')) && v.lang.startsWith('en'));
-    if (v) utterance.voice = v;
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+  // Logout Function (Force Refresh)
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload(); // Hard reset to login screen
   };
 
-  const startListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return alert("Browser not supported.");
-    const rec = new SpeechRecognition();
-    rec.onstart = () => setIsListening(true);
-    rec.onresult = (e) => { setInput(prev => prev + " " + e.results[0][0].transcript); setIsListening(false); };
-    rec.start();
-  };
-
-  const handleOAuthLogin = async (provider) => {
+  // Google Login
+  const loginWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
-      provider: provider,
+      provider: 'google',
       options: { redirectTo: window.location.origin }
     });
   };
 
+  // Email/Password Login
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     const { error } = isSignUp 
       ? await supabase.auth.signUp({ email, password }) 
       : await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    
     if (error) alert(error.message);
+    setLoading(false);
   };
 
-  const handleSendMessage = async () => {
+  // Chat Logic
+  const sendMessage = async () => {
     if (!input.trim() || loading) return;
-    
-    // 1. Add User Message to State
+
     const userMsg = { role: 'user', content: input };
-    setMessages((prev) => [...prev, userMsg]);
-    
-    const currentInput = input;
+    setMessages(prev => [...prev, userMsg]);
+    const userText = input;
     setInput('');
     setLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          message: currentInput, 
-          history: messages, 
+          message: userText, 
+          history: messages,
           userId: session?.user?.id 
         }),
       });
+
+      const data = await response.json();
       
-      const data = await res.json();
-      
-      // 2. Explicitly map 'reply' to 'content' to fix empty bubbles
-      if (data && data.reply) {
-        const assistantMsg = { role: 'assistant', content: data.reply };
-        setMessages((prev) => [...prev, assistantMsg]);
-        speak(data.reply);
+      if (data.reply) {
+        setMessages(prev => [...prev, { role: 'assistant', content: String(data.reply) }]);
       } else {
-        setMessages((prev) => [...prev, { role: 'assistant', content: "The Mentor is thinking deeply but hasn't spoken. Check your API settings." }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: "Error: No response from Mentor." }]);
       }
-    } catch (e) {
-      setMessages((prev) => [...prev, { role: 'assistant', content: "Network error. Please try again." }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Network error. Check connection." }]);
     } finally {
+      setLoading(true);
       setLoading(false);
     }
   };
 
-  const downloadTranscript = () => {
-    const content = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `CMD_Transcript.txt`;
-    a.click();
-  };
-
-  // -----------------------------------------------------------------
-  // VIEW 1: LOGIN SCREEN (Gated)
-  // -----------------------------------------------------------------
+  // --- VIEW 1: LOGIN ---
   if (!session) {
     return (
-      <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
-        <div style={{ backgroundColor: colors.white, padding: '3rem', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '400px', width: '95%' }}>
-          <img src={allianceLogo} alt="CMD Logo" style={{ height: '50px', marginBottom: '1rem' }} />
-          <h1 style={{ color: colors.deepSea, fontSize: '1.2rem', marginBottom: '1.5rem', fontWeight: 'bold' }}>CMD ORDINATION MENTOR</h1>
-          <button onClick={() => handleOAuthLogin('google')} style={{ width: '100%', padding: '0.8rem', marginBottom: '1rem', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontWeight: 'bold' }}>
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" style={{ height: '18px' }} /> Sign in with Google
+      <div style={{ backgroundColor: '#EAEAEE', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial' }}>
+        <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', textAlign: 'center', width: '350px' }}>
+          <img src={logoUrl} alt="CMD Logo" style={{ height: '50px', marginBottom: '20px' }} />
+          <h2 style={{ fontSize: '1.1rem', color: colors.deepSea }}>CMD MENTOR LOGIN</h2>
+          <button onClick={loginWithGoogle} style={{ width: '100%', padding: '10px', margin: '20px 0', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white', cursor: 'pointer', fontWeight: 'bold' }}>
+            Sign in with Google
           </button>
-          <div style={{ margin: '1rem 0', color: '#888', fontSize: '0.7rem' }}>— OR EMAIL —</div>
-          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px' }} required />
-            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px' }} required />
-            <button type="submit" style={{ backgroundColor: colors.allianceBlue, color: 'white', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{isSignUp ? 'REGISTER' : 'SIGN IN'}</button>
+          <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '20px' }}>— OR —</div>
+          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <input type="email" placeholder="Email" onChange={(e) => setEmail(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} required />
+            <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} required />
+            <button type="submit" style={{ padding: '10px', backgroundColor: colors.allianceBlue, color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold' }}>
+              {isSignUp ? 'REGISTER' : 'SIGN IN'}
+            </button>
           </form>
-          <button onClick={() => setIsSignUp(!isSignUp)} style={{ background: 'none', border: 'none', color: colors.allianceBlue, marginTop: '1rem', fontSize: '0.8rem', cursor: 'pointer' }}>{isSignUp ? 'Back to Login' : 'Create an Account'}</button>
+          <p onClick={() => setIsSignUp(!isSignUp)} style={{ fontSize: '0.8rem', color: colors.allianceBlue, marginTop: '20px', cursor: 'pointer' }}>
+            {isSignUp ? 'Already have an account? Login' : 'New? Create an account'}
+          </p>
         </div>
       </div>
     );
   }
 
-  // -----------------------------------------------------------------
-  // VIEW 2: FULL CHAT SCREEN (Only shown when logged in)
-  // -----------------------------------------------------------------
+  // --- VIEW 2: CHAT ---
   return (
-    <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div style={{ backgroundColor: '#EAEAEE', minHeight: '100vh', fontFamily: 'Arial' }}>
       <Head><title>CMD Mentor</title></Head>
       
-      <header style={{ backgroundColor: colors.deepSea, color: 'white', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `4px solid ${colors.allianceBlue}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <img src={allianceLogo} alt="Alliance Logo" style={{ height: '35px' }} />
-          <span style={{ fontSize: '0.7rem', opacity: 0.9 }}>{session.user.email}</span>
+      {/* HEADER */}
+      <header style={{ backgroundColor: colors.deepSea, color: 'white', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <img src={logoUrl} alt="Logo" style={{ height: '30px' }} />
+          <span style={{ fontSize: '0.8rem' }}>{session.user.email}</span>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={downloadTranscript} style={{ background: colors.allianceBlue, color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}>DOWNLOAD</button>
-          <button onClick={() => supabase.auth.signOut()} style={{ background: 'transparent', border: '1px solid white', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>LOGOUT</button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={() => {
+            const text = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
+            const blob = new Blob([text], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'transcript.txt';
+            a.click();
+          }} style={{ background: colors.allianceBlue, color: 'white', border: 'none', padding: '5px 15px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>DOWNLOAD</button>
+          <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid white', color: 'white', padding: '5px 15px', borderRadius: '4px', fontSize: '0.7rem' }}>LOGOUT</button>
         </div>
       </header>
 
-      <main style={{ maxWidth: '850px', margin: '2rem auto', padding: '0 1rem' }}>
-        <div style={{ backgroundColor: colors.white, borderRadius: '12px', height: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 5px 25px rgba(0,0,0,0.1)' }}>
-          
-          {/* Messages Area */}
-          <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {messages.length === 0 && <div style={{ textAlign: 'center', color: colors.allianceBlue, marginTop: '2rem', fontStyle: 'italic' }}>Session active. What would you like to discuss from the handbook?</div>}
-            
+      {/* CHAT BODY */}
+      <main style={{ maxWidth: '800px', margin: '30px auto', padding: '0 20px' }}>
+        <div style={{ backgroundColor: 'white', height: '70vh', borderRadius: '8px', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+          <div ref={scrollRef} style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {messages.length === 0 && <p style={{ textAlign: 'center', color: colors.allianceBlue }}>Welcome. Ready to practice for your interview?</p>}
             {messages.map((msg, i) => (
-              <div key={`msg-${i}`} style={{ 
+              <div key={i} style={{ 
                 alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', 
-                backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f2f2f2', 
-                color: msg.role === 'user' ? 'white' : colors.charcoal, 
-                padding: '1rem 1.4rem', 
-                borderRadius: '15px', 
-                maxWidth: '80%', 
-                fontSize: '0.95rem', 
-                lineHeight: '1.5' 
+                backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#eee', 
+                color: msg.role === 'user' ? 'white' : '#333', 
+                padding: '12px 18px', borderRadius: '12px', maxWidth: '80%', fontSize: '0.9rem' 
               }}>
                 {msg.content}
               </div>
             ))}
-            {loading && <div style={{ color: colors.allianceBlue, fontSize: '0.8rem', fontStyle: 'italic' }}>Mentor is typing...</div>}
+            {loading && <p style={{ fontSize: '0.8rem', color: colors.allianceBlue }}>Mentor is thinking...</p>}
           </div>
 
-          {/* Input Area */}
-          <div style={{ padding: '1.2rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.8rem', alignItems: 'flex-end', backgroundColor: '#fafafa', borderRadius: '0 0 12px 12px' }}>
-            <button onClick={startListening} style={{ background: isListening ? '#ff4d4d' : '#fff', border: '1px solid #ddd', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer', fontSize: '1.2rem' }}>
-              {isListening ? '🛑' : '🎤'}
-            </button>
+          <div style={{ padding: '20px', borderTop: '1px solid #eee', display: 'flex', gap: '10px' }}>
             <textarea 
               value={input} 
               onChange={(e) => setInput(e.target.value)} 
-              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendMessage(); }} 
-              placeholder="Type your response... (Cmd+Enter to send)" 
-              style={{ flex: 1, padding: '1rem', border: '1px solid #ddd', borderRadius: '10px', minHeight: '50px', maxHeight: '150px', resize: 'none', fontSize: '1rem', fontFamily: 'inherit' }} 
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+              placeholder="Type your answer..." 
+              style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ddd', resize: 'none', height: '50px' }} 
             />
-            <button onClick={handleSendMessage} disabled={loading} style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0 1.8rem', borderRadius: '10px', height: '50px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>SEND</button>
+            <button onClick={sendMessage} style={{ backgroundColor: colors.deepSea, color: 'white', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold' }}>SEND</button>
           </div>
-
         </div>
       </main>
     </div>
