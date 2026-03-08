@@ -13,30 +13,38 @@ export default function OrdinationAgent() {
   const [user, setUser] = useState(null);
   const scrollRef = useRef(null);
 
+  // Official Alliance Canada Palette
   const colors = {
-    allianceBlue: '#0077C8', // Pantone 3005 C [cite: 8]
-    oceanBlue: '#006298',    // Pantone 7691 C [cite: 11]
-    deepSea: '#00426A',      // Pantone 2188 C 
-    cloudGray: '#EAEAEE',    // Cool Grey 1 C [cite: 26]
+    allianceBlue: '#0077C8', // Pantone 3005 C
+    oceanBlue: '#006298',    // Pantone 7691 C
+    deepSea: '#00426A',      // Pantone 2188 C
+    cloudGray: '#EAEAEE',    // Cool Grey 1 C
     white: '#ffffff',
-    charcoal: '#040404'      // Black 6 C [cite: 18]
+    charcoal: '#040404'      // Black 6 C
   };
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-    };
-    fetchUser();
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    return () => subscription.unsubscribe();
   }, [messages]);
 
   const handleLogin = async () => {
-    const email = prompt("Enter your @canadianmidwest.ca email:");
+    const email = prompt("Enter your district email to receive a login link:");
     if (!email) return;
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    const { error } = await supabase.auth.signInWithOtp({ 
+      email, 
+      options: { emailRedirectTo: window.location.origin + '/admin' } 
+    });
     if (error) alert(error.message);
-    else alert("Check your email for the login link!");
+    else alert("Success! Check your email for your access link.");
   };
 
   const handleSendMessage = async (e) => {
@@ -64,35 +72,72 @@ export default function OrdinationAgent() {
   };
 
   return (
-    <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'Helvetica, Arial, sans-serif' }}>
-      <Head><title>CMD Ordination Agent</title></Head>
+    <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+      <Head>
+        <title>CMD Ordination Study Agent</title>
+      </Head>
 
-      <header style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '1.5rem', textAlign: 'center', borderBottom: `4px solid ${colors.allianceBlue}`, position: 'relative' }}>
-        <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>ORDINATION STUDY AGENT</h1>
+      <header style={{ 
+        backgroundColor: colors.deepSea, 
+        color: colors.white, 
+        padding: '1rem 2rem', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        borderBottom: `4px solid ${colors.allianceBlue}`,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <img 
+            src="https://i.imgur.com/ZHqDQJC.png" 
+            alt="Alliance Logo" 
+            style={{ height: '40px', width: 'auto' }} 
+          />
+          <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+            CMD ORDINATION STUDY AGENT
+          </h1>
+        </div>
+        
         <button 
           onClick={user ? () => supabase.auth.signOut() : handleLogin}
-          style={{ position: 'absolute', right: '1rem', top: '1.5rem', backgroundColor: 'transparent', color: colors.white, border: `1px solid ${colors.white}`, padding: '0.3rem 0.6rem', fontSize: '0.7rem', cursor: 'pointer' }}
+          style={{ 
+            backgroundColor: 'transparent', 
+            color: colors.white, 
+            border: `1px solid ${colors.white}`, 
+            padding: '0.5rem 1rem', 
+            fontSize: '0.75rem', 
+            cursor: 'pointer', 
+            fontWeight: 'bold',
+            borderRadius: '2px',
+            transition: 'all 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
         >
-          {user ? 'LOGOUT' : 'LOGIN'}
+          {user ? 'LOGOUT' : 'ADMIN LOGIN'}
         </button>
       </header>
 
-      <main style={{ maxWidth: '800px', margin: '2rem auto', padding: '0 1rem' }}>
-        <div style={{ backgroundColor: colors.white, borderRadius: '2px', height: '60vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-          <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {messages.length === 0 && <p style={{ textAlign: 'center', color: colors.oceanBlue, marginTop: '2rem' }}>Welcome to the CMD Ordination Agent.</p>}
-            {messages.map((msg, i) => (
-              <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', backgroundColor: msg.role === 'user' ? colors.allianceBlue : colors.cloudGray, color: msg.role === 'user' ? colors.white : colors.charcoal, padding: '0.8rem 1.2rem', borderRadius: '4px', maxWidth: '80%' }}>
-                {msg.content}
-              </div>
-            ))}
-          </div>
-          <form onSubmit={handleSendMessage} style={{ padding: '1rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.5rem' }}>
-            <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask a question..." style={{ flex: 1, padding: '0.7rem', border: `1px solid ${colors.oceanBlue}`, borderRadius: '2px' }} />
-            <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, border: 'none', padding: '0 1.5rem', fontWeight: 'bold', cursor: 'pointer' }}>{loading ? '...' : 'SEND'}</button>
-          </form>
-        </div>
-      </main>
-    </div>
-  );
-}
+      <main style={{ maxWidth: '900px', margin: '2rem auto', padding: '0 1rem' }}>
+        <div style={{ 
+          backgroundColor: colors.white, 
+          borderRadius: '4px', 
+          height: '70vh', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
+          overflow: 'hidden'
+        }}>
+          <div ref={scrollRef} style={{ 
+            flex: 1, 
+            padding: '2rem', 
+            overflowY: 'auto', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '1.2rem',
+            backgroundColor: colors.white
+          }}>
+            {messages.length === 0 && (
+              <div style={{ textAlign: 'center', color: colors.oceanBlue, marginTop: '5rem' }}>
+                <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Welcome to the CMD Mentor</h2>
+                <p style={{ opacity: 0.8 }}>How can I help you with your ordination
