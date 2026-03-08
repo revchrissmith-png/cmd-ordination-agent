@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const { message, history, userId } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    if (!apiKey) throw new Error("API Key missing in Vercel.");
+    if (!apiKey) throw new Error("API Key missing.");
 
     // Fetch Handbook context
     const { data: knowledge } = await supabase
@@ -28,15 +28,13 @@ export default async function handler(req, res) {
     const model = genAI.getGenerativeModel({ 
       model: "gemini-3-flash",
       systemInstruction: `
-        You are the CMD Ordination Mentor (Canadian Midwest District).
+        You are the CMD Ordination Mentor.
         CONTEXT: ${districtContext}
-        
-        MANDATORY RULES:
-        1. PRAXIS LOOP: After a user answers a theological question, follow up with ONE "Ministry Praxis" question (e.g., "How does this impact your leadership at a board meeting?").
-        2. BREVITY: Keep responses under 4 sentences.
-        3. SOCRATIC: Ask only ONE question at a time.
-        4. TONE: Pastoral, Christ-centred, and encouraging.
-        5. CITATIONS: Briefly cite the CMD Handbook when applicable.
+        RULES:
+        1. PRAXIS: After a theological answer, follow up with ONE "Ministry Praxis" question.
+        2. BREVITY: Max 4 sentences.
+        3. SOCRATIC: Only ONE question at a time.
+        4. TONE: Pastoral, Christ-centred (CMD/Alliance Canada).
       `
     });
 
@@ -50,14 +48,12 @@ export default async function handler(req, res) {
     const result = await chat.sendMessage(message);
     const text = result.response.text();
 
-    // PERSISTENT TRACKING: Log the message with the userId
-    try {
+    // Persistent Tracking
+    if (userId) {
       await supabase.from('messages').insert([
         { role: 'user', content: message, user_id: userId }, 
         { role: 'assistant', content: text, user_id: userId }
       ]);
-    } catch (e) {
-      console.error("Tracking failed:", e.message);
     }
 
     return res.status(200).json({ reply: text });
