@@ -51,6 +51,14 @@ export default function OrdinationAgent() {
     rec.start();
   };
 
+  const handleOAuthLogin = async (provider) => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: provider,
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) alert(`OAuth Error: ${error.message}`);
+  };
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -59,12 +67,7 @@ export default function OrdinationAgent() {
       : await supabase.auth.signInWithPassword({ email, password });
     
     setLoading(false);
-
-    if (error) {
-      alert(`Auth Error: ${error.message}`);
-    } else if (isSignUp && !data.session) {
-      alert("Account created! Please check your email to confirm your account, or sign in if 'Confirm Email' is disabled in Supabase.");
-    }
+    if (error) alert(`Auth Error: ${error.message}`);
   };
 
   const handleSendMessage = async () => {
@@ -106,17 +109,29 @@ export default function OrdinationAgent() {
         <div style={{ backgroundColor: colors.white, padding: '3rem', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
           <img src={allianceLogo} alt="CMD Logo" style={{ height: '50px', marginBottom: '1rem' }} />
           <h1 style={{ color: colors.deepSea, fontSize: '1.2rem', marginBottom: '1.5rem' }}>CMD ORDINATION MENTOR</h1>
+          
+          <button 
+            onClick={() => handleOAuthLogin('google')}
+            style={{ width: '100%', padding: '0.8rem', marginBottom: '1rem', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontWeight: 'bold' }}
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ height: '18px' }} />
+            Sign in with Google
+          </button>
+
+          <div style={{ margin: '1rem 0', display: 'flex', alignItems: 'center', color: '#888', fontSize: '0.8rem' }}>
+            <div style={{ flex: 1, height: '1px', backgroundColor: '#eee' }}></div>
+            <span style={{ padding: '0 10px' }}>OR USE EMAIL</span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: '#eee' }}></div>
+          </div>
+
           <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px' }} required />
             <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px' }} required />
-            <button 
-              type="submit" 
-              disabled={loading}
-              style={{ backgroundColor: colors.allianceBlue, color: 'white', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
-            >
-              {loading ? 'PROCESSING...' : (isSignUp ? 'REGISTER' : 'SIGN IN')}
+            <button type="submit" disabled={loading} style={{ backgroundColor: colors.allianceBlue, color: 'white', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+              {isSignUp ? 'REGISTER' : 'SIGN IN'}
             </button>
           </form>
+          
           <button onClick={() => setIsSignUp(!isSignUp)} style={{ background: 'none', border: 'none', color: colors.allianceBlue, marginTop: '1.2rem', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
             {isSignUp ? 'Back to Sign In' : 'New Candidate? Register Here'}
           </button>
