@@ -71,8 +71,11 @@ export default function OrdinationAgent() {
 
   const handleSendMessage = async () => {
     if (!input.trim() || loading) return;
+    
+    // 1. Add User Message to State
     const userMsg = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
+    
     const currentInput = input;
     setInput('');
     setLoading(true);
@@ -81,20 +84,25 @@ export default function OrdinationAgent() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: currentInput, history: messages, userId: session?.user?.id }),
+        body: JSON.stringify({ 
+          message: currentInput, 
+          history: messages, 
+          userId: session?.user?.id 
+        }),
       });
       
       const data = await res.json();
       
-      if (data.reply) {
-        setMessages(prev => [...prev, { role: 'assistant', content: String(data.reply) }]);
+      // 2. Explicitly map 'reply' to 'content' to fix empty bubbles
+      if (data && data.reply) {
+        const assistantMsg = { role: 'assistant', content: data.reply };
+        setMessages((prev) => [...prev, assistantMsg]);
         speak(data.reply);
       } else {
-        console.error("Empty reply from API", data);
-        setMessages(prev => [...prev, { role: 'assistant', content: "The Mentor is silent. Please check the API logs." }]);
+        setMessages((prev) => [...prev, { role: 'assistant', content: "The Mentor is thinking deeply but hasn't spoken. Check your API settings." }]);
       }
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Network error. Please refresh." }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: "Network error. Please try again." }]);
     } finally {
       setLoading(false);
     }
@@ -110,6 +118,9 @@ export default function OrdinationAgent() {
     a.click();
   };
 
+  // -----------------------------------------------------------------
+  // VIEW 1: LOGIN SCREEN (Gated)
+  // -----------------------------------------------------------------
   if (!session) {
     return (
       <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
@@ -131,34 +142,63 @@ export default function OrdinationAgent() {
     );
   }
 
+  // -----------------------------------------------------------------
+  // VIEW 2: FULL CHAT SCREEN (Only shown when logged in)
+  // -----------------------------------------------------------------
   return (
     <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'sans-serif' }}>
       <Head><title>CMD Mentor</title></Head>
+      
       <header style={{ backgroundColor: colors.deepSea, color: 'white', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `4px solid ${colors.allianceBlue}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <img src={allianceLogo} alt="Logo" style={{ height: '35px' }} />
-          <span style={{ fontSize: '0.7rem' }}>{session.user.email}</span>
+          <img src={allianceLogo} alt="Alliance Logo" style={{ height: '35px' }} />
+          <span style={{ fontSize: '0.7rem', opacity: 0.9 }}>{session.user.email}</span>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={downloadTranscript} style={{ background: colors.allianceBlue, color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}>DOWNLOAD</button>
           <button onClick={() => supabase.auth.signOut()} style={{ background: 'transparent', border: '1px solid white', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>LOGOUT</button>
         </div>
       </header>
+
       <main style={{ maxWidth: '850px', margin: '2rem auto', padding: '0 1rem' }}>
         <div style={{ backgroundColor: colors.white, borderRadius: '12px', height: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 5px 25px rgba(0,0,0,0.1)' }}>
+          
+          {/* Messages Area */}
           <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {messages.length === 0 && <div style={{ textAlign: 'center', color: colors.allianceBlue, marginTop: '2rem', fontStyle: 'italic' }}>Session active. What would you like to discuss from the handbook?</div>}
+            
             {messages.map((msg, i) => (
-              <div key={`${i}-${msg.role}`} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f2f2f2', color: msg.role === 'user' ? 'white' : colors.charcoal, padding: '1rem 1.4rem', borderRadius: '15px', maxWidth: '80%', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              <div key={`msg-${i}`} style={{ 
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', 
+                backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f2f2f2', 
+                color: msg.role === 'user' ? 'white' : colors.charcoal, 
+                padding: '1rem 1.4rem', 
+                borderRadius: '15px', 
+                maxWidth: '80%', 
+                fontSize: '0.95rem', 
+                lineHeight: '1.5' 
+              }}>
                 {msg.content}
               </div>
             ))}
-            {loading && <div style={{ color: colors.allianceBlue, fontSize: '0.8rem', fontStyle: 'italic' }}>Mentor is discerning...</div>}
+            {loading && <div style={{ color: colors.allianceBlue, fontSize: '0.8rem', fontStyle: 'italic' }}>Mentor is typing...</div>}
           </div>
+
+          {/* Input Area */}
           <div style={{ padding: '1.2rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.8rem', alignItems: 'flex-end', backgroundColor: '#fafafa', borderRadius: '0 0 12px 12px' }}>
-            <button onClick={startListening} style={{ background: isListening ? '#ff4d4d' : '#fff', border: '1px solid #ddd', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer', fontSize: '1.2rem' }}>{isListening ? '🛑' : '🎤'}</button>
-            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendMessage(); }} placeholder="Type answer..." style={{ flex: 1, padding: '1rem', border: '1px solid #ddd', borderRadius: '10px', minHeight: '50px', maxHeight: '150px', resize: 'none' }} />
-            <button onClick={handleSendMessage} disabled={loading} style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0 1.5rem', borderRadius: '10px', height: '50px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>SEND</button>
+            <button onClick={startListening} style={{ background: isListening ? '#ff4d4d' : '#fff', border: '1px solid #ddd', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer', fontSize: '1.2rem' }}>
+              {isListening ? '🛑' : '🎤'}
+            </button>
+            <textarea 
+              value={input} 
+              onChange={(e) => setInput(e.target.value)} 
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendMessage(); }} 
+              placeholder="Type your response... (Cmd+Enter to send)" 
+              style={{ flex: 1, padding: '1rem', border: '1px solid #ddd', borderRadius: '10px', minHeight: '50px', maxHeight: '150px', resize: 'none', fontSize: '1rem', fontFamily: 'inherit' }} 
+            />
+            <button onClick={handleSendMessage} disabled={loading} style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0 1.8rem', borderRadius: '10px', height: '50px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>SEND</button>
           </div>
+
         </div>
       </main>
     </div>
