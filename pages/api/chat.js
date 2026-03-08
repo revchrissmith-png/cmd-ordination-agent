@@ -13,34 +13,34 @@ export default async function handler(req, res) {
     const { message, history } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    if (!apiKey) throw new Error("API Key configuration missing in Vercel.");
+    if (!apiKey) throw new Error("API Key missing in Vercel environment.");
 
-    // 1. Fetch the Handbook content from Supabase
+    // Fetch Handbook content
     const { data: knowledge } = await supabase
       .from('district_knowledge')
       .select('content')
       .eq('id', 'cmd_handbook')
       .single();
 
-    const districtContext = knowledge?.content || "No handbook text found in database.";
+    const districtContext = knowledge?.content || "No handbook text found.";
 
-    // 2. Initialize Gemini 3 Flash
+    // INITIALIZING GEMINI 3 FLASH (The 2026 Standard)
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Using the current 2026 production-ready model string
+    // Using the current production string for Gemini 3 Flash
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-3-flash-preview", 
+      model: "gemini-3-flash", 
       systemInstruction: `
-        You are the CMD Ordination Mentor for the Canadian Midwest District. 
-        Brand Voice: Christ-centred, Spirit-empowered, Mission-focused.
+        You are the CMD Ordination Mentor (Canadian Midwest District). 
+        Brand: Christ-centred, Spirit-empowered, Mission-focused.
         
-        AUTHORITY SOURCE:
+        CONTEXT:
         ${districtContext}
         
         RULES:
-        1. Accuracy: Only answer based on the provided handbook text.
-        2. Socratic Practice: Do not give direct answers for interview prep. Ask questions to help the candidate prepare.
-        3. Boundary: If not in the text, say "I'm not certain" and refer them to the District Office.
+        1. Socratic Method: Ask questions to help them prepare for their interview.
+        2. Citations: Mention the CMD Handbook when quoting rules.
+        3. Boundary: If not in the context, refer them to the District Office.
       `
     });
 
@@ -52,21 +52,17 @@ export default async function handler(req, res) {
     });
 
     const result = await chat.sendMessage(message);
-    const response = await result.response;
-    const text = response.text();
+    const text = result.response.text();
 
-    // 3. Log to Supabase Activity Report
+    // Log to Supabase
     try {
-      await supabase.from('messages').insert([
-        { role: 'user', content: message }, 
-        { role: 'assistant', content: text }
-      ]);
-    } catch (e) { console.error("Activity Log Failed:", e.message); }
+      await supabase.from('messages').insert([{ role: 'user', content: message }, { role: 'assistant', content: text }]);
+    } catch (e) { console.error("Logging Error:", e); }
 
     return res.status(200).json({ reply: text });
 
   } catch (error) {
-    console.error("Mentor Logic Error:", error);
-    return res.status(500).json({ error: `Connection Failure: ${error.message}` });
+    console.error("2026 API Error:", error);
+    return res.status(500).json({ error: `Mentor Logic Error: ${error.message}. Ensure you are using @google/generative-ai version 0.22.0 or later.` });
   }
 }
