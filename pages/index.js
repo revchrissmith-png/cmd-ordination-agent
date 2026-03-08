@@ -56,13 +56,13 @@ export default function OrdinationAgent() {
       provider: provider,
       options: { redirectTo: window.location.origin }
     });
-    if (error) alert(`OAuth Error: ${error.message}`);
+    if (error) alert(`Auth Error: ${error.message}`);
   };
 
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = isSignUp 
+    const { error } = isSignUp 
       ? await supabase.auth.signUp({ email, password }) 
       : await supabase.auth.signInWithPassword({ email, password });
     
@@ -120,7 +120,7 @@ export default function OrdinationAgent() {
 
           <div style={{ margin: '1rem 0', display: 'flex', alignItems: 'center', color: '#888', fontSize: '0.8rem' }}>
             <div style={{ flex: 1, height: '1px', backgroundColor: '#eee' }}></div>
-            <span style={{ padding: '0 10px' }}>OR USE EMAIL</span>
+            <span style={{ padding: '0 10px' }}>OR</span>
             <div style={{ flex: 1, height: '1px', backgroundColor: '#eee' }}></div>
           </div>
 
@@ -154,21 +154,4 @@ export default function OrdinationAgent() {
         </div>
       </header>
       <main style={{ maxWidth: '850px', margin: '2rem auto', padding: '0 1rem' }}>
-        <div style={{ backgroundColor: colors.white, borderRadius: '12px', height: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 5px 25px rgba(0,0,0,0.1)' }}>
-          <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {messages.map((msg, i) => (
-              <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f2f2f2', color: msg.role === 'user' ? 'white' : colors.charcoal, padding: '1rem 1.4rem', borderRadius: '15px', maxWidth: '80%', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                {msg.content}
-              </div>
-            ))}
-          </div>
-          <div style={{ padding: '1.2rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.8rem', alignItems: 'flex-end', backgroundColor: '#fafafa', borderRadius: '0 0 12px 12px' }}>
-            <button onClick={startListening} style={{ background: isListening ? '#ff4d4d' : '#fff', border: '1px solid #ddd', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer' }}>{isListening ? '🛑' : '🎤'}</button>
-            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendMessage(); }} placeholder="Type or speak..." style={{ flex: 1, padding: '1rem', border: '1px solid #ddd', borderRadius: '10px', minHeight: '50px', maxHeight: '150px', resize: 'none' }} />
-            <button onClick={handleSendMessage} disabled={loading} style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0 1.8rem', borderRadius: '10px', height: '50px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>SEND</button>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
-}
+        <div style={{ backgroundColor: colors.
