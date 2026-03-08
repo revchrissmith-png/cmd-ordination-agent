@@ -36,6 +36,17 @@ export default function OrdinationAgent() {
     else alert("Login link sent to your email!");
   };
 
+  // --- NEW: Download Transcript Logic ---
+  const downloadTranscript = () => {
+    const content = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `CMD_Mentoring_Session_${new Date().toLocaleDateString()}.txt`;
+    a.click();
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
@@ -67,15 +78,29 @@ export default function OrdinationAgent() {
 
       <header style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `4px solid ${colors.allianceBlue}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* Logo Restored */}
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="Alliance Logo" style={{ height: '40px' }} />
           <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>CMD ORDINATION STUDY AGENT</h1>
         </div>
-        <button 
-          onClick={user ? () => supabase.auth.signOut() : handleLogin}
-          style={{ backgroundColor: 'transparent', color: colors.white, border: `1px solid ${colors.white}`, padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          {user ? 'LOGOUT' : 'ADMIN LOGIN'}
-        </button>
+        
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {/* Download Button Restored */}
+          {messages.length > 0 && (
+            <button 
+              onClick={downloadTranscript}
+              style={{ backgroundColor: colors.allianceBlue, color: colors.white, border: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold', borderRadius: '4px' }}
+            >
+              DOWNLOAD
+            </button>
+          )}
+          
+          <button 
+            onClick={user ? () => supabase.auth.signOut() : handleLogin}
+            style={{ backgroundColor: 'transparent', color: colors.white, border: `1px solid ${colors.white}`, padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            {user ? 'LOGOUT' : 'ADMIN LOGIN'}
+          </button>
+        </div>
       </header>
 
       <main style={{ maxWidth: '850px', margin: '2rem auto', padding: '0 1rem' }}>
@@ -92,13 +117,14 @@ export default function OrdinationAgent() {
                 {msg.content}
               </div>
             ))}
-            {loading && <div style={{ fontSize: '0.8rem', color: colors.oceanBlue }}>Mentor is typing...</div>}
+            {loading && <div style={{ fontSize: '0.8rem', color: colors.allianceBlue }}>Mentor is typing...</div>}
           </div>
           <form onSubmit={handleSendMessage} style={{ padding: '1.5rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '1rem' }}>
             <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type your question..." style={{ flex: 1, padding: '0.8rem', border: `1px solid ${colors.allianceBlue}`, borderRadius: '4px' }} />
             <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 2rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>SEND</button>
           </form>
         </div>
+        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.65rem', marginTop: '1rem' }}>Build v1.6.1</p>
       </main>
     </div>
   );
