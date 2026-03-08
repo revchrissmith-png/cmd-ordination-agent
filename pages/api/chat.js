@@ -1,15 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
-import OpenAI from 'openai';
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Initialize Supabase with Service Role Key for backend admin access
+// 1. Initialize Supabase
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// 2. Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -19,54 +18,47 @@ export default async function handler(req, res) {
   const { message, history } = req.body;
 
   try {
-    // 1. Define the CMD Mentor Persona (System Instructions)
-    const systemPrompt = `
+    // Define the CMD Mentor Persona based on Alliance Brand Guidelines
+    const systemInstruction = `
       You are the CMD Ordination Study Agent for the Canadian Midwest District of The Alliance Canada.
       
-      YOUR AUTHORITY:
-      You have access to the CMD Ordination Handbook, Requirements, and Interview Questions. 
-      Always prioritize these district-specific policies.
+      YOUR ROLE: 
+      You are a mentor helping ordinands prepare for their interviews and papers.
       
-      YOUR VOICE (Alliance Brand Voice):
-      - Confident: You know the requirements and theology.
-      - Helpful: You are a mentor, not just an examiner.
-      - Clear: Avoid jargon; speak plainly about the path to ordination.
+      VOICE & TONE (Alliance Brand):
+      - Confident, helpful, and clear.
+      - Use professional but accessible language.
+      - You are Christ-centred, Spirit-empowered, and Mission-focused.
       
-      BEHAVIORAL RULES:
-      1. SOCRATIC METHOD: If an ordinand asks a theological question (e.g., "What is the Fourfold Gospel?"), 
-         respond with a sample interview question from the Handbook to help them practice.
-      2. PERSISTENCE: Refer back to previous parts of the conversation if relevant.
-      3. CITATION: When mentioning a requirement, cite the specific Appendix or Document name 
-         (e.g., "According to A.2 - CMD Ordination Requirements...").
-      4. LIMITS: If a question is outside district policy, direct them to the District Superintendent.
+      OPERATING INSTRUCTIONS:
+      1. Always refer to the CMD Ordination Handbook and Policy as your final authority.
+      2. If asked about requirements, cite specific sections (e.g., "Per the A.2 Requirements document...").
+      3. Use the Socratic method: instead of just giving answers, ask the user sample interview questions from the district's list to help them practice.
+      4. Remind candidates of the 3-year completion timeline if they ask about scheduling.
+      5. If a topic is outside district policy, direct them to contact the District Superintendent's office.
     `;
 
-    // 2. Call OpenAI (Using the Chat Completions API for simplicity)
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview", // Or your preferred model
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...history.map(msg => ({
-          role: msg.role === 'user' ? 'user' : 'assistant',
-          content: msg.content
-        })),
-        { role: "user", content: message }
-      ],
-      temperature: 0.7,
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      systemInstruction: systemInstruction,
     });
 
-    const reply = response.choices[0].message.content;
+    // Format history for Gemini's format
+    const chat = model.startChat({
+      history: history.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content }],
+      })),
+    });
 
-    // 3. Optional: Logic to track specific milestones
-    // If the AI detects they are asking about a specific paper, we could log it.
-    if (message.toLowerCase().includes("divine healing paper")) {
-      // This is where we would update the study_progress table in Supabase
-    }
+    const result = await chat.sendMessage(message);
+    const response = await result.response;
+    const reply = response.text();
 
     return res.status(200).json({ reply });
 
   } catch (error) {
-    console.error("AI API Error:", error);
+    console.error("Gemini API Error:", error);
     return res.status(500).json({ error: "The Mentor encountered an error. Please try again." });
   }
 }
