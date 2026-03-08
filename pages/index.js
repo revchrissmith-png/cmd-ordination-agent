@@ -53,10 +53,18 @@ export default function OrdinationAgent() {
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    const { error } = isSignUp 
+    setLoading(true);
+    const { data, error } = isSignUp 
       ? await supabase.auth.signUp({ email, password }) 
       : await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message);
+    
+    setLoading(false);
+
+    if (error) {
+      alert(`Auth Error: ${error.message}`);
+    } else if (isSignUp && !data.session) {
+      alert("Account created! Please check your email to confirm your account, or sign in if 'Confirm Email' is disabled in Supabase.");
+    }
   };
 
   const handleSendMessage = async () => {
@@ -78,7 +86,7 @@ export default function OrdinationAgent() {
         speak(data.reply);
       }
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Connection error. Please try again." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Connection error." }]);
     } finally { setLoading(false); }
   };
 
@@ -101,8 +109,12 @@ export default function OrdinationAgent() {
           <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px' }} required />
             <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px' }} required />
-            <button type="submit" style={{ backgroundColor: colors.allianceBlue, color: 'white', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-              {isSignUp ? 'REGISTER' : 'SIGN IN'}
+            <button 
+              type="submit" 
+              disabled={loading}
+              style={{ backgroundColor: colors.allianceBlue, color: 'white', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? 'PROCESSING...' : (isSignUp ? 'REGISTER' : 'SIGN IN')}
             </button>
           </form>
           <button onClick={() => setIsSignUp(!isSignUp)} style={{ background: 'none', border: 'none', color: colors.allianceBlue, marginTop: '1.2rem', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
@@ -116,35 +128,28 @@ export default function OrdinationAgent() {
   return (
     <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'sans-serif' }}>
       <Head><title>CMD Mentor</title></Head>
-      
       <header style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0.8rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `4px solid ${colors.allianceBlue}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <img src={allianceLogo} alt="Alliance Logo" style={{ height: '35px' }} />
-          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{session.user.email}</span>
+          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase' }}>{session.user.email}</span>
         </div>
         <div style={{ display: 'flex', gap: '0.6rem' }}>
-          <button onClick={downloadTranscript} style={{ background: colors.allianceBlue, color: 'white', border: 'none', padding: '0.45rem 0.9rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>DOWNLOAD</button>
+          <button onClick={downloadTranscript} style={{ background: colors.allianceBlue, color: 'white', border: 'none', padding: '0.45rem 0.9rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>DOWNLOAD</button>
           <button onClick={() => supabase.auth.signOut()} style={{ background: 'transparent', border: '1px solid white', color: 'white', padding: '0.45rem 0.9rem', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>LOGOUT</button>
         </div>
       </header>
-
       <main style={{ maxWidth: '850px', margin: '2rem auto', padding: '0 1rem' }}>
         <div style={{ backgroundColor: colors.white, borderRadius: '12px', height: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 5px 25px rgba(0,0,0,0.1)' }}>
           <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {messages.length === 0 && <div style={{ textAlign: 'center', color: colors.allianceBlue, marginTop: '2rem', fontStyle: 'italic' }}>Welcome. What topic from the CMD Handbook should we explore today?</div>}
             {messages.map((msg, i) => (
               <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f2f2f2', color: msg.role === 'user' ? 'white' : colors.charcoal, padding: '1rem 1.4rem', borderRadius: '15px', maxWidth: '80%', fontSize: '0.95rem', lineHeight: '1.5' }}>
                 {msg.content}
               </div>
             ))}
-            {loading && <div style={{ color: colors.allianceBlue, fontSize: '0.8rem', fontStyle: 'italic', marginLeft: '1rem' }}>Mentor is thinking...</div>}
           </div>
-
           <div style={{ padding: '1.2rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.8rem', alignItems: 'flex-end', backgroundColor: '#fafafa', borderRadius: '0 0 12px 12px' }}>
-            <button onClick={startListening} style={{ background: isListening ? '#ff4d4d' : '#fff', border: '1px solid #ddd', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer', fontSize: '1.2rem', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
-              {isListening ? '🛑' : '🎤'}
-            </button>
-            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendMessage(); }} placeholder="Type or speak (Cmd+Enter to send)..." style={{ flex: 1, padding: '1rem', border: '1px solid #ddd', borderRadius: '10px', minHeight: '50px', maxHeight: '150px', resize: 'none', fontSize: '1rem', fontFamily: 'inherit' }} />
+            <button onClick={startListening} style={{ background: isListening ? '#ff4d4d' : '#fff', border: '1px solid #ddd', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer' }}>{isListening ? '🛑' : '🎤'}</button>
+            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendMessage(); }} placeholder="Type or speak..." style={{ flex: 1, padding: '1rem', border: '1px solid #ddd', borderRadius: '10px', minHeight: '50px', maxHeight: '150px', resize: 'none' }} />
             <button onClick={handleSendMessage} disabled={loading} style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0 1.8rem', borderRadius: '10px', height: '50px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>SEND</button>
           </div>
         </div>
