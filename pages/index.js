@@ -43,7 +43,7 @@ export default function OrdinationAgent() {
   };
 
   const startListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
     if (!SpeechRecognition) return alert("Browser not supported.");
     const rec = new SpeechRecognition();
     rec.onstart = () => setIsListening(true);
@@ -85,14 +85,15 @@ export default function OrdinationAgent() {
     } finally { setLoading(false); }
   };
 
+  // --- GATE: LOGIN ---
   if (!session) {
     return (
       <div style={{ backgroundColor: '#f0f2f5', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
         <div style={{ backgroundColor: 'white', padding: '3rem', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
           <img src={allianceLogo} alt="Logo" style={{ height: '50px', marginBottom: '1rem' }} />
-          <h1 style={{ color: colors.deepSea, fontSize: '1.2rem', marginBottom: '1.5rem' }}>CMD MENTOR v1.5.1</h1>
+          <h1 style={{ color: colors.deepSea, fontSize: '1.2rem', marginBottom: '1.5rem', fontWeight: 'bold' }}>CMD MENTOR v1.5.2</h1>
           <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} style={{ width: '100%', padding: '0.8rem', marginBottom: '1rem', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontWeight: 'bold' }}>
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style={{ height: '18px' }} /> Sign in with Google
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ height: '18px' }} /> Sign in with Google
           </button>
           <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px' }} required />
@@ -100,13 +101,16 @@ export default function OrdinationAgent() {
             <button type="submit" style={{ backgroundColor: colors.allianceBlue, color: 'white', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{isSignUp ? 'REGISTER' : 'SIGN IN'}</button>
           </form>
           <button onClick={() => setIsSignUp(!isSignUp)} style={{ background: 'none', border: 'none', color: colors.allianceBlue, marginTop: '1.2rem', fontSize: '0.8rem', cursor: 'pointer' }}>{isSignUp ? 'Back to Login' : 'Create an Account'}</button>
+          <p style={{ marginTop: '2rem', fontSize: '0.6rem', color: '#ccc' }}>Build v1.5.2</p>
         </div>
       </div>
     );
   }
 
+  // --- VIEW: FULL CHAT (FORCED CACHE BUST) ---
   return (
-    <div style={{ backgroundColor: '#f0f2f5', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div key={session.user.id} style={{ backgroundColor: '#f0f2f5', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      <Head><title>CMD Mentor</title></Head>
       <header style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0.8rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `4px solid ${colors.allianceBlue}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <img src={allianceLogo} alt="Logo" style={{ height: '35px' }} />
@@ -127,8 +131,9 @@ export default function OrdinationAgent() {
       <main style={{ maxWidth: '850px', margin: '2rem auto', padding: '0 1rem' }}>
         <div style={{ backgroundColor: 'white', borderRadius: '12px', height: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 5px 25px rgba(0,0,0,0.1)' }}>
           <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {messages.length === 0 && <div style={{ textAlign: 'center', color: colors.allianceBlue, marginTop: '2rem', fontStyle: 'italic' }}>Session started for {session.user.email}. How can I assist you?</div>}
             {messages.map((msg, i) => (
-              <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f2f2f2', color: msg.role === 'user' ? 'white' : colors.charcoal, padding: '1rem 1.4rem', borderRadius: '15px', maxWidth: '80%', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              <div key={`chat-${i}`} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f2f2f2', color: msg.role === 'user' ? 'white' : colors.charcoal, padding: '1rem 1.4rem', borderRadius: '15px', maxWidth: '80%', fontSize: '0.95rem', lineHeight: '1.5' }}>
                 {msg.content}
               </div>
             ))}
@@ -140,7 +145,7 @@ export default function OrdinationAgent() {
             <button onClick={handleSendMessage} disabled={loading} style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0 1.8rem', borderRadius: '10px', height: '50px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>SEND</button>
           </div>
         </div>
-        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.7rem', marginTop: '1rem' }}>Build v1.5.1</p>
+        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.7rem', marginTop: '1rem' }}>Build v1.5.2 (Cache-Busted)</p>
       </main>
     </div>
   );
