@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   try {
     const { message, history } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!apiKey) throw new Error("API Key configuration missing.");
+    if (!apiKey) throw new Error("API Key configuration missing in Vercel.");
 
     // Fetch Handbook content from Supabase
     const { data: knowledge } = await supabase
@@ -25,9 +25,9 @@ export default async function handler(req, res) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Updated to Gemini 2.0 Flash Lite
+    // Using the most standard, globally available model name
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash-lite-preview-02-05", 
+      model: "gemini-1.5-flash", 
       systemInstruction: `
         You are the CMD Ordination Mentor for the Canadian Midwest District. 
         Brand Voice: Christ-centred, Spirit-empowered, Mission-focused.
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
         
         RULES:
         1. If the answer is in the text, cite the specific section.
-        2. Use the Socratic method: Ask the candidate questions to help them practice for an oral interview.
+        2. Use the Socratic method: Ask practice questions for the oral interview.
         3. If a question is outside district policy, politely state you are unsure and suggest contacting the District Office.
       `
     });
@@ -56,7 +56,6 @@ export default async function handler(req, res) {
     const response = await result.response;
     const text = response.text();
 
-    // Log to Supabase for the Admin report
     try {
       await supabase.from('messages').insert([{ role: 'user', content: message }, { role: 'assistant', content: text }]);
     } catch (e) { console.error("Logging Error:", e); }
@@ -65,6 +64,7 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Gemini API Error:", error);
+    // Returning the full error to help us debug exactly what the API is rejecting
     return res.status(500).json({ error: `Mentor Logic Error: ${error.message}` });
   }
 }
