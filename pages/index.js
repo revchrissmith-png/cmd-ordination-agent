@@ -1,61 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase with environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function OrdinationAgent() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState(null);
   const scrollRef = useRef(null);
 
-  // Official Alliance Canada Palette
+  // Official Alliance Palette
   const colors = {
-    allianceBlue: '#0077C8', // Pantone 3005 C
-    oceanBlue: '#006298',    // Pantone 7691 C
-    deepSea: '#00426A',      // Pantone 2188 C
-    cloudGray: '#EAEAEE',    // Cool Grey 1 C
+    allianceBlue: '#0077C8',
+    deepSea: '#00426A',
+    cloudGray: '#EAEAEE',
     white: '#ffffff',
-    charcoal: '#040404'      // Black 6 C
+    charcoal: '#040404'
   };
 
   useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    // Auto-scroll to bottom of chat
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-
-    return () => subscription.unsubscribe();
-  }, [messages]);
-
-  const handleLogin = async () => {
-    const email = prompt("Enter your district email to receive a login link:");
-    if (!email) return;
-    const { error } = await supabase.auth.signInWithOtp({ 
-      email, 
-      options: { emailRedirectTo: window.location.origin + '/admin' } 
-    });
-    if (error) {
-      alert(error.message);
-    } else {
-      alert("Success! Check your email for your access link.");
-    }
-  };
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, loading]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -74,155 +37,71 @@ export default function OrdinationAgent() {
       });
       
       const data = await response.json();
-      
-      if (data.error) throw new Error(data.error);
+      if (!response.ok) throw new Error(data.error || "Server Error");
 
-      const assistantMessage = { role: 'assistant', content: data.reply };
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
     } catch (error) {
-      console.error("Chat Error:", error);
-      setMessages((prev) => [
-        ...prev, 
-        { role: 'assistant', content: "I encountered a connection error. Please try again." }
-      ]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${error.message}` }]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
-      <Head>
-        <title>CMD Ordination Study Agent</title>
-      </Head>
+    <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif', color: colors.charcoal }}>
+      <Head><title>CMD Ordination Study Agent</title></Head>
 
-      <header style={{ 
-        backgroundColor: colors.deepSea, 
-        color: colors.white, 
-        padding: '1rem 2rem', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        borderBottom: `4px solid ${colors.allianceBlue}`,
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <img 
-            src="https://i.imgur.com/ZHqDQJC.png" 
-            alt="Alliance Logo" 
-            style={{ height: '45px', width: 'auto' }} 
-          />
-          <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-            CMD ORDINATION STUDY AGENT
-          </h1>
-        </div>
-        
-        <button 
-          onClick={user ? () => supabase.auth.signOut() : handleLogin}
-          style={{ 
-            backgroundColor: 'transparent', 
-            color: colors.white, 
-            border: `1px solid ${colors.white}`, 
-            padding: '0.5rem 1rem', 
-            fontSize: '0.75rem', 
-            cursor: 'pointer', 
-            fontWeight: 'bold',
-            borderRadius: '2px'
-          }}
-        >
-          {user ? 'LOGOUT' : 'ADMIN LOGIN'}
-        </button>
+      <header style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '1rem 2rem', display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: `4px solid ${colors.allianceBlue}` }}>
+        <img src="https://i.imgur.com/ZHqDQJC.png" alt="Logo" style={{ height: '40px' }} />
+        <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>CMD ORDINATION STUDY AGENT</h1>
       </header>
 
-      <main style={{ maxWidth: '900px', margin: '2rem auto', padding: '0 1rem' }}>
-        <div style={{ 
-          backgroundColor: colors.white, 
-          borderRadius: '4px', 
-          height: '70vh', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
-          overflow: 'hidden'
-        }}>
-          <div ref={scrollRef} style={{ 
-            flex: 1, 
-            padding: '2rem', 
-            overflowY: 'auto', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '1.2rem'
-          }}>
-            {messages.length === 0 && (
-              <div style={{ textAlign: 'center', color: colors.oceanBlue, marginTop: '5rem' }}>
-                <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Welcome to the CMD Mentor</h2>
-                <p style={{ opacity: 0.8 }}>How can I help you with your ordination journey today?</p>
-              </div>
-            )}
+      <main style={{ maxWidth: '800px', margin: '2rem auto', padding: '0 1rem' }}>
+        <div style={{ backgroundColor: colors.white, borderRadius: '4px', height: '65vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {messages.length === 0 && <p style={{ textAlign: 'center', color: colors.deepSea, marginTop: '2rem' }}>Welcome. Ask the Mentor a question about the CMD Handbook.</p>}
             
             {messages.map((msg, i) => (
               <div key={i} style={{ 
                 alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', 
-                backgroundColor: msg.role === 'user' ? colors.allianceBlue : colors.cloudGray, 
+                backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f0f0f0', 
                 color: msg.role === 'user' ? colors.white : colors.charcoal, 
-                padding: '1rem 1.4rem', 
+                padding: '0.9rem 1.2rem', 
                 borderRadius: '8px', 
-                maxWidth: '75%', 
+                maxWidth: '85%',
                 fontSize: '0.95rem',
-                lineHeight: '1.5'
+                lineHeight: '1.4',
+                border: msg.role === 'assistant' ? '1px solid #ddd' : 'none'
               }}>
                 {msg.content}
               </div>
             ))}
-            
+
             {loading && (
-              <div style={{ alignSelf: 'flex-start', color: colors.oceanBlue, fontSize: '0.8rem', fontStyle: 'italic' }}>
-                Mentor is typing...
+              <div style={{ alignSelf: 'flex-start', backgroundColor: '#f0f0f0', padding: '0.9rem 1.2rem', borderRadius: '8px', fontStyle: 'italic', color: colors.oceanBlue }}>
+                Mentor is thinking...
               </div>
             )}
           </div>
 
-          <form onSubmit={handleSendMessage} style={{ 
-            padding: '1.5rem', 
-            borderTop: `1px solid ${colors.cloudGray}`, 
-            display: 'flex', 
-            gap: '1rem',
-            backgroundColor: '#fafafa'
-          }}>
+          <form onSubmit={handleSendMessage} style={{ padding: '1.2rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.8rem' }}>
             <input 
               type="text" 
               value={input} 
               onChange={(e) => setInput(e.target.value)} 
-              placeholder="Ask a question..." 
-              style={{ 
-                flex: 1, 
-                padding: '0.8rem 1.2rem', 
-                border: `1px solid ${colors.oceanBlue}`, 
-                borderRadius: '4px',
-                fontSize: '1rem'
-              }} 
+              placeholder="Type your question..." 
+              style={{ flex: 1, padding: '0.8rem', border: `1px solid ${colors.allianceBlue}`, borderRadius: '4px', fontSize: '1rem' }} 
             />
             <button 
               type="submit" 
               disabled={loading} 
-              style={{ 
-                backgroundColor: colors.deepSea, 
-                color: colors.white, 
-                border: 'none', 
-                padding: '0 2rem', 
-                fontWeight: 'bold', 
-                cursor: 'pointer',
-                borderRadius: '4px'
-              }}
+              style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 1.5rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', borderRadius: '4px' }}
             >
               SEND
             </button>
           </form>
         </div>
       </main>
-
-      <footer style={{ textAlign: 'center', padding: '2rem', color: colors.oceanBlue, fontSize: '0.75rem', opacity: 0.7 }}>
-        &copy; {new Date().getFullYear()} Canadian Midwest District | The Alliance Canada
-      </footer>
     </div>
   );
 }
