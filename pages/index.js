@@ -17,12 +17,12 @@ export default function OrdinationAgent() {
   const scrollRef = useRef(null);
 
   const colors = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff', charcoal: '#040404' };
-  const logoUrl = "https://i.imgur.com/ZHqDQJC.png";
+  const allianceLogo = "https://i.imgur.com/ZHqDQJC.png";
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
-
+    
     const loadVoices = () => setVoices(window.speechSynthesis.getVoices());
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -78,7 +78,7 @@ export default function OrdinationAgent() {
         speak(data.reply);
       }
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Error: Connection lost." }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Connection error. Please try again." }]);
     } finally { setLoading(false); }
   };
 
@@ -88,25 +88,25 @@ export default function OrdinationAgent() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `CMD_Transcript.txt`;
+    a.download = `CMD_Mentoring_Session.txt`;
     a.click();
   };
 
   if (!session) {
     return (
       <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
-        <div style={{ backgroundColor: colors.white, padding: '2.5rem', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
-          <img src={logoUrl} alt="Logo" style={{ height: '50px', marginBottom: '1rem' }} />
-          <h1 style={{ color: colors.deepSea, fontSize: '1.1rem', marginBottom: '1.5rem' }}>CMD ORDINATION MENTOR</h1>
+        <div style={{ backgroundColor: colors.white, padding: '3rem', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
+          <img src={allianceLogo} alt="CMD Logo" style={{ height: '50px', marginBottom: '1rem' }} />
+          <h1 style={{ color: colors.deepSea, fontSize: '1.2rem', marginBottom: '1.5rem' }}>CMD ORDINATION MENTOR</h1>
           <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ccc', borderRadius: '6px' }} required />
-            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ccc', borderRadius: '6px' }} required />
-            <button type="submit" style={{ backgroundColor: colors.allianceBlue, color: 'white', border: 'none', padding: '0.8rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-              {isSignUp ? 'CREATE ACCOUNT' : 'SIGN IN'}
+            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px' }} required />
+            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px' }} required />
+            <button type="submit" style={{ backgroundColor: colors.allianceBlue, color: 'white', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+              {isSignUp ? 'REGISTER' : 'SIGN IN'}
             </button>
           </form>
-          <button onClick={() => setIsSignUp(!isSignUp)} style={{ background: 'none', border: 'none', color: colors.allianceBlue, marginTop: '1rem', fontSize: '0.8rem', cursor: 'pointer' }}>
-            {isSignUp ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
+          <button onClick={() => setIsSignUp(!isSignUp)} style={{ background: 'none', border: 'none', color: colors.allianceBlue, marginTop: '1.2rem', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
+            {isSignUp ? 'Back to Sign In' : 'New Candidate? Register Here'}
           </button>
         </div>
       </div>
@@ -119,32 +119,33 @@ export default function OrdinationAgent() {
       
       <header style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0.8rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `4px solid ${colors.allianceBlue}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <img src={logoUrl} alt="Logo" style={{ height: '35px' }} />
-          <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>{session.user.email}</span>
+          <img src={allianceLogo} alt="Alliance Logo" style={{ height: '35px' }} />
+          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{session.user.email}</span>
         </div>
         <div style={{ display: 'flex', gap: '0.6rem' }}>
-          <button onClick={downloadTranscript} style={{ background: colors.allianceBlue, color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}>DOWNLOAD</button>
-          <button onClick={() => supabase.auth.signOut()} style={{ background: 'transparent', border: '1px solid white', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>LOGOUT</button>
+          <button onClick={downloadTranscript} style={{ background: colors.allianceBlue, color: 'white', border: 'none', padding: '0.45rem 0.9rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>DOWNLOAD</button>
+          <button onClick={() => supabase.auth.signOut()} style={{ background: 'transparent', border: '1px solid white', color: 'white', padding: '0.45rem 0.9rem', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>LOGOUT</button>
         </div>
       </header>
 
-      <main style={{ maxWidth: '850px', margin: '1.5rem auto', padding: '0 1rem' }}>
-        <div style={{ backgroundColor: colors.white, borderRadius: '12px', height: '75vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+      <main style={{ maxWidth: '850px', margin: '2rem auto', padding: '0 1rem' }}>
+        <div style={{ backgroundColor: colors.white, borderRadius: '12px', height: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 5px 25px rgba(0,0,0,0.1)' }}>
           <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {messages.length === 0 && <div style={{ textAlign: 'center', color: colors.allianceBlue, marginTop: '2rem', fontStyle: 'italic' }}>Welcome. What topic from the CMD Handbook should we explore today?</div>}
             {messages.map((msg, i) => (
-              <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f2f2f2', color: msg.role === 'user' ? 'white' : colors.charcoal, padding: '0.9rem 1.3rem', borderRadius: '12px', maxWidth: '80%', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              <div key={i} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', backgroundColor: msg.role === 'user' ? colors.allianceBlue : '#f2f2f2', color: msg.role === 'user' ? 'white' : colors.charcoal, padding: '1rem 1.4rem', borderRadius: '15px', maxWidth: '80%', fontSize: '0.95rem', lineHeight: '1.5' }}>
                 {msg.content}
               </div>
             ))}
-            {loading && <div style={{ color: colors.allianceBlue, fontSize: '0.8rem', fontStyle: 'italic' }}>Mentor is typing...</div>}
+            {loading && <div style={{ color: colors.allianceBlue, fontSize: '0.8rem', fontStyle: 'italic', marginLeft: '1rem' }}>Mentor is thinking...</div>}
           </div>
 
-          <div style={{ padding: '1.2rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.8rem', alignItems: 'flex-end' }}>
-            <button onClick={startListening} style={{ background: isListening ? '#ff4d4d' : '#fff', border: '1px solid #ddd', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer', fontSize: '1.2rem' }}>
+          <div style={{ padding: '1.2rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.8rem', alignItems: 'flex-end', backgroundColor: '#fafafa', borderRadius: '0 0 12px 12px' }}>
+            <button onClick={startListening} style={{ background: isListening ? '#ff4d4d' : '#fff', border: '1px solid #ddd', borderRadius: '50%', width: '48px', height: '48px', cursor: 'pointer', fontSize: '1.2rem', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
               {isListening ? '🛑' : '🎤'}
             </button>
-            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendMessage(); }} placeholder="Type or speak (Cmd+Enter to send)..." style={{ flex: 1, padding: '0.8rem', border: '1px solid #ddd', borderRadius: '8px', minHeight: '48px', maxHeight: '150px', resize: 'none', fontSize: '1rem' }} />
-            <button onClick={handleSendMessage} disabled={loading} style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0 1.5rem', borderRadius: '8px', height: '48px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>SEND</button>
+            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendMessage(); }} placeholder="Type or speak (Cmd+Enter to send)..." style={{ flex: 1, padding: '1rem', border: '1px solid #ddd', borderRadius: '10px', minHeight: '50px', maxHeight: '150px', resize: 'none', fontSize: '1rem', fontFamily: 'inherit' }} />
+            <button onClick={handleSendMessage} disabled={loading} style={{ backgroundColor: colors.deepSea, color: 'white', padding: '0 1.8rem', borderRadius: '10px', height: '50px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>SEND</button>
           </div>
         </div>
       </main>
