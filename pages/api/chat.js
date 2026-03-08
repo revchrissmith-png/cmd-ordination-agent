@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     if (!apiKey) throw new Error("API Key configuration missing.");
 
-    // 1. Fetch District Handbook content
+    // Fetch Handbook content from Supabase
     const { data: knowledge } = await supabase
       .from('district_knowledge')
       .select('content')
@@ -24,8 +24,10 @@ export default async function handler(req, res) {
     const districtContext = knowledge?.content || "No handbook text uploaded yet.";
 
     const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Updated to Gemini 2.0 Flash Lite
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-2.0-flash-lite-preview-02-05", 
       systemInstruction: `
         You are the CMD Ordination Mentor for the Canadian Midwest District. 
         Brand Voice: Christ-centred, Spirit-empowered, Mission-focused.
@@ -54,14 +56,15 @@ export default async function handler(req, res) {
     const response = await result.response;
     const text = response.text();
 
+    // Log to Supabase for the Admin report
     try {
       await supabase.from('messages').insert([{ role: 'user', content: message }, { role: 'assistant', content: text }]);
-    } catch (e) { console.error("Log Error:", e); }
+    } catch (e) { console.error("Logging Error:", e); }
 
     return res.status(200).json({ reply: text });
 
   } catch (error) {
-    console.error("Gemini Error:", error);
+    console.error("Gemini API Error:", error);
     return res.status(500).json({ error: `Mentor Logic Error: ${error.message}` });
   }
 }
