@@ -8,17 +8,14 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function AdminDashboard() {
   const [reportData, setReportData] = useState([]);
+  const [handbookText, setHandbookText] = useState('');
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
-  const [userEmail, setUserEmail] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  // Official Alliance Canada Formulas
   const colors = {
-    deepSea: '#00426A',      // Pantone 2188 C [cite: 21]
-    oceanBlue: '#006298',    // Pantone 7691 C [cite: 11]
-    cloudGray: '#EAEAEE',    // Cool Grey 1 C [cite: 26]
-    white: '#ffffff',
-    charcoal: '#040404'      // Black 6 C [cite: 18]
+    deepSea: '#00426A', oceanBlue: '#006298', allianceBlue: '#0077C8',
+    cloudGray: '#EAEAEE', white: '#ffffff', charcoal: '#040404'
   };
 
   const ADMIN_EMAIL = 'Chris@canadianmidwest.ca';
@@ -31,96 +28,79 @@ export default function AdminDashboard() {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user?.email === ADMIN_EMAIL) {
       setAuthorized(true);
-      setUserEmail(session.user.email);
-      fetchReport();
+      fetchData();
     } else {
       setLoading(false);
     }
   };
 
-  const fetchReport = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('district_activity_report')
-        .select('*')
-        .order('last_active', { ascending: false });
-
-      if (error) throw error;
-      setReportData(data || []);
-    } catch (error) {
-      console.error("Report Fetch Error:", error);
-    } finally {
-      setLoading(false);
-    }
+    const { data: report } = await supabase.from('district_activity_report').select('*');
+    const { data: knowledge } = await supabase.from('district_knowledge').select('content').eq('id', 'cmd_handbook').single();
+    setReportData(report || []);
+    setHandbookText(knowledge?.content || '');
+    setLoading(false);
   };
 
-  if (!authorized && !loading) {
-    return (
-      <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Helvetica, Arial, sans-serif' }}>
-        <div style={{ backgroundColor: colors.white, padding: '3rem', borderRadius: '2px', textAlign: 'center', borderTop: `5px solid ${colors.deepSea}` }}>
-          <h2 style={{ color: colors.deepSea }}>Access Restricted</h2>
-          <p style={{ color: colors.charcoal }}>This reporting dashboard is for District Superintendent access only.</p>
-          <a href="/" style={{ color: colors.oceanBlue, fontWeight: 'bold' }}>Return to Home</a>
-        </div>
+  const saveKnowledge = async () => {
+    setSaving(true);
+    await supabase.from('district_knowledge').upsert({ id: 'cmd_handbook', content: handbookText, document_name: 'CMD Ordination Handbook' });
+    setSaving(false);
+    alert("District Knowledge Base Updated!");
+  };
+
+  if (!authorized && !loading) return (
+    <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial' }}>
+      <div style={{ background: colors.white, padding: '2rem', borderTop: `5px solid ${colors.deepSea}` }}>
+        <h2>Restricted Access</h2>
+        <a href="/" style={{ color: colors.allianceBlue }}>Return Home</a>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'Helvetica, Arial, sans-serif' }}>
-      <Head>
-        <title>District Admin | CMD</title>
-      </Head>
-
+    <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'Helvetica, Arial, sans-serif', color: colors.charcoal }}>
+      <Head><title>CMD District Admin</title></Head>
       <header style={{ backgroundColor: colors.oceanBlue, color: colors.white, padding: '1.5rem', textAlign: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>DISTRICT ACTIVITY REPORT</h1>
-        <p style={{ margin: '5px 0 0', fontSize: '0.8rem', opacity: 0.8 }}>Logged in as: {userEmail}</p>
+        <h1 style={{ margin: 0, fontSize: '1.2rem' }}>DISTRICT KNOWLEDGE & ACTIVITY</h1>
       </header>
 
       <main style={{ maxWidth: '1000px', margin: '2rem auto', padding: '0 1rem' }}>
-        <div style={{ backgroundColor: colors.white, padding: '2rem', borderRadius: '2px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
-            <h2 style={{ color: colors.deepSea, margin: 0 }}>Ordinand Engagement</h2>
-            <button 
-              onClick={fetchReport} 
-              style={{ cursor: 'pointer', padding: '0.5rem 1rem', border: `1px solid ${colors.oceanBlue}`, background: 'transparent', color: colors.oceanBlue, fontWeight: 'bold' }}
-            >
-              Refresh Data
-            </button>
-          </div>
+        {/* Knowledge Base Section */}
+        <section style={{ backgroundColor: colors.white, padding: '2rem', marginBottom: '2rem', borderRadius: '2px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+          <h2 style={{ color: colors.deepSea, marginTop: 0 }}>District Handbook Intelligence</h2>
+          <p style={{ fontSize: '0.85rem' }}>Paste the text from your Ordination Handbook PDF here. Gemini will use this as its source of truth.</p>
+          <textarea 
+            value={handbookText} 
+            onChange={(e) => setHandbookText(e.target.value)}
+            style={{ width: '100%', height: '300px', padding: '1rem', border: `1px solid ${colors.cloudGray}`, marginBottom: '1rem', fontFamily: 'serif' }}
+          />
+          <button onClick={saveKnowledge} disabled={saving} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0.7rem 2rem', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+            {saving ? 'SAVING...' : 'UPDATE HANDBOOK INTELLIGENCE'}
+          </button>
+        </section>
 
-          {loading ? (
-            <p style={{ color: colors.charcoal }}>Verifying credentials...</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: `2px solid ${colors.cloudGray}` }}>
-                    <th style={{ padding: '1rem' }}>Ordinand</th>
-                    <th style={{ padding: '1rem' }}>Total Interactions</th>
-                    <th style={{ padding: '1rem' }}>Last Active</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportData.map((row, i) => (
-                    <tr key={i} style={{ borderBottom: `1px solid ${colors.cloudGray}` }}>
-                      <td style={{ padding: '1rem', fontWeight: 'bold' }}>{row.full_name || 'Anonymous User'}</td>
-                      <td style={{ padding: '1rem' }}>{row.total_interactions}</td>
-                      <td style={{ padding: '1rem' }}>
-                        {row.last_active ? new Date(row.last_active).toLocaleDateString() : 'N/A'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          
-          {reportData.length === 0 && !loading && (
-            <p style={{ textAlign: 'center', color: colors.charcoal, marginTop: '2rem' }}>No ordinand activity found.</p>
-          )}
-        </div>
+        {/* Activity Report Section */}
+        <section style={{ backgroundColor: colors.white, padding: '2rem', borderRadius: '2px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+          <h2 style={{ color: colors.deepSea, marginTop: 0 }}>Ordinand Engagement</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: `2px solid ${colors.cloudGray}`, textAlign: 'left' }}>
+                <th style={{ padding: '1rem' }}>Ordinand</th>
+                <th style={{ padding: '1rem' }}>Interactions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportData.map((row, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid ${colors.cloudGray}` }}>
+                  <td style={{ padding: '1rem' }}>{row.full_name || 'In-Progress'}</td>
+                  <td style={{ padding: '1rem' }}>{row.total_interactions}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       </main>
     </div>
   );
