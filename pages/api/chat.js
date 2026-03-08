@@ -13,9 +13,8 @@ export default async function handler(req, res) {
     const { message, history, userId } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    if (!apiKey) throw new Error("API Key missing.");
+    if (!apiKey) throw new Error("API Key configuration missing.");
 
-    // Fetch Handbook context
     const { data: knowledge } = await supabase
       .from('district_knowledge')
       .select('content')
@@ -27,15 +26,16 @@ export default async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
       model: "gemini-3-flash",
-      systemInstruction: `
-        You are the CMD Ordination Mentor.
-        CONTEXT: ${districtContext}
-        RULES:
-        1. PRAXIS: After a theological answer, follow up with ONE "Ministry Praxis" question.
-        2. BREVITY: Max 4 sentences.
-        3. SOCRATIC: Only ONE question at a time.
-        4. TONE: Pastoral, Christ-centred (CMD/Alliance Canada).
-      `
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: `You are the CMD Ordination Mentor. 
+        Context: ${districtContext}. 
+        Rules: 
+        1. PRAXIS: After answering theology, ask ONE follow-up on ministry application. 
+        2. BREVITY: Max 4 sentences. 
+        3. SOCRATIC: Only ONE question at a time. 
+        4. TONE: Pastoral and Christ-centred.` }]
+      }
     });
 
     const chat = model.startChat({
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     const result = await chat.sendMessage(message);
     const text = result.response.text();
 
-    // Persistent Tracking
+    // Log the interaction to Supabase for district oversight
     if (userId) {
       await supabase.from('messages').insert([
         { role: 'user', content: message, user_id: userId }, 
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply: text });
 
   } catch (error) {
-    console.error("API Error:", error);
+    console.error("Mentor API Error:", error);
     return res.status(500).json({ error: error.message });
   }
 }
