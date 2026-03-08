@@ -12,12 +12,13 @@ export default function AdminDashboard() {
   const [authorized, setAuthorized] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
 
+  // Official Alliance Canada Formulas
   const colors = {
-    deepSea: '#00426A',      // Pantone 2188 C
-    oceanBlue: '#006298',    // Pantone 7691 C
-    cloudGray: '#EAEAEE',    // Cool Grey 1 C
+    deepSea: '#00426A',      // Pantone 2188 C [cite: 21]
+    oceanBlue: '#006298',    // Pantone 7691 C [cite: 11]
+    cloudGray: '#EAEAEE',    // Cool Grey 1 C [cite: 26]
     white: '#ffffff',
-    charcoal: '#040404'      // Black 6 C
+    charcoal: '#040404'      // Black 6 C [cite: 18]
   };
 
   const ADMIN_EMAIL = 'Chris@canadianmidwest.ca';
@@ -79,15 +80,48 @@ export default function AdminDashboard() {
 
       <main style={{ maxWidth: '1000px', margin: '2rem auto', padding: '0 1rem' }}>
         <div style={{ backgroundColor: colors.white, padding: '2rem', borderRadius: '2px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
             <h2 style={{ color: colors.deepSea, margin: 0 }}>Ordinand Engagement</h2>
-            <button onClick={fetchReport} style={{ cursor: 'pointer', padding: '0.5rem 1rem', border: `1px solid ${colors.oceanBlue}`, background: 'transparent', color: colors.oceanBlue }}>Refresh</button>
+            <button 
+              onClick={fetchReport} 
+              style={{ cursor: 'pointer', padding: '0.5rem 1rem', border: `1px solid ${colors.oceanBlue}`, background: 'transparent', color: colors.oceanBlue, fontWeight: 'bold' }}
+            >
+              Refresh Data
+            </button>
           </div>
 
-          {loading ? <p>Verifying credentials...</p> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: `2px solid ${colors.cloudGray}`, textAlign: 'left' }}>
-                  <th style={{ padding: '1rem' }}>Ordinand</th>
-                  <th style={{ padding: '1rem' }}>Interactions</th>
-                  <th style={{ padding: '1rem' }}>
+          {loading ? (
+            <p style={{ color: colors.charcoal }}>Verifying credentials...</p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: `2px solid ${colors.cloudGray}` }}>
+                    <th style={{ padding: '1rem' }}>Ordinand</th>
+                    <th style={{ padding: '1rem' }}>Total Interactions</th>
+                    <th style={{ padding: '1rem' }}>Last Active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportData.map((row, i) => (
+                    <tr key={i} style={{ borderBottom: `1px solid ${colors.cloudGray}` }}>
+                      <td style={{ padding: '1rem', fontWeight: 'bold' }}>{row.full_name || 'Anonymous User'}</td>
+                      <td style={{ padding: '1rem' }}>{row.total_interactions}</td>
+                      <td style={{ padding: '1rem' }}>
+                        {row.last_active ? new Date(row.last_active).toLocaleDateString() : 'N/A'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          
+          {reportData.length === 0 && !loading && (
+            <p style={{ textAlign: 'center', color: colors.charcoal, marginTop: '2rem' }}>No ordinand activity found.</p>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
