@@ -12,89 +12,129 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [userEmail, setUserEmail] = useState(null);
 
+  // Official Alliance Canada Palette
   const colors = {
-    deepSea: '#00426A', oceanBlue: '#006298', allianceBlue: '#0077C8',
-    cloudGray: '#EAEAEE', white: '#ffffff', charcoal: '#040404'
+    deepSea: '#00426A',      // Pantone 2188 C
+    oceanBlue: '#006298',    // Pantone 7691 C
+    allianceBlue: '#0077C8', // Pantone 3005 C
+    cloudGray: '#EAEAEE',    // Cool Grey 1 C
+    white: '#ffffff',
+    charcoal: '#040404'      // Black 6 C
   };
 
-  const ADMIN_EMAIL = 'Chris@canadianmidwest.ca';
+  const ADMIN_EMAIL = 'chris@canadianmidwest.ca';
 
   useEffect(() => {
-    checkUser();
+    // onAuthStateChange is more reliable for Magic Link redirects 
+    // than a one-time getSession call.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const email = session?.user?.email?.toLowerCase();
+      
+      if (email === ADMIN_EMAIL.toLowerCase()) {
+        setAuthorized(true);
+        setUserEmail(session.user.email);
+        fetchData();
+      } else {
+        setAuthorized(false);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.email === ADMIN_EMAIL) {
-      setAuthorized(true);
-      fetchData();
-    } else {
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data: report } = await supabase.from('district_activity_report').select('*');
+      const { data: knowledge } = await supabase.from('district_knowledge').select('content').eq('id', 'cmd_handbook').single();
+      setReportData(report || []);
+      setHandbookText(knowledge?.content || '');
+    } catch (error) {
+      console.error("Fetch Error:", error);
+    } finally {
       setLoading(false);
     }
   };
 
-  const fetchData = async () => {
-    setLoading(true);
-    const { data: report } = await supabase.from('district_activity_report').select('*');
-    const { data: knowledge } = await supabase.from('district_knowledge').select('content').eq('id', 'cmd_handbook').single();
-    setReportData(report || []);
-    setHandbookText(knowledge?.content || '');
-    setLoading(false);
-  };
-
   const saveKnowledge = async () => {
     setSaving(true);
-    await supabase.from('district_knowledge').upsert({ id: 'cmd_handbook', content: handbookText, document_name: 'CMD Ordination Handbook' });
+    try {
+      await supabase.from('district_knowledge').upsert({ 
+        id: 'cmd_handbook', 
+        content: handbookText, 
+        document_name: 'CMD Ordination Handbook' 
+      });
+      alert("District Knowledge Base Updated!");
+    } catch (error) {
+      alert("Error saving: " + error.message);
+    }
     setSaving(false);
-    alert("District Knowledge Base Updated!");
   };
 
-  if (!authorized && !loading) return (
-    <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial' }}>
-      <div style={{ background: colors.white, padding: '2rem', borderTop: `5px solid ${colors.deepSea}` }}>
-        <h2>Restricted Access</h2>
-        <a href="/" style={{ color: colors.allianceBlue }}>Return Home</a>
+  if (loading) {
+    return (
+      <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial' }}>
+        <p style={{ color: colors.deepSea, fontWeight: 'bold' }}>Verifying District Credentials...</p>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (!authorized) {
+    return (
+      <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial' }}>
+        <div style={{ background: colors.white, padding: '3rem', borderRadius: '2px', textAlign: 'center', borderTop: `5px solid ${colors.deepSea}`, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+          <h2 style={{ color: colors.deepSea }}>Access Restricted</h2>
+          <p style={{ color: colors.charcoal }}>This dashboard is for District Superintendent access only.</p>
+          <p style={{ fontSize: '0.8rem', color: colors.oceanBlue }}>Authenticated as: {userEmail || 'Guest'}</p>
+          <a href="/" style={{ color: colors.allianceBlue, fontWeight: 'bold', textDecoration: 'none' }}>Return to Home</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'Helvetica, Arial, sans-serif', color: colors.charcoal }}>
       <Head><title>CMD District Admin</title></Head>
-      <header style={{ backgroundColor: colors.oceanBlue, color: colors.white, padding: '1.5rem', textAlign: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '1.2rem' }}>DISTRICT KNOWLEDGE & ACTIVITY</h1>
+      
+      <header style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '1.5rem', textAlign: 'center', borderBottom: `4px solid ${colors.allianceBlue}` }}>
+        <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '1px' }}>DISTRICT KNOWLEDGE & ACTIVITY</h1>
+        <p style={{ margin: '5px 0 0', fontSize: '0.75rem', opacity: 0.8 }}>Logged in as: {userEmail}</p>
       </header>
 
       <main style={{ maxWidth: '1000px', margin: '2rem auto', padding: '0 1rem' }}>
-        {/* Knowledge Base Section */}
-        <section style={{ backgroundColor: colors.white, padding: '2rem', marginBottom: '2rem', borderRadius: '2px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ color: colors.deepSea, marginTop: 0 }}>District Handbook Intelligence</h2>
-          <p style={{ fontSize: '0.85rem' }}>Paste the text from your Ordination Handbook PDF here. Gemini will use this as its source of truth.</p>
+        <section style={{ backgroundColor: colors.white, padding: '2.5rem', marginBottom: '2rem', borderRadius: '2px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+          <h2 style={{ color: colors.deepSea, marginTop: 0 }}>Handbook Intelligence</h2>
+          <p style={{ fontSize: '0.85rem', color: colors.oceanBlue }}>Paste the full text of the CMD Ordination Handbook here to update the Mentor's memory.</p>
           <textarea 
             value={handbookText} 
             onChange={(e) => setHandbookText(e.target.value)}
-            style={{ width: '100%', height: '300px', padding: '1rem', border: `1px solid ${colors.cloudGray}`, marginBottom: '1rem', fontFamily: 'serif' }}
+            style={{ width: '100%', height: '300px', padding: '1rem', border: `1px solid ${colors.cloudGray}`, marginBottom: '1rem', fontFamily: 'serif', lineHeight: '1.5' }}
           />
-          <button onClick={saveKnowledge} disabled={saving} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0.7rem 2rem', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+          <button 
+            onClick={saveKnowledge} 
+            disabled={saving} 
+            style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0.8rem 2rem', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+          >
             {saving ? 'SAVING...' : 'UPDATE HANDBOOK INTELLIGENCE'}
           </button>
         </section>
 
-        {/* Activity Report Section */}
-        <section style={{ backgroundColor: colors.white, padding: '2rem', borderRadius: '2px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+        <section style={{ backgroundColor: colors.white, padding: '2.5rem', borderRadius: '2px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
           <h2 style={{ color: colors.deepSea, marginTop: 0 }}>Ordinand Engagement</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ borderBottom: `2px solid ${colors.cloudGray}`, textAlign: 'left' }}>
+              <tr style={{ borderBottom: `2px solid ${colors.cloudGray}` }}>
                 <th style={{ padding: '1rem' }}>Ordinand</th>
-                <th style={{ padding: '1rem' }}>Interactions</th>
+                <th style={{ padding: '1rem' }}>Total Interactions</th>
               </tr>
             </thead>
             <tbody>
               {reportData.map((row, i) => (
                 <tr key={i} style={{ borderBottom: `1px solid ${colors.cloudGray}` }}>
-                  <td style={{ padding: '1rem' }}>{row.full_name || 'In-Progress'}</td>
+                  <td style={{ padding: '1rem', fontWeight: 'bold' }}>{row.full_name || 'Anonymous User'}</td>
                   <td style={{ padding: '1rem' }}>{row.total_interactions}</td>
                 </tr>
               ))}
