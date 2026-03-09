@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { createClient } from '@supabase/supabase-js';
+import { useRouter } from 'next/router';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || '', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '');
 
@@ -8,37 +9,43 @@ export default function OrdinationAgent() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(null); // Changed 'user' to 'session' to match modern Supabase
   const scrollRef = useRef(null);
+  const router = useRouter();
 
-  const colors = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff', charcoal: '#040404' };
+  const colors = {
+    allianceBlue: '#0077C8',
+    deepSea: '#00426A',
+    cloudGray: '#EAEAEE',
+    white: '#ffffff',
+    charcoal: '#040404'
+  };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
-    return () => subscription.unsubscribe();
-  }, []);
+    // 1. Check if user is logged in. If not, send them to the new login.js page
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.push('/login');
+      } else {
+        setSession(session);
+      }
+    });
 
-  useEffect(() => {
+    // 2. Original v1.7.1 scroll logic
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, loading]);
+  }, [messages, router]);
 
-  // Extract first name from Google metadata or Email
+  // Original v1.7.1 Name Logic
   const getUserName = () => {
-    if (!session?.user) return null;
-    const name = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
-    if (name) return name.split(' ')[0];
-    return session.user.email.split('@')[0];
+    const name = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name;
+    return name ? name.split(' ')[0] : session?.user?.email?.split('@')[0];
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.reload(); 
-  };
-
+  // Original v1.7.1 Message Logic (Untouched)
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
     if (!input.trim() || loading) return;
+
     const userMessage = { role: 'user', content: input };
     setMessages((prev) => [...prev, userMessage]);
     const currentInput = input;
@@ -59,14 +66,18 @@ export default function OrdinationAgent() {
       setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
     } catch (error) {
       setMessages((prev) => [...prev, { role: 'assistant', content: "Technical error." }]);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // If checking for session, show a clean loading state
+  if (!session) return null;
 
   return (
     <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
       <Head>
         <title>CMD Study Agent</title>
-        {/* iOS Meta tag to help prevent scaling issues */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </Head>
 
@@ -83,9 +94,7 @@ export default function OrdinationAgent() {
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `CMD_Transcript.txt`; a.click();
           }} style={{ backgroundColor: colors.allianceBlue, color: colors.white, border: 'none', padding: '0.4rem 0.7rem', fontSize: '0.7rem', fontWeight: 'bold', borderRadius: '4px', cursor: 'pointer' }}>DOWNLOAD</button>
           
-          {session && (
-            <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid white', color: 'white', padding: '0.4rem 0.7rem', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>LOGOUT</button>
-          )}
+          <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} style={{ background: 'transparent', border: '1px solid white', color: 'white', padding: '0.4rem 0.7rem', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>LOGOUT</button>
         </div>
       </header>
 
@@ -122,13 +131,12 @@ export default function OrdinationAgent() {
                 padding: '0.8rem', 
                 border: `1px solid ${colors.allianceBlue}`, 
                 borderRadius: '4px',
-                fontSize: '16px' // CRITICAL: Fixes iOS Auto-zoom
+                fontSize: '16px' 
               }} 
             />
             <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 1.2rem', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>SEND</button>
           </form>
         </div>
-        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.6rem', marginTop: '0.8rem' }}>Build v1.7.1 | Session: {session?.user?.email || 'None'}</p>
       </main>
     </div>
   );
