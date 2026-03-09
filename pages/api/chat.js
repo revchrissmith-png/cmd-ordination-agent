@@ -25,9 +25,8 @@ export default async function handler(req, res) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // SWITCHING TO STABLE ALIAS: gemini-2.0-flash
-    // This model is the current "workhorse" and avoids the v1beta 404 errors.
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    // REVERTING TO THE WORKING PREVIEW STRING
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
     const formattedHistory = (history || [])
       .map(msg => `${msg.role === 'user' ? 'Candidate' : 'Agent'}: ${msg.content}`)
@@ -60,7 +59,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("API Error:", error.message);
-    // If it still fails, we provide a pastoral fallback so the user isn't stuck.
-    return res.status(200).json({ reply: `Debug Error: ${error.message}. Please try again.` });
+    return res.status(200).json({ reply: `Debug Error: ${error.message}` });
   }
 }
