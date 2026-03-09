@@ -32,7 +32,7 @@ export default function OrdinationAgent() {
   };
 
   const handleSendMessage = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!input.trim() || loading) return;
 
     const userMessage = { role: 'user', content: input };
@@ -86,7 +86,7 @@ export default function OrdinationAgent() {
           <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {messages.length === 0 && (
               <p style={{ textAlign: 'center', color: colors.allianceBlue, marginTop: '3rem' }}>
-                Welcome, {getUserName() || 'Candidate'}. What theological or policy topic should we practice today?
+                Welcome, {getUserName() || 'Candidate'}. What theological or topic should we practice today?
               </p>
             )}
             {messages.map((msg, i) => (
@@ -110,7 +110,7 @@ export default function OrdinationAgent() {
               placeholder="Type your answer..." 
               style={{ flex: 1, padding: '0.8rem', border: `1px solid ${colors.allianceBlue}`, borderRadius: '4px', fontSize: '16px' }} 
             />
-            <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 2rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>SEND</button>
+            <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 2rem', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>SEND</button>
           </form>
         </div>
       </main>
