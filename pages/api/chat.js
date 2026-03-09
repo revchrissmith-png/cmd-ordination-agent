@@ -13,7 +13,8 @@ export default async function handler(req, res) {
     const { message, history, userName } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    // 1. Fetch Handbook Knowledge
+    if (!apiKey) throw new Error("API Key is missing in Vercel environment variables.");
+
     const { data: knowledge } = await supabase
       .from('district_knowledge')
       .select('content')
@@ -22,11 +23,9 @@ export default async function handler(req, res) {
 
     const districtContext = knowledge?.content || "CMD Handbook context.";
 
-    // 2. Initialize Gemini 3 Flash
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
-    // 3. Build a "Single Block" Prompt (Much more stable than Chat History)
     const formattedHistory = (history || [])
       .map(msg => `${msg.role === 'user' ? 'Candidate' : 'Agent'}: ${msg.content}`)
       .join('\n');
@@ -37,33 +36,28 @@ export default async function handler(req, res) {
       Candidate Name: ${userName || 'Candidate'}
 
       Instructions:
-      - Be warm and pastoral.
       - Answer theological questions using Scripture or the Statement of Faith.
       - Answer policy questions using the Handbook.
-      - Keep answers to 2-4 sentences.
-      - Add TWO line breaks (\\n\\n) at the end.
-      - Close with ONE natural ministry praxis question. Do not label it.
+      - 2-4 sentences max.
+      - Add TWO line breaks (\\n\\n) then ONE natural ministry praxis question.
 
-      Conversation so far:
+      Conversation:
       ${formattedHistory}
       Candidate: ${message}
       Agent:
     `;
 
-    // 4. Generate Content directly
     const result = await model.generateContent(finalPrompt);
     const response = await result.response;
     const text = response.text();
 
-    // 5. Emergency Fallback (If Gemini still sends nothing)
-    if (!text || text.trim().length === 0) {
-      return res.status(200).json({ reply: "I'm reflecting deeply on that. Could you tell me more about your perspective on this topic?" });
-    }
+    if (!text) throw new Error("AI returned an empty response.");
 
     return res.status(200).json({ reply: text });
 
   } catch (error) {
-    console.error("API Error:", error);
-    return res.status(500).json({ reply: "I'm having a hard time connecting right now. Please try again in a moment." });
+    // This will now tell us EXACTLY what is wrong (e.g., "Model not found" or "Invalid API Key")
+    console.error("DEBUG ERROR:", error.message);
+    return res.status(200).json({ reply: `Debug Error: ${error.message}` });
   }
 }
