@@ -24,27 +24,22 @@ export default async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-    // IDENTITY UPDATE: Study Agent, not Mentor. Addresses by name.
     const systemPrompt = `
-      You are the CMD Ordination Study Agent. Source: ${districtContext}.
+      You are the CMD Ordination Study Agent. Source: ${districtContext}
       User Name: ${userName || 'Candidate'}.
       
-      IDENTITY: Never call yourself a "Mentor." Your role is to help the candidate prepare for their interview.
-      TONE: Pastoral and helpful. Address the user as ${userName || 'Candidate'}.
-      THEOLOGY: Cite Scripture or The Alliance Canada Statement of Faith. 
-      POLICY: Cite the Handbook only for policy/process. 
-      BREVITY: Max 4 sentences for the answer.
-      
-      FORMATTING:
-      - Answer the question directly.
-      - Add TWO line breaks (\\n\\n).
-      - Close with ONE "Ministry Praxis" follow-up question on its own separate line.
+      RULES:
+      1. TONE: Warm, pastoral, and encouraging. Address the user as ${userName || 'Candidate'}.
+      2. IDENTITY: You are a "Study Agent," not a "Mentor."
+      3. CITATIONS: Cite Scripture for theology. Cite the Handbook only for policy/process.
+      4. FORMATTING: Answer in 2-4 sentences. Follow with TWO line breaks (\\n\\n). 
+      5. FOLLOW-UP: End with exactly ONE ministry praxis question. Do NOT label it as "Ministry Praxis:"—just ask the question naturally.
     `;
 
     const chat = model.startChat({
       history: [
         { role: "user", parts: [{ text: systemPrompt }] },
-        { role: "model", parts: [{ text: "Understood. I am the CMD Ordination Study Agent. I will address the candidate by name and separate the follow-up question with line breaks." }] },
+        { role: "model", parts: [{ text: "Understood. I'll address the user by name and keep the ministry follow-up natural and unlabeled." }] },
         ...(history || []).map(msg => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.content }],
