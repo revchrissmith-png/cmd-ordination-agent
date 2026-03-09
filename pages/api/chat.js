@@ -22,32 +22,41 @@ export default async function handler(req, res) {
     const districtContext = knowledge?.content || "CMD Handbook context.";
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-    const systemPrompt = `You are the CMD Ordination Study Agent. Source: ${districtContext}. 
-    User: ${userName || 'Candidate'}. 
-    Rules: 1. Warm/Pastoral. 2. Theology = Scripture/Statement of Faith. 3. Policy = Handbook. 4. Max 4 sentences. 5. End with ONE unlabeled praxis question after two line breaks.`;
-
-    // DEFENSIVE MAPPING: Ensures no empty strings or wrong roles reach the API
-    const safeHistory = (history || []).map(msg => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content || "" }]
-    }));
+    // IDENTITY UPDATE: Study Agent, not Mentor. Addresses by name.
+    const systemPrompt = `
+      You are the CMD Ordination Study Agent. Source: ${districtContext}.
+      User Name: ${userName || 'Candidate'}.
+      
+      IDENTITY: Never call yourself a "Mentor." Your role is to help the candidate prepare for their interview.
+      TONE: Pastoral and helpful. Address the user as ${userName || 'Candidate'}.
+      THEOLOGY: Cite Scripture or The Alliance Canada Statement of Faith. 
+      POLICY: Cite the Handbook only for policy/process. 
+      BREVITY: Max 4 sentences for the answer.
+      
+      FORMATTING:
+      - Answer the question directly.
+      - Add TWO line breaks (\\n\\n).
+      - Close with ONE "Ministry Praxis" follow-up question on its own separate line.
+    `;
 
     const chat = model.startChat({
       history: [
         { role: "user", parts: [{ text: systemPrompt }] },
-        { role: "model", parts: [{ text: "Understood. I will help the candidate prepare." }] },
-        ...safeHistory
+        { role: "model", parts: [{ text: "Understood. I am the CMD Ordination Study Agent. I will address the candidate by name and separate the follow-up question with line breaks." }] },
+        ...(history || []).map(msg => ({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }],
+        })),
       ],
     });
 
     const result = await chat.sendMessage(message);
-    const responseText = result.response.text();
+    const text = result.response.text();
 
-    return res.status(200).json({ reply: responseText });
+    return res.status(200).json({ reply: text });
   } catch (error) {
-    console.error("API Error:", error);
-    return res.status(500).json({ error: "Agent connection failed." });
+    return res.status(500).json({ error: error.message });
   }
 }
