@@ -9,6 +9,7 @@ export default function OrdinationAgent() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
+  const [voices, setVoices] = useState([]);
   const scrollRef = useRef(null);
 
   const colors = {
@@ -22,9 +23,26 @@ export default function OrdinationAgent() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
+    
+    // Voice Initialization
+    const loadVoices = () => setVoices(window.speechSynthesis.getVoices());
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     return () => subscription.unsubscribe();
   }, [messages]);
+
+  // --- NEW: Voice Logic ---
+  const speak = (text) => {
+    if (!text) return;
+    window.speechSynthesis.cancel(); // Stop any current speaking
+    const utterance = new SpeechSynthesisUtterance(text);
+    const v = voices.find(v => (v.name.includes('Natural') || v.name.includes('Google')) && v.lang.startsWith('en'));
+    if (v) utterance.voice = v;
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
+  };
 
   const handleLogin = async () => {
     const email = prompt("Enter your district email:");
@@ -42,7 +60,7 @@ export default function OrdinationAgent() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `CMD_Mentoring_Session_${new Date().toLocaleDateString()}.txt`;
+    a.download = `CMD_Transcript_${new Date().toLocaleDateString()}.txt`;
     a.click();
   };
 
@@ -52,6 +70,7 @@ export default function OrdinationAgent() {
 
     const userMessage = { role: 'user', content: input };
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input;
     setInput('');
     setLoading(true);
 
@@ -59,11 +78,17 @@ export default function OrdinationAgent() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, history: messages }),
+        body: JSON.stringify({ message: currentInput, history: messages }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+      
+      const assistantMessage = { role: 'assistant', content: data.reply };
+      setMessages((prev) => [...prev, assistantMessage]);
+      
+      // Trigger voice
+      speak(data.reply);
+
     } catch (error) {
       setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${error.message}` }]);
     } finally {
@@ -77,24 +102,17 @@ export default function OrdinationAgent() {
 
       <header style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `4px solid ${colors.allianceBlue}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <img src="https://i.imgur.com/ZHqDQJC.png" alt="Alliance Logo" style={{ height: '40px' }} />
+          <img src="https://i.imgur.com/ZHqDQJC.png" alt="Logo" style={{ height: '40px' }} />
           <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>CMD ORDINATION STUDY AGENT</h1>
         </div>
         
         <div style={{ display: 'flex', gap: '10px' }}>
           {messages.length > 0 && (
-            <button 
-              onClick={downloadTranscript}
-              style={{ backgroundColor: colors.allianceBlue, color: colors.white, border: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold', borderRadius: '4px' }}
-            >
+            <button onClick={downloadTranscript} style={{ backgroundColor: colors.allianceBlue, color: colors.white, border: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold', borderRadius: '4px' }}>
               DOWNLOAD
             </button>
           )}
-          
-          <button 
-            onClick={user ? () => supabase.auth.signOut() : handleLogin}
-            style={{ backgroundColor: 'transparent', color: colors.white, border: `1px solid ${colors.white}`, padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
-          >
+          <button onClick={user ? () => supabase.auth.signOut() : handleLogin} style={{ backgroundColor: 'transparent', color: colors.white, border: `1px solid ${colors.white}`, padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}>
             {user ? 'LOGOUT' : 'ADMIN LOGIN'}
           </button>
         </div>
@@ -121,7 +139,7 @@ export default function OrdinationAgent() {
             <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 2rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>SEND</button>
           </form>
         </div>
-        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.65rem', marginTop: '1rem' }}>Build v1.6.1</p>
+        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.65rem', marginTop: '1rem' }}>Build v1.6.2 (Voice Active)</p>
       </main>
     </div>
   );
