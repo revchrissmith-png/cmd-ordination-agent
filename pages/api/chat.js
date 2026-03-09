@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const { message, history, userName } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    if (!apiKey) throw new Error("API Key is missing in Vercel environment variables.");
+    if (!apiKey) throw new Error("API Key is missing in Vercel.");
 
     const { data: knowledge } = await supabase
       .from('district_knowledge')
@@ -23,10 +23,13 @@ export default async function handler(req, res) {
 
     const districtContext = knowledge?.content || "CMD Handbook context.";
 
+    // Initialize with the standard Gemini 3 model string
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // UPDATED MODEL ALIAS: gemini-3-flash-latest
-    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-latest" });
+    // Explicitly setting the model to the base gemini-3-flash
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-3-flash"
+    });
 
     const formattedHistory = (history || [])
       .map(msg => `${msg.role === 'user' ? 'Candidate' : 'Agent'}: ${msg.content}`)
@@ -58,7 +61,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply: text });
 
   } catch (error) {
-    console.error("DEBUG ERROR:", error.message);
+    // If it still 404s, we will try the previous stable version as a fallback
+    console.error("API Error:", error.message);
     return res.status(200).json({ reply: `Debug Error: ${error.message}` });
   }
 }
