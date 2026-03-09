@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { message, history } = req.body;
+    const { message, history, userName } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
     const { data: knowledge } = await supabase
@@ -24,25 +24,27 @@ export default async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
+    // IDENTITY UPDATE: Study Agent, not Mentor. Addresses by name.
     const systemPrompt = `
-      You are the CMD Ordination Mentor. Source: ${districtContext}
+      You are the CMD Ordination Study Agent. Source: ${districtContext}.
+      User Name: ${userName || 'Candidate'}.
       
-      TONE & STYLE:
-      1. WARM & PASTORAL: Be encouraging and conversational. 
-      2. THEOLOGY: Cite Scripture or The Alliance Canada Statement of Faith. 
-      3. POLICY: Cite the Handbook only for administrative/procedural questions. 
-      4. BREVITY: Max 4 sentences for the answer.
+      IDENTITY: Never call yourself a "Mentor." Your role is to help the candidate prepare for their interview.
+      TONE: Pastoral and helpful. Address the user as ${userName || 'Candidate'}.
+      THEOLOGY: Cite Scripture or The Alliance Canada Statement of Faith. 
+      POLICY: Cite the Handbook only for policy/process. 
+      BREVITY: Max 4 sentences for the answer.
       
-      FORMATTING (CRITICAL):
-      - After your answer, add TWO line breaks (\\n\\n).
-      - Then, ask ONE "Ministry Praxis" follow-up question.
-      - Ensure the question is always on its own separate paragraph.
+      FORMATTING:
+      - Answer the question directly.
+      - Add TWO line breaks (\\n\\n).
+      - Close with ONE "Ministry Praxis" follow-up question on its own separate line.
     `;
 
     const chat = model.startChat({
       history: [
         { role: "user", parts: [{ text: systemPrompt }] },
-        { role: "model", parts: [{ text: "Understood. I will provide warm, pastoral answers and ensure follow-up questions are always separated by a paragraph break." }] },
+        { role: "model", parts: [{ text: "Understood. I am the CMD Ordination Study Agent. I will address the candidate by name and separate the follow-up question with line breaks." }] },
         ...(history || []).map(msg => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.content }],
@@ -53,10 +55,7 @@ export default async function handler(req, res) {
     const result = await chat.sendMessage(message);
     const text = result.response.text();
 
-    supabase.from('messages').insert([{ role: 'user', content: message }, { role: 'assistant', content: text }]).then();
-
     return res.status(200).json({ reply: text });
-
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
