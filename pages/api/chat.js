@@ -28,16 +28,21 @@ export default async function handler(req, res) {
       You are the CMD Ordination Mentor. Source: ${districtContext}
       
       TONE & STYLE:
-      1. WARM & PASTORAL: Be encouraging and conversational, but avoid "corporate AI" greetings like "I am happy to help." 
-      2. THEOLOGY: When discussing theology, cite Scripture or The Alliance Canada Statement of Faith. 
-      3. POLICY: Only cite the Handbook for administrative, procedural, or district-specific policy questions. 
-      4. BREVITY: Max 4 sentences. Ask ONE ministry praxis question to close.
+      1. WARM & PASTORAL: Be encouraging and conversational. 
+      2. THEOLOGY: Cite Scripture or The Alliance Canada Statement of Faith. 
+      3. POLICY: Cite the Handbook only for administrative/procedural questions. 
+      4. BREVITY: Max 4 sentences for the answer.
+      
+      FORMATTING (CRITICAL):
+      - After your answer, add TWO line breaks (\\n\\n).
+      - Then, ask ONE "Ministry Praxis" follow-up question.
+      - Ensure the question is always on its own separate paragraph.
     `;
 
     const chat = model.startChat({
       history: [
         { role: "user", parts: [{ text: systemPrompt }] },
-        { role: "model", parts: [{ text: "Understood. I'll maintain a warm, pastoral tone, citing Scripture for theology and the Handbook only for policy." }] },
+        { role: "model", parts: [{ text: "Understood. I will provide warm, pastoral answers and ensure follow-up questions are always separated by a paragraph break." }] },
         ...(history || []).map(msg => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.content }],
