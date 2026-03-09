@@ -10,6 +10,7 @@ export default function OrdinationAgent() {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
   const [voices, setVoices] = useState([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true); // NEW: Toggle State
   const scrollRef = useRef(null);
 
   const colors = {
@@ -24,7 +25,6 @@ export default function OrdinationAgent() {
     supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
     
-    // Voice Initialization
     const loadVoices = () => setVoices(window.speechSynthesis.getVoices());
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -33,10 +33,9 @@ export default function OrdinationAgent() {
     return () => subscription.unsubscribe();
   }, [messages]);
 
-  // --- NEW: Voice Logic ---
   const speak = (text) => {
-    if (!text) return;
-    window.speechSynthesis.cancel(); // Stop any current speaking
+    if (!text || !isVoiceEnabled) return; // Respect the toggle
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     const v = voices.find(v => (v.name.includes('Natural') || v.name.includes('Google')) && v.lang.startsWith('en'));
     if (v) utterance.voice = v;
@@ -65,7 +64,7 @@ export default function OrdinationAgent() {
   };
 
   const handleSendMessage = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!input.trim() || loading) return;
 
     const userMessage = { role: 'user', content: input };
@@ -85,8 +84,6 @@ export default function OrdinationAgent() {
       
       const assistantMessage = { role: 'assistant', content: data.reply };
       setMessages((prev) => [...prev, assistantMessage]);
-      
-      // Trigger voice
       speak(data.reply);
 
     } catch (error) {
@@ -106,7 +103,16 @@ export default function OrdinationAgent() {
           <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>CMD ORDINATION STUDY AGENT</h1>
         </div>
         
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* NEW: Voice Toggle Button */}
+          <button 
+            onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
+            title={isVoiceEnabled ? "Mute Mentor" : "Unmute Mentor"}
+            style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', opacity: isVoiceEnabled ? 1 : 0.4 }}
+          >
+            {isVoiceEnabled ? '🔊' : '🔇'}
+          </button>
+
           {messages.length > 0 && (
             <button onClick={downloadTranscript} style={{ backgroundColor: colors.allianceBlue, color: colors.white, border: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold', borderRadius: '4px' }}>
               DOWNLOAD
@@ -139,7 +145,7 @@ export default function OrdinationAgent() {
             <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 2rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>SEND</button>
           </form>
         </div>
-        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.65rem', marginTop: '1rem' }}>Build v1.6.2 (Voice Active)</p>
+        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.65rem', marginTop: '1rem' }}>Build v1.6.3 (Toggle Active)</p>
       </main>
     </div>
   );
