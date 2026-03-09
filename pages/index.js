@@ -36,7 +36,6 @@ export default function OrdinationAgent() {
     else alert("Login link sent to your email!");
   };
 
-  // --- NEW: Download Transcript Logic ---
   const downloadTranscript = () => {
     const content = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
     const blob = new Blob([content], { type: 'text/plain' });
@@ -78,13 +77,11 @@ export default function OrdinationAgent() {
 
       <header style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `4px solid ${colors.allianceBlue}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {/* Logo Restored */}
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="Alliance Logo" style={{ height: '40px' }} />
           <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>CMD ORDINATION STUDY AGENT</h1>
         </div>
         
         <div style={{ display: 'flex', gap: '10px' }}>
-          {/* Download Button Restored */}
           {messages.length > 0 && (
             <button 
               onClick={downloadTranscript}
