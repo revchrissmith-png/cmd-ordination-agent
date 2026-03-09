@@ -13,7 +13,6 @@ export default async function handler(req, res) {
     const { message, history, userName } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    // 1. Fetch Handbook Knowledge
     const { data: knowledge } = await supabase
       .from('district_knowledge')
       .select('content')
@@ -22,8 +21,8 @@ export default async function handler(req, res) {
 
     const districtContext = knowledge?.content || "CMD Handbook context.";
 
-    // 2. Initialize Gemini 3 Flash
     const genAI = new GoogleGenerativeAI(apiKey);
+    // Standardizing on the Gemini 3 Flash model we verified
     const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
     const systemPrompt = `
@@ -32,36 +31,41 @@ export default async function handler(req, res) {
       
       RULES:
       1. TONE: Warm, pastoral, and encouraging. Address the user as ${userName || 'Candidate'}.
-      2. IDENTITY: You are a "Study Agent," never a "Mentor."
-      3. CITATIONS: Cite Scripture for theology. Cite the Handbook only for policy/process.
-      4. FORMATTING: Answer in 2-4 sentences. Follow with TWO line breaks (\\n\\n). 
-      5. FOLLOW-UP: End with exactly ONE unlabeled ministry praxis question.
+      2. IDENTITY: Study Agent, not Mentor.
+      3. CITATIONS: Scripture for theology. Handbook only for policy.
+      4. FORMATTING: 2-4 sentences max. TWO line breaks (\\n\\n).
+      5. FOLLOW-UP: One unlabeled praxis question at the end.
     `;
 
-    // 3. DEFENSIVE HISTORY MAPPING (Ensures text actually appears)
-    const cleanedHistory = (history || []).map(msg => ({
+    // CRITICAL: Filter out any messages that don't have content to prevent API "Choking"
+    const validHistory = (history || []).filter(msg => msg.content && msg.content.trim() !== "");
+
+    const cleanedHistory = validHistory.map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content || "" }]
+      parts: [{ text: msg.content }]
     }));
 
     const chat = model.startChat({
       history: [
         { role: "user", parts: [{ text: systemPrompt }] },
-        { role: "model", parts: [{ text: "Understood. I am the CMD Study Agent. I will help the candidate prepare with pastoral warmth and clear formatting." }] },
+        { role: "model", parts: [{ text: "Understood. I am ready to help the candidate prepare." }] },
         ...cleanedHistory
       ],
     });
 
-    // 4. Send Message
     const result = await chat.sendMessage(message);
-    const responseText = result.response.text();
+    const response = await result.response;
+    const responseText = response.text();
 
-    if (!responseText) throw new Error("Empty AI Response");
+    // If the AI somehow returns nothing, we send a fallback so the bubble isn't empty
+    if (!responseText || responseText.trim() === "") {
+      return res.status(200).json({ reply: "I'm reflecting on that theological point. Could you rephrase your thought for me?" });
+    }
 
     return res.status(200).json({ reply: responseText });
 
   } catch (error) {
-    console.error("Gemini 3 Error:", error);
-    return res.status(500).json({ error: "Agent reflection error. Please try again." });
+    console.error("API Failure:", error);
+    return res.status(500).json({ error: "Agent connection timed out. Please try again." });
   }
 }
