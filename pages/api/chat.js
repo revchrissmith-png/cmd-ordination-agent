@@ -24,7 +24,9 @@ export default async function handler(req, res) {
     const districtContext = knowledge?.content || "CMD Handbook context.";
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
+    
+    // UPDATED MODEL ALIAS: gemini-3-flash-latest
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-latest" });
 
     const formattedHistory = (history || [])
       .map(msg => `${msg.role === 'user' ? 'Candidate' : 'Agent'}: ${msg.content}`)
@@ -56,7 +58,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply: text });
 
   } catch (error) {
-    // This will now tell us EXACTLY what is wrong (e.g., "Model not found" or "Invalid API Key")
     console.error("DEBUG ERROR:", error.message);
     return res.status(200).json({ reply: `Debug Error: ${error.message}` });
   }
