@@ -11,7 +11,7 @@ export default function OrdinationAgent() {
   const [user, setUser] = useState(null);
   const [voices, setVoices] = useState([]);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
-  const [isListening, setIsListening] = useState(false); // NEW: Mic State
+  const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef(null);
 
   const colors = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff', charcoal: '#040404' };
@@ -39,15 +39,13 @@ export default function OrdinationAgent() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // --- NEW: Microphone Logic ---
   const startListening = () => {
     const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
     if (!SpeechRecognition) return alert("Browser does not support voice input.");
     const recognition = new SpeechRecognition();
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setInput((prev) => prev + " " + transcript);
+      setInput((prev) => prev + " " + event.results[0][0].transcript);
       setIsListening(false);
     };
     recognition.onerror = () => setIsListening(false);
@@ -88,7 +86,6 @@ export default function OrdinationAgent() {
         </div>
         
         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-          {/* NEW: Clean SVG Toggle */}
           <button onClick={() => setIsVoiceEnabled(!isVoiceEnabled)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill={isVoiceEnabled ? colors.white : '#666'}>
               <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
@@ -113,9 +110,10 @@ export default function OrdinationAgent() {
                 {msg.content}
               </div>
             ))}
+            {/* Thinking Indicator Restored */}
+            {loading && <div style={{ color: colors.allianceBlue, fontStyle: 'italic', fontSize: '0.85rem' }}>Mentor is reflecting...</div>}
           </div>
           <form onSubmit={handleSendMessage} style={{ padding: '1.5rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.8rem' }}>
-            {/* NEW: Mic Button */}
             <button type="button" onClick={startListening} style={{ background: isListening ? '#ff4d4d' : colors.cloudGray, border: 'none', borderRadius: '4px', width: '45px', cursor: 'pointer', fontSize: '1.2rem' }}>
               {isListening ? '🛑' : '🎤'}
             </button>
@@ -123,7 +121,7 @@ export default function OrdinationAgent() {
             <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 1.5rem', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>SEND</button>
           </form>
         </div>
-        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.65rem', marginTop: '1rem' }}>Build v1.6.4 | Socratic Logic & Voice Input</p>
+        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.65rem', marginTop: '1rem' }}>Build v1.6.5 | Refined Pastoral Tone</p>
       </main>
     </div>
   );
