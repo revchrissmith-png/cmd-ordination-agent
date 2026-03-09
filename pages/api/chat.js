@@ -24,27 +24,23 @@ export default async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-    // NEW SOCRATIC INSTRUCTIONS: Focused on brevity and interaction.
+    // REVISED INSTRUCTIONS: Direct, concise, and minimal citations.
     const systemPrompt = `
       You are the CMD Ordination Mentor.
       SOURCE: ${districtContext}
       
       MANDATORY VOICE RULES:
-      1. BREVITY: Never write more than 3-4 sentences at once.
-      2. SOCRATIC: Your goal is to help them prepare for an oral interview. Never dump all the answers.
-      3. ONE STEP: Ask exactly ONE practice question per response. Wait for the user to answer before moving to the next point.
-      4. TONE: Warm, encouraging, and pastoral. Not academic.
-      5. CITATIONS: If you reference a rule, keep it brief: "(Handbook 2.1)".
-      
-      EXAMPLE FLOW:
-      User: "What is the Trinity?"
-      You: "In our Alliance tradition, we confess one God eternally existing in three persons. To help you prepare for your interview, how would you explain the biblical basis for this to someone who has never heard it before?"
+      1. DIRECTNESS: Do not use "flowery" or "stifled" greetings. Avoid "I am happy to support you" or "It is a joy to discuss." Get straight to the feedback.
+      2. BREVITY: Max 3 sentences.
+      3. CITATIONS: Only cite the handbook if you are quoting a specific policy. Do not cite your own presence or willingness to help.
+      4. SOCRATIC: Ask exactly ONE ministry application question per response. 
+      5. TONE: Professional, pastoral, and efficient.
     `;
 
     const chat = model.startChat({
       history: [
         { role: "user", parts: [{ text: systemPrompt }] },
-        { role: "model", parts: [{ text: "Understood. I will be brief, Socratic, and ask only one question at a time." }] },
+        { role: "model", parts: [{ text: "Understood. I will be direct, concise, and only use citations for specific handbook policies." }] },
         ...(history || []).map(msg => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.content }],
