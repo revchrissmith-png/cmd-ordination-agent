@@ -8,20 +8,33 @@ export default function OrdinationAgent() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
   const scrollRef = useRef(null);
 
   const colors = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff', charcoal: '#040404' };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
+
+  // Extract first name from Google metadata or Email
+  const getUserName = () => {
+    if (!session?.user) return null;
+    const name = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
+    if (name) return name.split(' ')[0];
+    return session.user.email.split('@')[0];
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload(); 
+  };
 
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
@@ -36,7 +49,11 @@ export default function OrdinationAgent() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: currentInput, history: messages }),
+        body: JSON.stringify({ 
+          message: currentInput, 
+          history: messages,
+          userName: getUserName() 
+        }),
       });
       const data = await response.json();
       setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
@@ -47,44 +64,71 @@ export default function OrdinationAgent() {
 
   return (
     <div style={{ backgroundColor: colors.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
-      <Head><title>CMD Mentor</title></Head>
+      <Head>
+        <title>CMD Study Agent</title>
+        {/* iOS Meta tag to help prevent scaling issues */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+      </Head>
 
-      <header style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `4px solid ${colors.allianceBlue}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <img src="https://i.imgur.com/ZHqDQJC.png" alt="Logo" style={{ height: '40px' }} />
-          <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>CMD ORDINATION STUDY AGENT</h1>
+      <header style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `4px solid ${colors.allianceBlue}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <img src="https://i.imgur.com/ZHqDQJC.png" alt="Logo" style={{ height: '35px' }} />
+          <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>CMD STUDY AGENT</h1>
         </div>
         
-        <button onClick={() => {
-          const content = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-          const blob = new Blob([content], { type: 'text/plain' });
-          const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `CMD_Transcript.txt`; a.click();
-        }} style={{ backgroundColor: colors.allianceBlue, color: colors.white, border: 'none', padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '4px', cursor: 'pointer' }}>DOWNLOAD</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => {
+            const content = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+            const blob = new Blob([content], { type: 'text/plain' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `CMD_Transcript.txt`; a.click();
+          }} style={{ backgroundColor: colors.allianceBlue, color: colors.white, border: 'none', padding: '0.4rem 0.7rem', fontSize: '0.7rem', fontWeight: 'bold', borderRadius: '4px', cursor: 'pointer' }}>DOWNLOAD</button>
+          
+          {session && (
+            <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid white', color: 'white', padding: '0.4rem 0.7rem', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>LOGOUT</button>
+          )}
+        </div>
       </header>
 
-      <main style={{ maxWidth: '850px', margin: '2rem auto', padding: '0 1rem' }}>
-        <div style={{ backgroundColor: colors.white, borderRadius: '4px', height: '65vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
-          <div ref={scrollRef} style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {messages.length === 0 && <p style={{ textAlign: 'center', color: colors.allianceBlue, marginTop: '3rem' }}>Ready for your practice session. What theological topic are we exploring?</p>}
+      <main style={{ maxWidth: '850px', margin: '1.5rem auto', padding: '0 0.5rem' }}>
+        <div style={{ backgroundColor: colors.white, borderRadius: '4px', height: '75vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
+          <div ref={scrollRef} style={{ flex: 1, padding: '1.2rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {messages.length === 0 && (
+              <p style={{ textAlign: 'center', color: colors.allianceBlue, marginTop: '2rem' }}>
+                Welcome, {getUserName() || 'Candidate'}. What theological or policy topic should we practice today?
+              </p>
+            )}
             {messages.map((msg, i) => (
               <div key={i} style={{ 
                 alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', 
                 backgroundColor: msg.role === 'user' ? colors.allianceBlue : colors.cloudGray, 
                 color: msg.role === 'user' ? colors.white : colors.charcoal, 
-                padding: '0.9rem 1.3rem', borderRadius: '8px', maxWidth: '85%', fontSize: '0.95rem',
-                whiteSpace: 'pre-wrap' // This preserves the line breaks from the API
+                padding: '0.9rem 1.1rem', borderRadius: '8px', maxWidth: '88%', fontSize: '0.95rem',
+                whiteSpace: 'pre-wrap'
               }}>
                 {msg.content}
               </div>
             ))}
-            {loading && <div style={{ color: colors.allianceBlue, fontStyle: 'italic', fontSize: '0.85rem' }}>Mentor is reflecting...</div>}
+            {loading && <div style={{ color: colors.allianceBlue, fontStyle: 'italic', fontSize: '0.8rem' }}>Agent is reflecting...</div>}
           </div>
-          <form onSubmit={handleSendMessage} style={{ padding: '1.5rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.8rem' }}>
-            <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type your answer..." style={{ flex: 1, padding: '0.8rem', border: `1px solid ${colors.allianceBlue}`, borderRadius: '4px' }} />
-            <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 1.5rem', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>SEND</button>
+          
+          <form onSubmit={handleSendMessage} style={{ padding: '1.2rem', borderTop: `1px solid ${colors.cloudGray}`, display: 'flex', gap: '0.6rem' }}>
+            <input 
+              type="text" 
+              value={input} 
+              onChange={(e) => setInput(e.target.value)} 
+              placeholder="Type your answer..." 
+              style={{ 
+                flex: 1, 
+                padding: '0.8rem', 
+                border: `1px solid ${colors.allianceBlue}`, 
+                borderRadius: '4px',
+                fontSize: '16px' // CRITICAL: Fixes iOS Auto-zoom
+              }} 
+            />
+            <button type="submit" disabled={loading} style={{ backgroundColor: colors.deepSea, color: colors.white, padding: '0 1.2rem', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>SEND</button>
           </form>
         </div>
-        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.65rem', marginTop: '1rem' }}>Build v1.7.0 | Clean Text Interface</p>
+        <p style={{ textAlign: 'center', color: '#999', fontSize: '0.6rem', marginTop: '0.8rem' }}>Build v1.7.1 | Session: {session?.user?.email || 'None'}</p>
       </main>
     </div>
   );
