@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const { message, history, userName } = req.body;
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    if (!apiKey) throw new Error("API Key is missing in Vercel.");
+    if (!apiKey) throw new Error("Missing API Key");
 
     const { data: knowledge } = await supabase
       .from('district_knowledge')
@@ -23,13 +23,11 @@ export default async function handler(req, res) {
 
     const districtContext = knowledge?.content || "CMD Handbook context.";
 
-    // Initialize with the standard Gemini 3 model string
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Explicitly setting the model to the base gemini-3-flash
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-3-flash"
-    });
+    // SWITCHING TO STABLE ALIAS: gemini-2.0-flash
+    // This model is the current "workhorse" and avoids the v1beta 404 errors.
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const formattedHistory = (history || [])
       .map(msg => `${msg.role === 'user' ? 'Candidate' : 'Agent'}: ${msg.content}`)
@@ -41,7 +39,7 @@ export default async function handler(req, res) {
       Candidate Name: ${userName || 'Candidate'}
 
       Instructions:
-      - Answer theological questions using Scripture or the Statement of Faith.
+      - Answer theological questions using Scripture.
       - Answer policy questions using the Handbook.
       - 2-4 sentences max.
       - Add TWO line breaks (\\n\\n) then ONE natural ministry praxis question.
@@ -56,13 +54,13 @@ export default async function handler(req, res) {
     const response = await result.response;
     const text = response.text();
 
-    if (!text) throw new Error("AI returned an empty response.");
+    if (!text) throw new Error("AI returned empty text.");
 
     return res.status(200).json({ reply: text });
 
   } catch (error) {
-    // If it still 404s, we will try the previous stable version as a fallback
     console.error("API Error:", error.message);
-    return res.status(200).json({ reply: `Debug Error: ${error.message}` });
+    // If it still fails, we provide a pastoral fallback so the user isn't stuck.
+    return res.status(200).json({ reply: `Debug Error: ${error.message}. Please try again.` });
   }
 }
