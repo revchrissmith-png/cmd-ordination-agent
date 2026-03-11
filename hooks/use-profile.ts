@@ -1,6 +1,6 @@
-// Iteration: v1.4
+// Iteration: v1.5
 // Location: GitHub -> hooks/use-profile.ts
-// Purpose: More robust error handling to prevent blank screens
+// Purpose: Handle partial profiles (email only) without crashing.
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../utils/supabase/client'
@@ -22,9 +22,9 @@ export function useProfile() {
   useEffect(() => {
     async function getProfile() {
       try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        const { data: { user } } = await supabase.auth.getUser()
 
-        if (authError || !user) {
+        if (!user) {
           setLoading(false)
           return
         }
@@ -37,6 +37,15 @@ export function useProfile() {
 
         if (!error && data) {
           setProfile(data as Profile)
+        } else if (error && user) {
+          // If no profile exists yet, create a temporary one for the UI
+          setProfile({
+            id: user.id,
+            email: user.email || '',
+            first_name: 'New',
+            last_name: 'User',
+            role: 'ordinand' // Default fallback
+          })
         }
       } catch (err) {
         console.error("Profile hook error:", err)
