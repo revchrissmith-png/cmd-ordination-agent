@@ -1,5 +1,7 @@
-// Iteration: v1.2
+// Iteration: v1.3
 // Location: GitHub -> app/dashboard/admin/page.tsx
+// Purpose: District Admin interface with better state handling.
+
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../utils/supabase/client'
@@ -9,26 +11,18 @@ export default function AdminPage() {
   const { isAdmin, loading: profileLoading, profile } = useProfile()
   const [ordinands, setOrdinands] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchOrdinands() {
-      try {
-        if (!isAdmin) return
-        
-        const { data, error: dbError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'ordinand')
+      if (!isAdmin) return
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'ordinand')
 
-        if (dbError) throw dbError
-        setOrdinands(data || [])
-      } catch (e: any) {
-        console.error(e)
-        setError(e.message)
-      } finally {
-        setLoading(false)
-      }
+      if (!error) setOrdinands(data || [])
+      setLoading(false)
     }
 
     if (!profileLoading) {
@@ -40,42 +34,64 @@ export default function AdminPage() {
     }
   }, [isAdmin, profileLoading])
 
-  if (profileLoading) return <p className="p-10 text-center">Verifying Admin Permissions...</p>
-  
-  if (!isAdmin) return (
-    <div className="p-10 text-center text-red-600">
-      <h1 className="text-xl font-bold">Access Denied</h1>
-      <p>Your account ({profile?.email}) is not marked as an Admin.</p>
-    </div>
-  )
+  if (profileLoading) return <p className="p-12 text-center text-gray-500">Checking credentials...</p>
 
-  if (loading) return <p className="p-10 text-center">Fetching Ordinand List...</p>
-  if (error) return <p className="p-10 text-center text-red-500">Error: {error}</p>
+  if (!isAdmin) {
+    return (
+      <div className="p-12 text-center">
+        <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
+        <p className="mt-2">Your account ({profile?.email}) does not have Admin privileges.</p>
+        <p className="text-sm text-gray-500 mt-4">Please update your role in the Supabase Dashboard.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-blue-900">District Admin Console</h1>
+      <div className="flex justify-between items-end mb-8 border-b pb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">District Administration</h1>
+          <p className="text-gray-600">Managing active ordinands for the Canadian Midwest District.</p>
+        </div>
+        <div className="text-right text-sm text-gray-500">
+          Admin: {profile?.email}
+        </div>
+      </div>
+
       <div className="bg-white shadow border rounded-xl overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {ordinands.length === 0 ? (
-              <tr><td className="p-10 text-center text-gray-400">No ordinands found in the database.</td></tr>
-            ) : (
-              ordinands.map((u) => (
-                <tr key={u.id}>
-                  <td className="px-6 py-4">{u.first_name} {u.last_name}</td>
-                  <td className="px-6 py-4">{u.email}</td>
+        {loading ? (
+          <p className="p-10 text-center text-gray-400">Loading ordinands...</p>
+        ) : ordinands.length === 0 ? (
+          <div className="p-20 text-center">
+            <p className="text-gray-500 italic">No ordinands have registered yet.</p>
+            <p className="text-sm text-gray-400 mt-2">New users will appear here once they accept an invite and sign in.</p>
+          </div>
+        ) : (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 text-xs font-bold text-gray-500 uppercase">
+              <tr>
+                <th className="px-6 py-4 text-left">Name</th>
+                <th className="px-6 py-4 text-left">Email</th>
+                <th className="px-6 py-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {ordinands.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900">
+                    {user.first_name || 'New'} {user.last_name || 'User'}
+                  </td>
+                  <td className="px-6 py-4 text-gray-600">{user.email}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button className="text-blue-600 hover:text-blue-900 font-semibold text-sm">
+                      Manage Requirements
+                    </button>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
