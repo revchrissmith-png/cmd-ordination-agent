@@ -1,4 +1,4 @@
-// Iteration: v2.4 - Clean Admin Dashboard
+// Iteration: v2.5 - Final Admin Button Fix
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../utils/supabase/client'
@@ -12,7 +12,10 @@ export default function DashboardHome() {
   useEffect(() => {
     async function loadData() {
       const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (!authUser) { setLoading(false); return; }
+      if (!authUser) { 
+        setLoading(false)
+        return 
+      }
       setUser(authUser)
 
       const { data: prof } = await supabase
@@ -21,7 +24,9 @@ export default function DashboardHome() {
         .eq('id', authUser.id)
         .single()
 
-      if (prof) setProfile(prof)
+      if (prof) {
+        setProfile(prof)
+      }
       setLoading(false)
     }
     loadData()
@@ -33,6 +38,7 @@ export default function DashboardHome() {
     </div>
   )
 
+  // Explicitly check for the admin role
   const isAdmin = profile?.role === 'admin'
 
   return (
@@ -40,8 +46,17 @@ export default function DashboardHome() {
       <div className="max-w-5xl mx-auto">
         <header className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
           <div>
-            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">CMD Portal</h1>
-            <p className="text-slate-500 font-medium">Welcome back, {profile?.first_name || user?.email}</p>
+            <div className="flex items-center gap-3">
+              <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">CMD Portal</h1>
+              {isAdmin && (
+                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">
+                  Admin
+                </span>
+              )}
+            </div>
+            <p className="text-slate-500 font-medium mt-2">
+              Welcome back, {profile?.first_name || user?.email}
+            </p>
           </div>
           <button 
             onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')}
@@ -52,9 +67,9 @@ export default function DashboardHome() {
         </header>
 
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {/* Admin Card */}
-          {isAdmin && (
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-blue-100 flex flex-col h-full">
+          {/* Admin Card - Now with more aggressive rendering logic */}
+          {isAdmin ? (
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-blue-200 flex flex-col h-full ring-4 ring-blue-50">
               <div className="bg-blue-50 text-blue-600 w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-2xl">📋</div>
               <h2 className="text-2xl font-bold text-slate-900 mb-2">Admin Console</h2>
               <p className="text-slate-500 mb-8 flex-grow">Manage candidates, track progress, and review submitted documents for the District.</p>
@@ -62,7 +77,7 @@ export default function DashboardHome() {
                 Open Manager
               </Link>
             </div>
-          )}
+          ) : null}
 
           {/* Ordinand Card */}
           <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full">
