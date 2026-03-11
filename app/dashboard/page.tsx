@@ -1,4 +1,4 @@
-// Iteration: v2.3 - Deep Trace Diagnostic
+// Iteration: v2.4 - Clean Admin Dashboard
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../utils/supabase/client'
@@ -7,87 +7,83 @@ import Link from 'next/link'
 export default function DashboardHome() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
-  const [rawError, setRawError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadData() {
-      try {
-        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-        
-        if (authError || !authUser) {
-          setRawError(authError?.message || "No Auth User Found")
-          setLoading(false)
-          return
-        }
-        setUser(authUser)
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) { setLoading(false); return; }
+      setUser(authUser)
 
-        // Attempt to fetch profile with full error reporting
-        const { data: prof, error: profError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .single()
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
 
-        if (profError) {
-          setRawError(`Table Error: ${profError.code} - ${profError.message}`)
-        } else {
-          setProfile(prof)
-        }
-      } catch (err: any) {
-        setRawError(`System Crash: ${err.message}`)
-      } finally {
-        setLoading(false)
-      }
+      if (prof) setProfile(prof)
+      setLoading(false)
     }
-
     loadData()
   }, [])
 
-  if (loading) return <div className="p-20 text-center animate-pulse font-mono">🔍 Probing Database...</div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+  )
+
+  const isAdmin = profile?.role === 'admin'
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8 font-sans">
-      <div className="max-w-4xl mx-auto">
-        
-        {/* THE TRACE BOX */}
-        <div className="mb-6 p-6 bg-black text-green-400 rounded-lg shadow-2xl font-mono text-xs overflow-auto border-t-4 border-green-500">
-          <p className="text-white font-bold mb-2 underline">SYSTEM TRACE LOG</p>
-          <p>TIMESTAMP: {new Date().toISOString()}</p>
-          <p>AUTH_ID: {user?.id || 'NULL'}</p>
-          <p>EMAIL: {user?.email || 'NULL'}</p>
-          <hr className="my-2 border-gray-700" />
-          <p className={profile ? "text-green-400" : "text-yellow-400"}>
-            PROFILE_STATUS: {profile ? "FOUND" : "NOT_FOUND"}
-          </p>
-          <p className="text-purple-400 text-sm font-bold">
-            RAW_RESULT: {rawError ? `❌ ${rawError}` : "✅ OK"}
-          </p>
-          {rawError?.includes('406') && <p className="text-red-400 mt-2 font-bold">TIP: 406 means the 'profiles' table might be missing or empty.</p>}
-          {rawError?.includes('PGRST116') && <p className="text-red-400 mt-2 font-bold">TIP: PGRST116 means the ID was not found in the table.</p>}
-        </div>
-
-        <header className="flex justify-between items-center mb-10 border-b pb-6">
-          <h1 className="text-3xl font-bold text-blue-900 tracking-tight">CMD Portal</h1>
-          <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')} className="text-sm bg-white border px-4 py-2 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all">Sign Out</button>
+    <main className="min-h-screen bg-slate-50 p-6 md:p-12">
+      <div className="max-w-5xl mx-auto">
+        <header className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
+          <div>
+            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">CMD Portal</h1>
+            <p className="text-slate-500 font-medium">Welcome back, {profile?.first_name || user?.email}</p>
+          </div>
+          <button 
+            onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')}
+            className="bg-white border border-slate-200 text-slate-600 px-6 py-2 rounded-xl font-bold shadow-sm hover:bg-slate-50 transition-all w-fit"
+          >
+            Sign Out
+          </button>
         </header>
 
-        {profile?.role === 'admin' ? (
-          <div className="bg-white p-10 rounded-2xl shadow-sm border-l-8 border-blue-600">
-            <h2 className="text-2xl font-bold text-blue-900 mb-2">Admin Dashboard</h2>
-            <p className="text-gray-600 mb-8">Welcome, District Administrator.</p>
-            <div className="flex gap-4">
-              <Link href="/dashboard/admin" className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg">Manage Candidates</Link>
-              <Link href="/agent" className="bg-purple-100 text-purple-700 px-8 py-3 rounded-xl font-bold hover:bg-purple-200">Open Study Agent</Link>
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          {/* Admin Card */}
+          {isAdmin && (
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-blue-100 flex flex-col h-full">
+              <div className="bg-blue-50 text-blue-600 w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-2xl">📋</div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Admin Console</h2>
+              <p className="text-slate-500 mb-8 flex-grow">Manage candidates, track progress, and review submitted documents for the District.</p>
+              <Link href="/dashboard/admin" className="bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
+                Open Manager
+              </Link>
             </div>
+          )}
+
+          {/* Ordinand Card */}
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full">
+            <div className="bg-slate-50 text-slate-600 w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-2xl">✔️</div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Requirements</h2>
+            <p className="text-slate-500 mb-8 flex-grow">View your personalized checklist for ordination and accreditation status.</p>
+            <Link href="/dashboard/requirements" className="bg-slate-900 text-white text-center py-3 rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-slate-200">
+              View Checklist
+            </Link>
           </div>
-        ) : (
-          <div className="bg-white p-10 rounded-2xl shadow-sm border border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Ordinand Portal</h2>
-            <p className="text-gray-600 mb-8">Access your accreditation requirements below.</p>
-            <Link href="/dashboard/requirements" className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black shadow-lg">View My Checklist</Link>
+
+          {/* Agent Card */}
+          <div className="bg-purple-50 p-8 rounded-3xl shadow-sm border border-purple-100 flex flex-col h-full">
+            <div className="bg-purple-100 text-purple-600 w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-2xl">🤖</div>
+            <h2 className="text-2xl font-bold text-purple-900 mb-2">Study Agent</h2>
+            <p className="text-slate-600 mb-8 flex-grow">Access the AI study assistant to help prepare for exams and doctrinal reviews.</p>
+            <Link href="/agent" className="bg-purple-600 text-white text-center py-3 rounded-xl font-bold hover:bg-purple-700 transition-all shadow-lg shadow-purple-100">
+              Launch Agent
+            </Link>
           </div>
-        )}
+        </div>
       </div>
     </main>
   )
