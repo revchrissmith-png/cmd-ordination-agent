@@ -1,7 +1,5 @@
-// Iteration: v1.5
-// Location: GitHub -> hooks/use-profile.ts
-// Purpose: Handle partial profiles (email only) without crashing.
-
+// Iteration: v1.7
+// Location: hooks/use-profile.ts
 import { useEffect, useState } from 'react'
 import { supabase } from '../utils/supabase/client'
 
@@ -20,41 +18,44 @@ export function useProfile() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function getProfile() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
+    // 1. Function to fetch profile
+    const fetchProfile = async (userId: string) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-        if (!user) {
-          setLoading(false)
-          return
-        }
-
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-
-        if (!error && data) {
-          setProfile(data as Profile)
-        } else if (error && user) {
-          // If no profile exists yet, create a temporary one for the UI
-          setProfile({
-            id: user.id,
-            email: user.email || '',
-            first_name: 'New',
-            last_name: 'User',
-            role: 'ordinand' // Default fallback
-          })
-        }
-      } catch (err) {
-        console.error("Profile hook error:", err)
-      } finally {
-        setLoading(false)
+      if (!error && data) {
+        setProfile(data as Profile)
       }
+      setLoading(false)
     }
 
-    getProfile()
+    // 2. Initial check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else {
+        // If no session, don't stop loading yet—wait for the state change listener
+        // unless we know for sure there's no hash in the URL
+        if (!window.location.hash) {
+          setLoading(false)
+        }
+      }
+    })
+
+    // 3. Listen for the login event (This catches the Magic Link "handshake")
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else if (event === 'SIGNED_OUT') {
+        setProfile(null)
+        setLoading(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   return { 
