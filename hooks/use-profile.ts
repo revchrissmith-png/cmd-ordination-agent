@@ -1,8 +1,9 @@
-// Iteration: v1.2
+// Iteration: v1.3
 // Location: GitHub -> hooks/use-profile.ts
+// Purpose: Fetches user role using a relative path to the Supabase client
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/utils/supabase/client' // This now points to the file we made in Step 1
+import { supabase } from '../utils/supabase/client' // Relative path to neighbor folder
 
 export type UserRole = 'ordinand' | 'admin'
 
