@@ -1,9 +1,9 @@
-// Iteration: v1.3
+// Iteration: v1.4
 // Location: GitHub -> hooks/use-profile.ts
-// Purpose: Fetches user role using a relative path to the Supabase client
+// Purpose: More robust error handling to prevent blank screens
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../utils/supabase/client' // Relative path to neighbor folder
+import { supabase } from '../utils/supabase/client'
 
 export type UserRole = 'ordinand' | 'admin'
 
@@ -21,10 +21,14 @@ export function useProfile() {
 
   useEffect(() => {
     async function getProfile() {
-      setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-      if (user) {
+        if (authError || !user) {
+          setLoading(false)
+          return
+        }
+
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
@@ -34,8 +38,11 @@ export function useProfile() {
         if (!error && data) {
           setProfile(data as Profile)
         }
+      } catch (err) {
+        console.error("Profile hook error:", err)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     getProfile()
