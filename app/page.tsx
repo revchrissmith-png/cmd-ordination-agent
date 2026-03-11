@@ -1,4 +1,4 @@
-// Iteration: v2.5 - Final OTP Code Login
+// Iteration: v2.6 - Forced Session Verification
 'use client'
 import { useState } from 'react'
 import { supabase } from '../utils/supabase/client'
@@ -20,7 +20,7 @@ export default function Home() {
       setMessage(`Error: ${error.message}`)
     } else {
       setStep('verify')
-      setMessage('A 6-digit code has been sent to your email.')
+      setMessage('Code sent! Check your inbox.')
     }
     setLoading(false)
   }
@@ -28,6 +28,8 @@ export default function Home() {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setMessage('Verifying session...')
+
     const { data, error } = await supabase.auth.verifyOtp({
       email,
       token,
@@ -36,10 +38,18 @@ export default function Home() {
 
     if (error) {
       setMessage(`Error: ${error.message}`)
+      setLoading(false)
     } else if (data.session) {
-      router.push('/dashboard')
+      // FORCE CHECK: Ensure the session is actually set in the client before redirecting
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setMessage('Session confirmed. Redirecting...')
+        setTimeout(() => router.push('/dashboard'), 500)
+      } else {
+        setMessage('Session sync failed. Please try again.')
+        setLoading(false)
+      }
     }
-    setLoading(false)
   }
 
   return (
@@ -65,7 +75,7 @@ export default function Home() {
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <input
               type="text"
-              placeholder="123456"
+              placeholder="Enter Code"
               value={token}
               onChange={(e) => setToken(e.target.value)}
               className="w-full px-4 py-3 border border-slate-300 rounded-lg text-center text-2xl tracking-widest font-bold outline-none focus:ring-2 focus:ring-blue-500 text-blue-900"
@@ -73,9 +83,6 @@ export default function Home() {
             />
             <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-md transition-all">
               {loading ? 'Verifying...' : 'Sign In'}
-            </button>
-            <button type="button" onClick={() => setStep('request')} className="w-full text-sm text-slate-400 hover:underline">
-              Change email
             </button>
           </form>
         )}
