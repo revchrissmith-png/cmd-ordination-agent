@@ -1,10 +1,13 @@
-// Iteration: v1.0
-// Location: GitHub -> utils/supabase/client.ts
-// Purpose: Standard Supabase client for Browser-side operations
+// Iteration: v1.2 - Persistent Client
+import { createClient } from '@supabase/supabase-js'
 
-import { createBrowserClient } from '@supabase/ssr'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+})
