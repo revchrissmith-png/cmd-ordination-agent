@@ -1,7 +1,8 @@
-// Iteration: v1.1
+// Iteration: v1.2
 // Location: GitHub -> hooks/use-profile.ts
+
 import { useEffect, useState } from 'react'
-import { supabase } from '@/utils/supabase/client'
+import { supabase } from '@/utils/supabase/client' // This now points to the file we made in Step 1
 
 export type UserRole = 'ordinand' | 'admin'
 
@@ -21,18 +22,21 @@ export function useProfile() {
     async function getProfile() {
       setLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
+
       if (user) {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single()
+
         if (!error && data) {
           setProfile(data as Profile)
         }
       }
       setLoading(false)
     }
+
     getProfile()
   }, [])
 
