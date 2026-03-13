@@ -77,7 +77,7 @@ export default function OrdinandRequirementPage() {
   const status: Status = requirement?.status ?? 'not_started'
   const statusCfg = STATUS_CONFIG[status]
   const isLocked = status === 'submitted' || status === 'under_review' || status === 'complete'
-  const canEdit = !isLocked || status === 'revision_required'
+    const canEdit = !isLocked
   const allAnswered = topicData ? topicData.questions.every(q => (answers[q.id] || '').trim().length > 0) : true
 
   async function handleSubmit() {
