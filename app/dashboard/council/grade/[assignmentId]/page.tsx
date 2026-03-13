@@ -27,7 +27,8 @@ const SELF_ASSESSMENT_COLOUR: Record<string, string> = {
 }
 
 export default function CouncilPaperGradePage() {
-  const { assignmentId } = useParams<{ assignmentId: string }>()
+    const params = useParams<{ assignmentId: string }>()
+    const assignmentId = params?.assignmentId ?? ''
   const [assignment, setAssignment] = useState<any>(null)
   const [requirement, setRequirement] = useState<any>(null)
   const [submission, setSubmission] = useState<any>(null)
