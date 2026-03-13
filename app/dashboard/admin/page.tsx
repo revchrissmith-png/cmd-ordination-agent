@@ -380,7 +380,7 @@ export default function AdminPage() {
                             ? <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{person.cohorts.name}</span>
                             : <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-xs font-bold">No cohort</span>}
                         </td>
-                        <td className="px-8 py-5 text-right"><button className="text-blue-600 font-black hover:text-blue-800 transition-colors text-sm">Manage →</button></td>
+                        <td className="px-8 py-5 text-right"><Link href={`/dashboard/admin/candidates/${person.id}`} className="text-blue-600 font-black hover:text-blue-800 transition-colors text-sm">Manage →</Link></td>
                       </tr>
                     ))}
                   </tbody>
