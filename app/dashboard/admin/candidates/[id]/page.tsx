@@ -13,7 +13,7 @@ const RATING_LABELS: Record<Rating, string> = {
   insufficient: 'Insufficient',
   adequate: 'Adequate',
   good: 'Good',
-  excellent: 'Excellent',
+  excellent: 'Excellent'
   exceptional: 'Exceptional',
 }
 
@@ -32,7 +32,15 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 export default function CandidateDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const params = useParams<{ id: string }>()
+const id = params?.id ?? ''
+```
+
+That's the entire fix. `useParams` can technically return `null` in Next.js's type definitions, so TypeScript won't allow direct destructuring. Adding the `?.id ?? ''` guard satisfies the type checker.
+
+Go to:
+```
+https://github.com/revchrissmith-png/cmd-ordination-agent/edit/main/app/dashboard/admin/candidates/%5Bid%5D/page.tsx
 
   const [candidate, setCandidate] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
