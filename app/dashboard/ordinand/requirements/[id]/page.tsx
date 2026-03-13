@@ -26,7 +26,6 @@ export default function OrdinandRequirementPage() {
   const [grade, setGrade] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ text: '', type: '' })
-
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [selfAssessments, setSelfAssessments] = useState<Record<string, string>>({})
   const [file, setFile] = useState<File | null>(null)
@@ -41,9 +40,7 @@ export default function OrdinandRequirementPage() {
     setLoading(true)
     const { data: req } = await supabase
       .from('ordinand_requirements')
-      .select(`id, status, updated_at, ordinand_id,
-        requirement_templates(id, type, topic, title, description),
-        cohorts(sermon_topic)`)
+      .select(`id, status, updated_at, ordinand_id, requirement_templates(id, type, topic, title, description), cohorts(sermon_topic)`)
       .eq('id', id)
       .single()
     setRequirement(req)
@@ -80,6 +77,7 @@ export default function OrdinandRequirementPage() {
   const status: Status = requirement?.status ?? 'not_started'
   const statusCfg = STATUS_CONFIG[status]
   const isLocked = status === 'submitted' || status === 'under_review' || status === 'complete'
+  const canEdit = !isLocked || status === 'revision_required'
   const allAnswered = topicData ? topicData.questions.every(q => (answers[q.id] || '').trim().length > 0) : true
 
   async function handleSubmit() {
@@ -106,7 +104,9 @@ export default function OrdinandRequirementPage() {
       await supabase.from('ordinand_requirements').update({ status: 'submitted' }).eq('id', id)
       flash('Submitted successfully!', 'success')
       fetchData()
-    } catch (err: any) { flash('Unexpected error: ' + err.message, 'error') }
+    } catch (err: any) {
+      flash('Unexpected error: ' + err.message, 'error')
+    }
     setIsSubmitting(false)
   }
 
@@ -119,7 +119,6 @@ export default function OrdinandRequirementPage() {
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="max-w-3xl mx-auto">
-
         <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
           <div>
             <Link href="/dashboard" className="text-slate-400 hover:text-blue-600 font-bold text-sm transition-colors">← Dashboard</Link>
@@ -156,7 +155,7 @@ export default function OrdinandRequirementPage() {
         {isPaper && topicData && (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
             <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Self-Assessment</h2>
-            <p className="text-xs text-slate-400 font-medium mb-6">Complete each question thoughtfully before submitting your paper. Your responses will be reviewed by your council grader alongside your paper.</p>
+            <p className="text-xs text-slate-400 font-medium mb-6">Complete each question thoughtfully before submitting your paper.</p>
             <div className="space-y-8">
               {topicData.questions.map((q, i) => (
                 <div key={q.id}>
@@ -164,20 +163,20 @@ export default function OrdinandRequirementPage() {
                     <span className="text-blue-500 font-black mr-2">{i + 1}.</span>{q.question}
                   </label>
                   <textarea
-                    className={`${inputClass} resize-none ${isLocked && status !== 'revision_required' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    className={`${inputClass} resize-none ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
                     rows={5}
                     value={answers[q.id] || ''}
                     onChange={e => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
                     placeholder="Your response..."
-                    disabled={isLocked && status !== 'revision_required'}
+                    disabled={!canEdit}
                   />
                   <div className="mt-2">
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Self-Assessment</label>
                     <select
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:ring-4 focus:ring-blue-100 outline-none transition-all ${isLocked && status !== 'revision_required' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:ring-4 focus:ring-blue-100 outline-none transition-all ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
                       value={selfAssessments[q.id] || ''}
                       onChange={e => setSelfAssessments(prev => ({ ...prev, [q.id]: e.target.value }))}
-                      disabled={isLocked && status !== 'revision_required'}
+                      disabled={!canEdit}
                     >
                       <option value="">Rate your response...</option>
                       <option value="insufficient">Insufficient</option>
@@ -210,7 +209,7 @@ export default function OrdinandRequirementPage() {
               <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-xs underline">View file →</a>
             </div>
           )}
-          {(!isLocked || status === 'revision_required') && (
+          {canEdit && (
             <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-blue-300 transition-colors">
               <input type="file" accept=".pdf,.doc,.docx" onChange={e => setFile(e.target.files?.[0] ?? null)} className="hidden" id="file-upload" />
               <label htmlFor="file-upload" className="cursor-pointer">
@@ -222,23 +221,26 @@ export default function OrdinandRequirementPage() {
           )}
         </div>
 
-        {(!isLocked || status === 'revision_required') && (
+        {canEdit && (
           <div className="flex items-center gap-4">
-            <button onClick={handleSubmit} disabled={isSubmitting || (isPaper && !allAnswered) || (!file && !submission?.file_url)} className={btnPrimary}>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || (isPaper && !allAnswered) || (!file && !submission?.file_url)}
+              className={btnPrimary}
+            >
               {isSubmitting ? 'Submitting...' : status === 'revision_required' ? 'Resubmit' : 'Submit'}
             </button>
             {isPaper && !allAnswered && <p className="text-xs text-amber-600 font-bold">Please answer all {topicData?.questions.length} questions to submit</p>}
           </div>
         )}
 
-        {isLocked && status !== 'revision_required' && (
+        {!canEdit && (
           <div className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4">
             <p className="text-sm font-bold text-slate-500">
               {status === 'complete' ? '✓ This assignment is complete.' : '⏳ This assignment has been submitted and is awaiting review.'}
             </p>
           </div>
         )}
-
       </div>
     </main>
   )
