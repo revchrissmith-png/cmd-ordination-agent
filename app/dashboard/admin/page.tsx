@@ -1,9 +1,11 @@
-// Iteration: v2.1 - Multi-role support (roles array)
+// Iteration: v2.2 - Alliance Blue design system
 // Tabs: Council Members | Cohorts | Candidates
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../utils/supabase/client'
 import Link from 'next/link'
+
+const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
 
 type Tab = 'council' | 'cohorts' | 'candidates'
 
@@ -183,16 +185,23 @@ export default function AdminPage() {
 
   const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
   const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5"
-  const btnPrimary = "bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-300 disabled:shadow-none"
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+
+      {/* Brand header */}
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+          <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
+          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
+        </div>
+        <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Dashboard</Link>
+      </header>
+
+    <main className="p-6 md:p-10">
       <div className="max-w-5xl mx-auto">
-        <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
-          <div>
-            <Link href="/dashboard" className="text-slate-400 hover:text-blue-600 font-bold text-sm transition-colors">← Dashboard</Link>
-            <h1 className="text-3xl font-black text-slate-900 mt-1">Admin Console</h1>
-          </div>
+        <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
+          <h1 className="text-2xl font-black mt-1" style={{ color: C.deepSea }}>Admin Console</h1>
           {message.text && (
             <div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
               {message.text}
@@ -200,10 +209,10 @@ export default function AdminPage() {
           )}
         </div>
 
-        <div className="flex gap-1 mb-8 bg-white border border-slate-200 rounded-2xl p-1 w-fit shadow-sm">
+        <div className="flex gap-1 mb-8 bg-white border border-slate-200 rounded-xl p-1 w-fit shadow-sm">
           {(['council','cohorts','candidates'] as Tab[]).map(key => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === key ? 'bg-blue-600 text-white shadow-md shadow-blue-200' : 'text-slate-500 hover:text-slate-800'}`}>
+              style={activeTab === key ? { backgroundColor: C.deepSea, color: C.white, padding: '0.5rem 1.2rem', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', border: 'none', cursor: 'pointer' } : { backgroundColor: 'transparent', color: '#666', padding: '0.5rem 1.2rem', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', border: 'none', cursor: 'pointer' }}>
               {key === 'council' ? '⚖️  Council Members' : key === 'cohorts' ? '📅  Cohorts' : '👤  Candidates'}
             </button>
           ))}
@@ -212,7 +221,7 @@ export default function AdminPage() {
         {activeTab === 'council' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-              <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-5">Add Council Member</h2>
+              <h2 className="text-xs font-black uppercase tracking-widest mb-5" style={{ color: C.allianceBlue }}>Add Council Member</h2>
               <form onSubmit={handleAddCouncil} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div><label className={labelClass}>First Name</label><input className={inputClass} value={newCouncilFirst} onChange={e => setNewCouncilFirst(e.target.value)} placeholder="Jane" required /></div>
@@ -229,7 +238,7 @@ export default function AdminPage() {
                     <p className="text-xs text-slate-400 font-medium">Allows this person to manage cohorts, candidates, and council members.</p>
                   </div>
                 </label>
-                <button type="submit" disabled={isAddingCouncil} className={btnPrimary}>{isAddingCouncil ? 'Adding...' : 'Add Council Member'}</button>
+                <button type="submit" disabled={isAddingCouncil} style={{ backgroundColor: isAddingCouncil ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCouncil ? 'Adding...' : 'Add Council Member'}</button>
               </form>
             </div>
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -268,7 +277,7 @@ export default function AdminPage() {
         {activeTab === 'cohorts' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-              <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-5">Create New Cohort</h2>
+              <h2 className="text-xs font-black uppercase tracking-widest mb-5" style={{ color: C.allianceBlue }}>Create New Cohort</h2>
               <form onSubmit={handleAddCohort} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div><label className={labelClass}>Year</label><input className={inputClass} type="number" value={newCohortYear} onChange={e => setNewCohortYear(e.target.value)} required /></div>
@@ -288,7 +297,7 @@ export default function AdminPage() {
                   </select>
                   <p className="text-xs text-slate-400 mt-1.5 font-medium">This topic generates 3 sermons. All other topics become papers for every ordinand in this cohort.</p>
                 </div>
-                <button type="submit" disabled={isAddingCohort} className={btnPrimary}>{isAddingCohort ? 'Creating...' : 'Create Cohort'}</button>
+                <button type="submit" disabled={isAddingCohort} style={{ backgroundColor: isAddingCohort ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCohort ? 'Creating...' : 'Create Cohort'}</button>
               </form>
             </div>
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -330,7 +339,7 @@ export default function AdminPage() {
         {activeTab === 'candidates' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-              <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Register New Ordinand</h2>
+              <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Register New Ordinand</h2>
               <p className="text-xs text-slate-400 font-medium mb-5">Adding a candidate automatically generates their 17 requirements based on their cohort. They will claim this profile when they first log in via Magic Link.</p>
               {cohorts.length === 0 ? (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-amber-700 text-sm font-medium">
@@ -351,7 +360,7 @@ export default function AdminPage() {
                       {cohorts.map(c => <option key={c.id} value={c.id}>{c.name} — Sermons: {topicLabel(c.sermon_topic)}</option>)}
                     </select>
                   </div>
-                  <button type="submit" disabled={isAddingCandidate} className={btnPrimary}>{isAddingCandidate ? 'Registering...' : 'Register Candidate'}</button>
+                  <button type="submit" disabled={isAddingCandidate} style={{ backgroundColor: isAddingCandidate ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCandidate ? 'Registering...' : 'Register Candidate'}</button>
                 </form>
               )}
             </div>
@@ -380,7 +389,7 @@ export default function AdminPage() {
                             ? <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{person.cohorts.name}</span>
                             : <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-xs font-bold">No cohort</span>}
                         </td>
-                        <td className="px-8 py-5 text-right"><Link href={`/dashboard/admin/candidates/${person.id}`} className="text-blue-600 font-black hover:text-blue-800 transition-colors text-sm">Manage →</Link></td>
+                        <td className="px-8 py-5 text-right"><Link href={`/dashboard/admin/candidates/${person.id}`} style={{ color: C.allianceBlue }} className="font-black transition-colors text-sm">Manage →</Link></td>
                       </tr>
                     ))}
                   </tbody>
@@ -392,5 +401,6 @@ export default function AdminPage() {
 
       </div>
     </main>
+    </div>
   )
 }
