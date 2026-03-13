@@ -1,0 +1,128 @@
+// app/dashboard/ordinand/page.tsx
+// Ordinand dashboard — view all requirements, statuses, links to submission pages
+'use client'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { supabase } from '../../../utils/supabase/client'
+
+type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
+
+const STATUS_CONFIG: Record<Status, { label: string; colour: string; dot: string }> = {
+  not_started:       { label: 'Not Started',      colour: 'bg-slate-100 text-slate-500',   dot: 'bg-slate-300' },
+  submitted:         { label: 'Submitted',         colour: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-400' },
+  under_review:      { label: 'Under Review',      colour: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-400' },
+  revision_required: { label: 'Revision Required', colour: 'bg-red-100 text-red-700',       dot: 'bg-red-400' },
+  complete:          { label: 'Complete',           colour: 'bg-green-100 text-green-700',   dot: 'bg-green-400' },
+}
+
+export default function OrdinandDashboard() {
+  const [profile, setProfile] = useState<any>(null)
+  const [requirements, setRequirements] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchData() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('full_name, email, cohort_id, cohorts(year, season, sermon_topic)')
+        .eq('id', user.id)
+        .single()
+      setProfile(prof)
+      const { data: reqs } = await supabase
+        .from('ordinand_requirements')
+        .select(`id, status, requirement_templates(id, type, topic, title, category)`)
+        .eq('ordinand_id', user.id)
+        .order('created_at', { ascending: true })
+      setRequirements(reqs || [])
+      setLoading(false)
+    }
+    fetchData()
+  }, [])
+
+  const bookReports = requirements.filter(r => r.requirement_templates?.type === 'book_report')
+  const papers      = requirements.filter(r => r.requirement_templates?.type === 'paper')
+  const sermons     = requirements.filter(r => r.requirement_templates?.type === 'sermon')
+  const total    = requirements.length
+  const complete = requirements.filter(r => r.status === 'complete').length
+  const inProgress = requirements.filter(r => ['submitted','under_review','revision_required'].includes(r.status)).length
+  const notStarted = requirements.filter(r => r.status === 'not_started').length
+  const pct = total > 0 ? Math.round((complete / total) * 100) : 0
+
+  if (loading) return <main className="min-h-screen bg-slate-50 p-10 flex items-center justify-center"><p className="text-slate-400 font-medium">Loading your dashboard...</p></main>
+
+  return (
+    <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+      <div className="max-w-4xl mx-auto">
+
+        <div className="mb-10">
+          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mb-1">Ordination Candidate</p>
+          <h1 className="text-4xl font-black text-slate-900">{profile?.full_name || 'My Dashboard'}</h1>
+          {profile?.cohorts && <p className="text-slate-500 font-medium mt-1">{profile.cohorts.season} {profile.cohorts.year} Cohort</p>}
+        </div>
+
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-8">
+          <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
+            <div>
+              <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Overall Progress</p>
+              <p className="text-3xl font-black text-slate-900">{pct}%</p>
+            </div>
+            <div className="flex gap-6 text-sm">
+              <div className="text-center"><p className="font-black text-green-600 text-xl">{complete}</p><p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Complete</p></div>
+              <div className="text-center"><p className="font-black text-amber-500 text-xl">{inProgress}</p><p className="text-slate-400 font-bold text-xs uppercase tracking-widest">In Progress</p></div>
+              <div className="text-center"><p className="font-black text-slate-400 text-xl">{notStarted}</p><p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Not Started</p></div>
+            </div>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-3">
+            <div className="bg-blue-600 h-3 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="flex justify-between text-xs text-slate-400 font-bold mt-2"><span>0</span><span>{total} requirements</span></div>
+        </div>
+
+        {[
+          { label: 'Book Reports', items: bookReports, icon: '📚', count: bookReports.length },
+          { label: 'Theological Papers', items: papers, icon: '📝', count: papers.length },
+          { label: 'Sermons', items: sermons, icon: '🎤', count: sermons.length },
+        ].map(({ label, items, icon, count }) => count > 0 && (
+          <div key={label} className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-xl">{icon}</span>
+              <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">{label}</h2>
+              <span className="text-xs font-bold text-slate-400">({count})</span>
+            </div>
+            <div className="space-y-2">
+              {items.map(req => {
+                const status: Status = req.status ?? 'not_started'
+                const cfg = STATUS_CONFIG[status]
+                const isRevision = status === 'revision_required'
+                return (
+                  <Link key={req.id} href={`/dashboard/ordinand/requirements/${req.id}`}
+                    className={`flex items-center justify-between bg-white border rounded-2xl px-6 py-4 hover:shadow-md hover:border-blue-200 transition-all group ${isRevision ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`}>
+                    <div className="flex items-center gap-3">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
+                      <span className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors">{req.requirement_templates?.title}</span>
+                      {isRevision && <span className="text-xs font-black text-red-600">⚠ Action Required</span>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${cfg.colour}`}>{cfg.label}</span>
+                      <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold">→</span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+
+        {requirements.length === 0 && (
+          <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
+            <p className="text-slate-400 font-bold">No requirements found.</p>
+            <p className="text-slate-300 text-sm font-medium mt-1">Contact your administrator if this seems incorrect.</p>
+          </div>
+        )}
+
+      </div>
+    </main>
+  )
+}
