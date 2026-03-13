@@ -124,7 +124,7 @@ export default function DashboardHome() {
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-2xl bg-purple-100">🤖</div>
             <h2 className="text-2xl font-bold mb-2">Study Agent</h2>
             <p className="text-purple-700/70 mb-8 flex-grow font-medium">Access the AI study assistant.</p>
-            <Link href="/agent" className="bg-purple-600 text-white text-center py-4 rounded-2xl font-bold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200">
+            <Link href="/dashboard/study" className="bg-purple-600 text-white text-center py-4 rounded-2xl font-bold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200">
               Launch Agent
             </Link>
           </div>
