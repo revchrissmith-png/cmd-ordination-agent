@@ -18,7 +18,8 @@ const STATUS_CONFIG: Record<Status, { label: string; colour: string }> = {
 }
 
 export default function OrdinandRequirementPage() {
-  const { id } = useParams<{ id: string }>()
+  const params = useParams<{ id: string }>()
+const id = params?.id ?? ''
 
   const [requirement, setRequirement] = useState<any>(null)
   const [submission, setSubmission] = useState<any>(null)
