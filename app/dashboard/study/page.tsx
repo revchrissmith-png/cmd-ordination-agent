@@ -5,6 +5,13 @@ import Link from 'next/link'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
+const C = {
+  allianceBlue: '#0077C8',
+  deepSea: '#00426A',
+  cloudGray: '#EAEAEE',
+  white: '#ffffff',
+}
+
 const SUGGESTED_QUESTIONS = [
   'What does the Alliance mean by the Fourfold Gospel?',
   'How does Scripture support the doctrine of divine healing?',
@@ -58,7 +65,7 @@ export default function StudyAgentPage() {
           return copy
         })
       }
-    } catch (err) {
+    } catch {
       setMessages(prev => {
         const copy = [...prev]
         copy[copy.length - 1] = { role: 'assistant', content: 'Something went wrong. Please try again.' }
@@ -77,36 +84,41 @@ export default function StudyAgentPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 flex flex-col">
+    <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'Arial, sans-serif' }}>
 
-      <div className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
-            <Link href="/dashboard" className="text-slate-400 hover:text-blue-600 font-bold text-sm transition-colors">← Dashboard</Link>
-            <h1 className="text-xl font-black text-slate-900 mt-0.5">Theological Study Assistant</h1>
-          </div>
-          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-full">Powered by Claude</span>
+      {/* Header */}
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+          <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
+          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD STUDY AGENT</span>
         </div>
-      </div>
+        <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>
+          ← Dashboard
+        </Link>
+      </header>
 
-      <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
-        <p className="max-w-3xl mx-auto text-xs font-bold text-amber-700 text-center">
-          This assistant is here to help you <span className="underline">think and study</span> — it will not write your papers, sermons, or assignments for you.
+      {/* Integrity banner */}
+      <div style={{ backgroundColor: '#FFF8E1', borderBottom: '1px solid #F0D060', padding: '0.6rem 1.2rem', textAlign: 'center' }}>
+        <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 'bold', color: '#7A5800' }}>
+          This assistant is here to help you <span style={{ textDecoration: 'underline' }}>think and study</span> — it will not write your papers, sermons, or assignments for you.
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="max-w-3xl mx-auto space-y-6">
+      {/* Chat area */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1.2rem 1rem' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
           {messages.length === 0 && (
-            <div className="text-center py-10">
-              <div className="text-5xl mb-4">✝</div>
-              <p className="text-lg font-black text-slate-700 mb-1">What would you like to explore?</p>
-              <p className="text-sm text-slate-400 font-medium mb-8">Ask about Alliance theology, the Fourfold Gospel, Scripture, or your ordination topics.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
+            <div style={{ textAlign: 'center', padding: '2.5rem 0' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.8rem' }}>✝</div>
+              <p style={{ fontWeight: 'bold', color: C.deepSea, fontSize: '1.1rem', margin: '0 0 0.3rem' }}>What would you like to explore?</p>
+              <p style={{ color: '#666', fontSize: '0.85rem', margin: '0 0 1.5rem' }}>Ask about Alliance theology, the Fourfold Gospel, Scripture, or your ordination topics.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.6rem', textAlign: 'left' }}>
                 {SUGGESTED_QUESTIONS.map(q => (
                   <button key={q} onClick={() => sendMessage(q)}
-                    className="bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 hover:border-blue-300 hover:text-blue-700 hover:shadow-sm transition-all text-left">
+                    style={{ backgroundColor: C.white, border: `1px solid #ccc`, borderRadius: '6px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#333', cursor: 'pointer', textAlign: 'left', lineHeight: 1.4 }}
+                    onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.allianceBlue; (e.currentTarget as HTMLButtonElement).style.color = C.allianceBlue }}
+                    onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#ccc'; (e.currentTarget as HTMLButtonElement).style.color = '#333' }}>
                     {q}
                   </button>
                 ))}
@@ -115,20 +127,25 @@ export default function StudyAgentPage() {
           )}
 
           {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-start', gap: '0.6rem' }}>
               {msg.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black shrink-0 mt-1 mr-3">✝</div>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: C.allianceBlue, color: C.white, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', flexShrink: 0, marginTop: '2px' }}>✝</div>
               )}
-              <div className={`max-w-[85%] rounded-2xl px-5 py-4 text-sm leading-relaxed font-medium whitespace-pre-wrap ${
-                msg.role === 'user'
-                  ? 'bg-blue-600 text-white rounded-br-sm'
-                  : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm'
-              }`}>
+              <div style={{
+                maxWidth: '85%',
+                backgroundColor: msg.role === 'user' ? C.allianceBlue : C.cloudGray,
+                color: msg.role === 'user' ? C.white : '#222',
+                padding: '0.85rem 1.1rem',
+                borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                fontSize: '0.9rem',
+                lineHeight: 1.55,
+                whiteSpace: 'pre-wrap',
+              }}>
                 {msg.content || (isLoading && i === messages.length - 1
-                  ? <span className="flex gap-1 items-center h-5">
-                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  ? <span style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '18px' }}>
+                      {[0, 150, 300].map(delay => (
+                        <span key={delay} style={{ width: '6px', height: '6px', backgroundColor: C.deepSea, borderRadius: '50%', display: 'inline-block', animation: 'bounce 1s infinite', animationDelay: `${delay}ms` }} />
+                      ))}
                     </span>
                   : null
                 )}
@@ -140,8 +157,9 @@ export default function StudyAgentPage() {
         </div>
       </div>
 
-      <div className="bg-white border-t border-slate-200 px-4 py-4">
-        <div className="max-w-3xl mx-auto flex gap-3 items-end">
+      {/* Input area */}
+      <div style={{ backgroundColor: C.white, borderTop: `1px solid #ccc`, padding: '1rem' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', gap: '0.6rem', alignItems: 'flex-end' }}>
           <textarea
             ref={textareaRef}
             value={input}
@@ -150,21 +168,25 @@ export default function StudyAgentPage() {
             placeholder="Ask a theological question... (Enter to send, Shift+Enter for new line)"
             rows={1}
             disabled={isLoading}
-            className="flex-1 resize-none px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400 text-sm max-h-40 overflow-y-auto disabled:opacity-60"
-            style={{ lineHeight: '1.5' }}
+            style={{ flex: 1, padding: '0.75rem', border: `1px solid ${C.allianceBlue}`, borderRadius: '4px', fontSize: '16px', resize: 'none', maxHeight: '140px', overflowY: 'auto', outline: 'none', fontFamily: 'Arial, sans-serif', opacity: isLoading ? 0.6 : 1 }}
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={isLoading || !input.trim()}
-            className="bg-blue-600 text-white px-5 py-3 rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none shrink-0"
+            style={{ backgroundColor: isLoading || !input.trim() ? '#aaa' : C.deepSea, color: C.white, padding: '0.75rem 1.4rem', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '0.9rem', flexShrink: 0 }}
           >
-            Send
+            SEND
           </button>
         </div>
-        <p className="max-w-3xl mx-auto text-xs text-slate-300 font-medium mt-2 px-1">Enter to send · Shift+Enter for new line</p>
+        <p style={{ maxWidth: '800px', margin: '0.4rem auto 0', fontSize: '0.72rem', color: '#999', paddingLeft: '2px' }}>Enter to send · Shift+Enter for new line</p>
       </div>
 
-    </main>
+      <style>{`
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-6px); }
+        }
+      `}</style>
+    </div>
   )
 }
-
