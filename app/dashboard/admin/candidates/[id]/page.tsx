@@ -13,7 +13,7 @@ const RATING_LABELS: Record<Rating, string> = {
   insufficient: 'Insufficient',
   adequate: 'Adequate',
   good: 'Good',
-  excellent: 'Excellent'
+  excellent: 'Excellent',
   exceptional: 'Exceptional',
 }
 
