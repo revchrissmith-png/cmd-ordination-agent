@@ -1,4 +1,4 @@
-// app/page.tsx — Login screen v4.0 — Magic link flow, no self-registration
+// app/page.tsx — Login screen v4.1 — OTP code flow with corrected verify type
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../utils/supabase/client'
@@ -8,37 +8,53 @@ const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', w
 
 export default function Home() {
   const [email, setEmail]   = useState('')
-  const [step, setStep]     = useState<'request' | 'sent'>('request')
+  const [token, setToken]   = useState('')
+  const [step, setStep]     = useState<'request' | 'verify'>('request')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  // Listen for the magic link click — Supabase sets a session automatically
-  // when the user arrives back at this page via the link in their email.
+  // If the user is already signed in (e.g. they clicked a session link),
+  // send them to the dashboard immediately.
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        router.push('/dashboard')
-      }
+      if (session) router.push('/dashboard')
     })
     return () => subscription.unsubscribe()
   }, [router])
 
-  const handleRequestLink = async (e: React.FormEvent) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setMessage('')
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        shouldCreateUser: false,   // Prevents self-registration; only existing accounts work
+        shouldCreateUser: false, // Block self-registration; only existing accounts work
       },
     })
     if (error) {
       setMessage(`Error: ${error.message}`)
-      setLoading(false)
     } else {
-      setStep('sent')
-      setMessage('')
+      setStep('verify')
+    }
+    setLoading(false)
+  }
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setMessage('Verifying…')
+    // type: 'email' is correct for email OTP codes (not 'magiclink')
+    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
+    if (error) {
+      setMessage(`Error: ${error.message}`)
+      setLoading(false)
+    } else if (data.session) {
+      setMessage('Signed in. Redirecting…')
+      router.push('/dashboard')
+    } else {
+      setMessage('Could not confirm your session. Please try again.')
       setLoading(false)
     }
   }
@@ -93,9 +109,9 @@ export default function Home() {
         {step === 'request' ? (
           <>
             <p style={{ color: '#555', fontSize: '1.05rem', marginBottom: '1.5rem', fontWeight: '500', textAlign: 'center', lineHeight: 1.6 }}>
-              Enter your email address and we'll send you a sign-in link.
+              Enter your email address to receive a sign-in code.
             </p>
-            <form onSubmit={handleRequestLink} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <form onSubmit={handleRequestOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <input
                 type="email"
                 placeholder="your@email.com"
@@ -134,7 +150,7 @@ export default function Home() {
                   transition: 'background-color 0.2s',
                 }}
               >
-                {loading ? 'Sending…' : 'Send Sign-In Link'}
+                {loading ? 'Sending…' : 'Send Sign-In Code'}
               </button>
             </form>
 
@@ -145,36 +161,79 @@ export default function Home() {
             </p>
           </>
         ) : (
-          /* Step 2 — Magic link sent confirmation */
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '0.8rem' }}>📬</div>
-            <p style={{ color: C.deepSea, fontWeight: '900', fontSize: '1.3rem', margin: '0 0 0.6rem 0' }}>
-              Check your inbox
-            </p>
-            <p style={{ color: '#666', fontSize: '1rem', margin: '0 0 1.4rem', lineHeight: 1.7, fontWeight: '500' }}>
-              We sent a sign-in link to<br />
-              <strong style={{ color: C.deepSea }}>{email}</strong>
-            </p>
-            <p style={{ color: '#888', fontSize: '0.95rem', margin: '0 0 1.8rem', lineHeight: 1.6 }}>
-              Click the link in that email and you'll be signed in automatically — no code needed.
-            </p>
-            <button
-              type="button"
-              onClick={() => { setStep('request'); setMessage('') }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#bbb',
-                fontSize: '0.93rem',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                fontWeight: '500',
-                padding: '0.3rem 0',
-              }}
-            >
-              Use a different email
-            </button>
-          </div>
+          <>
+            <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>📬</div>
+              <p style={{ color: C.deepSea, fontWeight: '800', fontSize: '1.2rem', margin: '0 0 0.4rem 0' }}>
+                Check your email
+              </p>
+              <p style={{ color: '#888', fontSize: '1rem', margin: 0, lineHeight: 1.6 }}>
+                We sent a 6-digit code to<br />
+                <strong style={{ color: C.deepSea }}>{email}</strong>
+              </p>
+            </div>
+            <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="000000"
+                value={token}
+                onChange={e => setToken(e.target.value)}
+                required
+                autoFocus
+                maxLength={6}
+                style={{
+                  width: '100%',
+                  padding: '1.1rem',
+                  border: '2px solid #e2e2e2',
+                  borderRadius: '14px',
+                  fontSize: '2.5rem',
+                  fontWeight: '800',
+                  textAlign: 'center',
+                  letterSpacing: '0.5em',
+                  color: C.deepSea,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={e => (e.target.style.borderColor = C.allianceBlue)}
+                onBlur={e => (e.target.style.borderColor = '#e2e2e2')}
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  backgroundColor: loading ? '#aaa' : C.deepSea,
+                  color: C.white,
+                  padding: '1.15rem',
+                  borderRadius: '14px',
+                  border: 'none',
+                  fontWeight: '800',
+                  fontSize: '1.1rem',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'background-color 0.2s',
+                }}
+              >
+                {loading ? 'Verifying…' : 'Sign In'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStep('request'); setToken(''); setMessage('') }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#999',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  fontWeight: '500',
+                  padding: '0.3rem 0',
+                }}
+              >
+                Use a different email
+              </button>
+            </form>
+          </>
         )}
 
         {message && (
