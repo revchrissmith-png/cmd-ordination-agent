@@ -81,7 +81,7 @@ export default function CandidateDetailPage() {
 
     const { data: reqs } = await supabase
       .from('ordinand_requirements')
-      .select(`id, status, updated_at, requirement_templates(id, type, topic, book_category, title, display_order), grading_assignments(id, council_member_id, profiles(first_name, last_name)), submissions(id, file_url), grades(id, overall_rating, overall_comments, graded_at)`)
+      .select(`id, status, updated_at, requirement_templates(id, type, topic, book_category, title, display_order), grading_assignments(id, council_member_id, profiles(first_name, last_name)), submissions(id, file_url, grades(id, overall_rating, overall_comments, graded_at))`)
       .eq('ordinand_id', id)
       .order('id')
     setRequirements(reqs || [])
@@ -382,7 +382,8 @@ CMD Ordaining Council`
                     const status: Status = req.status ?? 'not_started'
                     const statusCfg = STATUS_CONFIG[status]
                     const grader = Array.isArray(req.grading_assignments) ? req.grading_assignments[0]?.profiles : req.grading_assignments?.profiles
-                    const grade = Array.isArray(req.grades) ? req.grades[0] : req.grades
+                    const submission = Array.isArray(req.submissions) ? req.submissions[0] : req.submissions
+                    const grade = submission ? (Array.isArray(submission.grades) ? submission.grades[0] : submission.grades) : null
                     const isReassigning = reassigningId === req.id
                     return (
                       <div key={req.id} className="px-8 py-5 hover:bg-slate-50 transition-colors">

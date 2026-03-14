@@ -34,18 +34,18 @@ export default function OrdinandDashboard() {
       setProfile(prof)
       const { data: reqs } = await supabase
         .from('ordinand_requirements')
-        .select(`id, status, requirement_templates(id, type, topic, title, book_category)`)
+        .select(`id, status, requirement_templates(id, type, topic, title, book_category, display_order)`)
         .eq('ordinand_id', user.id)
-        .order('created_at', { ascending: true })
       setRequirements(reqs || [])
       setLoading(false)
     }
     fetchData()
   }, [])
 
-  const bookReports = requirements.filter(r => r.requirement_templates?.type === 'book_report')
-  const papers      = requirements.filter(r => r.requirement_templates?.type === 'paper')
-  const sermons     = requirements.filter(r => r.requirement_templates?.type === 'sermon')
+  const byOrder = (a: any, b: any) => (a.requirement_templates?.display_order ?? 0) - (b.requirement_templates?.display_order ?? 0)
+  const bookReports = requirements.filter(r => r.requirement_templates?.type === 'book_report').sort(byOrder)
+  const papers      = requirements.filter(r => r.requirement_templates?.type === 'paper').sort(byOrder)
+  const sermons     = requirements.filter(r => r.requirement_templates?.type === 'sermon').sort(byOrder)
   const total    = requirements.length
   const complete = requirements.filter(r => r.status === 'complete').length
   const inProgress = requirements.filter(r => ['submitted','under_review','revision_required'].includes(r.status)).length

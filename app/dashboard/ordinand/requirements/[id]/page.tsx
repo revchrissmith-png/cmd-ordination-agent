@@ -297,45 +297,50 @@ export default function OrdinandRequirementPage() {
         {isPaper && topicData && (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
             <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Self-Assessment</h2>
-            <p className="text-xs text-slate-400 font-medium mb-6">Complete each question thoughtfully before submitting your paper.</p>
+            <p className="text-sm text-slate-600 font-medium mb-1 leading-relaxed">
+              For each criterion below, rate how well your paper addresses it, then briefly describe <strong>where and how</strong> your paper engages with it — cite specific sections, arguments, or page numbers.
+            </p>
+            <p className="text-xs text-amber-600 font-bold mb-6">You are not being asked to answer these questions again — you are evaluating how well your submitted paper already addresses them.</p>
             <div className="space-y-8">
               {topicData.questions.map((q, i) => (
-                <div key={q.id}>
-                  <label className="block text-sm font-bold text-slate-800 mb-2 leading-relaxed">
-                    <span className="text-blue-500 font-black mr-2">{i + 1}.</span>{q.question}
-                  </label>
-                  <textarea
-                    className={`${inputClass} resize-none ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    rows={5}
-                    value={answers[q.id] || ''}
-                    onChange={e => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
-                    placeholder="Your response..."
-                    disabled={!canEdit}
-                  />
-                  <div className="mt-2">
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Self-Assessment</label>
+                <div key={q.id} className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Criterion {i + 1}</p>
+                  <p className="text-sm font-bold text-slate-800 mb-4 leading-relaxed">{q.question}</p>
+                  <div className="mb-3">
+                    <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">How well does your paper address this criterion?</label>
                     <select
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:ring-4 focus:ring-blue-100 outline-none transition-all ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      className={`w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:ring-4 focus:ring-blue-100 outline-none transition-all ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
                       value={selfAssessments[q.id] || ''}
                       onChange={e => setSelfAssessments(prev => ({ ...prev, [q.id]: e.target.value }))}
                       disabled={!canEdit}
                     >
-                      <option value="">Rate your response...</option>
-                      <option value="insufficient">Insufficient</option>
-                      <option value="adequate">Adequate</option>
-                      <option value="good">Good</option>
-                      <option value="excellent">Excellent</option>
-                      <option value="exceptional">Exceptional</option>
+                      <option value="">Select a rating…</option>
+                      <option value="insufficient">Insufficient — not meaningfully addressed</option>
+                      <option value="adequate">Adequate — addressed at a basic level</option>
+                      <option value="good">Good — addressed clearly and substantively</option>
+                      <option value="excellent">Excellent — addressed with depth and insight</option>
+                      <option value="exceptional">Exceptional — addressed with exceptional depth, originality, or precision</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Where does your paper address this? (cite sections, arguments, or page numbers)</label>
+                    <textarea
+                      className={`${inputClass} resize-none ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      rows={3}
+                      value={answers[q.id] || ''}
+                      onChange={e => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                      placeholder="e.g. 'Pages 3–5 address this through my discussion of… In section 2 I argue that…'"
+                      disabled={!canEdit}
+                    />
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-8 bg-slate-50 rounded-2xl p-5 border border-slate-100">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Assessment Rubric</p>
+            <div className="mt-6 bg-blue-50 rounded-2xl p-5 border border-blue-100">
+              <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-3">Council Grading Criteria</p>
               <div className="flex flex-wrap gap-2">
                 {topicData.rubricItems.map(item => (
-                  <span key={item} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-bold text-slate-600">{item}</span>
+                  <span key={item} className="px-3 py-1 bg-white border border-blue-100 rounded-full text-xs font-bold text-slate-600">{item}</span>
                 ))}
               </div>
             </div>
