@@ -163,7 +163,7 @@ export default function OrdinandRequirementPage() {
       let fileUrl = submission?.file_url ?? ''
       if (file) {
         const ext = file.name.split('.').pop()
-        const filePath = `submissions/${requirement.ordinand_id}/${id}-${Date.now()}.${ext}`
+        const filePath = `${requirement.ordinand_id}/${id}-${Date.now()}.${ext}`
         const { error: uploadError } = await supabase.storage.from('submissions').upload(filePath, file, { upsert: true })
         if (uploadError) { flash('File upload failed: ' + uploadError.message, 'error'); setIsSubmitting(false); return }
         const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(filePath)
