@@ -136,7 +136,7 @@ export default function OrdinandRequirementPage() {
         <Link href="/dashboard/ordinand" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← My Requirements</Link>
       </header>
 
-    <main className="p-6 md:p-10">
+    <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
       <div className="max-w-3xl mx-auto">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
           <div>

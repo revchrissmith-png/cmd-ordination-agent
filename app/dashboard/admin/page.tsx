@@ -198,7 +198,7 @@ export default function AdminPage() {
         <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Dashboard</Link>
       </header>
 
-    <main className="p-6 md:p-10">
+    <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
           <h1 className="text-2xl font-black mt-1" style={{ color: C.deepSea }}>Admin Console</h1>

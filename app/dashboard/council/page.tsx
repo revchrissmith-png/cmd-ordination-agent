@@ -83,7 +83,7 @@ export default function CouncilDashboard() {
         </div>
       </header>
 
-    <main className="p-6 md:p-10">
+    <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
       <div className="max-w-4xl mx-auto">
 
         <div className="mb-10">
