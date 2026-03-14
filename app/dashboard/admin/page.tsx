@@ -310,8 +310,7 @@ export default function AdminPage() {
                 <div className="divide-y divide-slate-100">
                   {cohorts.map(c => (
                     <div key={c.id} className="px-8 py-6 hover:bg-slate-50 transition-colors">
-                      <div className="font-bold text-slate-900 text-lg mb-1">{c.name}</div>
-                      <div className="text-xs text-slate-400 font-medium capitalize mb-4">{c.season} {c.year}</div>
+                      <div className="font-bold text-slate-900 text-lg mb-4">{c.name}</div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
                           <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-2">🎤 Sermon Topic (3 sermons)</p>
