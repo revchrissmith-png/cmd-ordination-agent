@@ -127,17 +127,36 @@ const id = params?.id ?? ''
   const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5"
   const btnPrimary = "bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-300 disabled:shadow-none"
 
-  if (loading) return (<main className="min-h-screen bg-slate-50 p-6 md:p-10 flex items-center justify-center"><p className="text-slate-400 font-medium">Loading candidate...</p></main>)
-  if (!candidate) return (<main className="min-h-screen bg-slate-50 p-6 md:p-10 flex items-center justify-center"><p className="text-slate-400 font-medium">Candidate not found.</p></main>)
+  const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
+      Loading candidate...
+    </div>
+  )
+  if (!candidate) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: '#666' }}>
+      Candidate not found.
+    </div>
+  )
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+          <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
+          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
+        </div>
+        <Link href="/dashboard/admin" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Admin Console</Link>
+      </header>
+
+    <main className="p-6 md:p-10">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
           <div>
-            <Link href="/dashboard/admin" className="text-slate-400 hover:text-blue-600 font-bold text-sm transition-colors">← Admin Console</Link>
-            <h1 className="text-3xl font-black text-slate-900 mt-1">{candidate.first_name} {candidate.last_name}</h1>
-            <p className="text-slate-400 font-medium mt-1">{candidate.email}</p>
+            <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{candidate.first_name} {candidate.last_name}</h1>
+            <p className="text-slate-500 font-medium mt-1">{candidate.email}</p>
             {candidate.cohorts?.name && (<span className="inline-block mt-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{candidate.cohorts.name}</span>)}
           </div>
           {message.text && (<div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{message.text}</div>)}
@@ -239,5 +258,6 @@ const id = params?.id ?? ''
         )}
       </div>
     </main>
+    </div>
   )
 }
