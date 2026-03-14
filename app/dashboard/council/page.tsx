@@ -41,7 +41,6 @@ export default function CouncilDashboard() {
             cohorts(year, season)
           )`)
         .eq('council_member_id', user.id)
-        .order('created_at', { ascending: false })
       setAssignments(assigns || [])
       setLoading(false)
     }
