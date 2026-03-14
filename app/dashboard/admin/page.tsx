@@ -7,7 +7,7 @@ import Link from 'next/link'
 
 const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
 
-type Tab = 'council' | 'cohorts' | 'candidates'
+type Tab = 'council' | 'cohorts' | 'candidates' | 'calendar'
 
 const TOPICS = [
   { value: 'christ_centred',   label: 'Christ-Centred Life and Ministry' },
@@ -43,6 +43,16 @@ export default function AdminPage() {
   const [newCohortSermonTopic, setNewCohortSermonTopic] = useState('christ_centred')
   const [isAddingCohort, setIsAddingCohort] = useState(false)
 
+  const [events, setEvents] = useState<any[]>([])
+  const [eventsLoading, setEventsLoading] = useState(true)
+  const [newEventCohort, setNewEventCohort] = useState('')
+  const [newEventTitle, setNewEventTitle] = useState('')
+  const [newEventDate, setNewEventDate] = useState('')
+  const [newEventType, setNewEventType] = useState<'online' | 'in_person'>('online')
+  const [newEventLocation, setNewEventLocation] = useState('')
+  const [newEventNotes, setNewEventNotes] = useState('')
+  const [isAddingEvent, setIsAddingEvent] = useState(false)
+
   const [candidates, setCandidates] = useState<any[]>([])
   const [candidatesLoading, setCandidatesLoading] = useState(true)
   const [newCandidateEmail, setNewCandidateEmail] = useState('')
@@ -77,6 +87,16 @@ export default function AdminPage() {
     setCohortsLoading(false)
   }
 
+  async function fetchEvents() {
+    setEventsLoading(true)
+    const { data, error } = await supabase
+      .from('cohort_events')
+      .select('*, cohorts(name)')
+      .order('event_date', { ascending: true })
+    if (!error) setEvents(data || [])
+    setEventsLoading(false)
+  }
+
   async function fetchCandidates() {
     setCandidatesLoading(true)
     const { data, error } = await supabase
@@ -92,6 +112,7 @@ export default function AdminPage() {
     fetchCouncil()
     fetchCohorts()
     fetchCandidates()
+    fetchEvents()
   }, [])
 
   async function handleAddCouncil(e: React.FormEvent) {
@@ -181,6 +202,34 @@ export default function AdminPage() {
     setIsAddingCandidate(false)
   }
 
+  async function handleAddEvent(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newEventCohort) { flash('Please select a cohort for this event.', 'error'); return }
+    setIsAddingEvent(true)
+    const { error } = await supabase.from('cohort_events').insert([{
+      cohort_id: newEventCohort,
+      title: newEventTitle.trim(),
+      event_date: newEventDate,
+      event_type: newEventType,
+      location: newEventLocation.trim() || null,
+      notes: newEventNotes.trim() || null,
+    }])
+    if (error) { flash('Error: ' + error.message, 'error') }
+    else {
+      flash('Event added to calendar.', 'success')
+      setNewEventTitle(''); setNewEventDate(''); setNewEventLocation(''); setNewEventNotes('')
+      fetchEvents()
+    }
+    setIsAddingEvent(false)
+  }
+
+  async function handleDeleteEvent(id: string, title: string) {
+    if (!confirm(`Remove "${title}" from the calendar?`)) return
+    const { error } = await supabase.from('cohort_events').delete().eq('id', id)
+    if (error) { flash('Error: ' + error.message, 'error') }
+    else { flash('Event removed.', 'success'); fetchEvents() }
+  }
+
   function topicLabel(value: string) { return TOPICS.find(t => t.value === value)?.label ?? value }
 
   const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
@@ -210,12 +259,12 @@ export default function AdminPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-8">
-          {(['council','cohorts','candidates'] as Tab[]).map(key => (
+          {(['council','cohorts','candidates','calendar'] as Tab[]).map(key => (
             <button key={key} onClick={() => setActiveTab(key)}
               style={activeTab === key
                 ? { backgroundColor: C.deepSea, color: C.white, padding: '0.65rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.9rem', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,66,106,0.25)' }
                 : { backgroundColor: C.white, color: '#666', padding: '0.65rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.9rem', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
-              {key === 'council' ? '⚖️  Council Members' : key === 'cohorts' ? '📅  Cohorts' : '👤  Ordinands'}
+              {key === 'council' ? '⚖️  Council Members' : key === 'cohorts' ? '🎓  Cohorts' : key === 'candidates' ? '👤  Ordinands' : '📆  Calendar'}
             </button>
           ))}
         </div>
@@ -406,6 +455,100 @@ export default function AdminPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'calendar' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+              <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Add Gathering</h2>
+              <p className="text-xs text-slate-400 font-medium mb-5">Events appear on the ordinand's dashboard for their cohort. The four annual gatherings are: September (online), November (online), February (online), June (in-person).</p>
+              {cohorts.length === 0 ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-amber-700 text-sm font-medium">
+                  You need to create at least one cohort before adding events.{' '}
+                  <button onClick={() => setActiveTab('cohorts')} className="font-black underline">Create a cohort →</button>
+                </div>
+              ) : (
+                <form onSubmit={handleAddEvent} className="space-y-4">
+                  <div>
+                    <label className={labelClass}>Cohort</label>
+                    <select className={inputClass} value={newEventCohort} onChange={e => setNewEventCohort(e.target.value)} required>
+                      <option value="">Select a cohort...</option>
+                      {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>Event Title</label>
+                      <input className={inputClass} value={newEventTitle} onChange={e => setNewEventTitle(e.target.value)} placeholder="Fall Gathering" required />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Date</label>
+                      <input className={inputClass} type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} required />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>Format</label>
+                      <select className={inputClass} value={newEventType} onChange={e => setNewEventType(e.target.value as 'online' | 'in_person')}>
+                        <option value="online">Online</option>
+                        <option value="in_person">In Person</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Location <span className="normal-case font-medium text-slate-400">(optional)</span></label>
+                      <input className={inputClass} value={newEventLocation} onChange={e => setNewEventLocation(e.target.value)} placeholder="Zoom link, address, etc." />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Notes <span className="normal-case font-medium text-slate-400">(optional)</span></label>
+                    <textarea className={inputClass} value={newEventNotes} onChange={e => setNewEventNotes(e.target.value)} rows={2} placeholder="Any additional details ordinands should know..." />
+                  </div>
+                  <button type="submit" disabled={isAddingEvent} style={{ backgroundColor: isAddingEvent ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingEvent ? 'Adding...' : 'Add to Calendar'}</button>
+                </form>
+              )}
+            </div>
+
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-8 py-5 border-b border-slate-100">
+                <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">All Scheduled Events ({events.length})</h2>
+              </div>
+              {eventsLoading ? <p className="px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
+              : events.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No events scheduled yet.</p>
+              : (
+                <div className="divide-y divide-slate-100">
+                  {events.map(ev => {
+                    const d = new Date(ev.event_date + 'T12:00:00')
+                    const isPast = d < new Date()
+                    const dateStr = d.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                    return (
+                      <div key={ev.id} className={`px-8 py-5 hover:bg-slate-50 transition-colors flex items-start justify-between gap-4 ${isPast ? 'opacity-50' : ''}`}>
+                        <div className="flex items-start gap-4">
+                          <div className="text-center bg-slate-100 rounded-xl px-3 py-2 min-w-[52px] flex-shrink-0">
+                            <p className="text-xs font-black text-slate-500 uppercase">{d.toLocaleDateString('en-CA', { month: 'short' })}</p>
+                            <p className="text-xl font-black text-slate-800 leading-none">{d.getDate()}</p>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-900">{ev.title}</span>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${ev.event_type === 'in_person' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                                {ev.event_type === 'in_person' ? '📍 In Person' : '💻 Online'}
+                              </span>
+                              {isPast && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-400">Past</span>}
+                            </div>
+                            <p className="text-sm text-slate-500 font-medium mt-0.5">{dateStr}</p>
+                            {ev.cohorts?.name && <p className="text-xs text-blue-600 font-bold mt-1">📅 {ev.cohorts.name}</p>}
+                            {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5">📍 {ev.location}</p>}
+                            {ev.notes && <p className="text-xs text-slate-400 font-medium mt-0.5 italic">{ev.notes}</p>}
+                          </div>
+                        </div>
+                        <button onClick={() => handleDeleteEvent(ev.id, ev.title)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap flex-shrink-0">Remove</button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

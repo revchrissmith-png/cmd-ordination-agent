@@ -20,6 +20,7 @@ const STATUS_CONFIG: Record<Status, { label: string; colour: string; dot: string
 export default function OrdinandDashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
+  const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -37,6 +38,19 @@ export default function OrdinandDashboard() {
         .select(`id, status, requirement_templates(id, type, topic, title, book_category, display_order)`)
         .eq('ordinand_id', user.id)
       setRequirements(reqs || [])
+
+      // Fetch upcoming events for this ordinand's cohort
+      if (prof?.cohort_id) {
+        const { data: evts } = await supabase
+          .from('cohort_events')
+          .select('id, title, event_date, event_type, location, notes')
+          .eq('cohort_id', prof.cohort_id)
+          .gte('event_date', new Date().toISOString().slice(0, 10))
+          .order('event_date', { ascending: true })
+          .limit(4)
+        setEvents(evts || [])
+      }
+
       setLoading(false)
     }
     fetchData()
@@ -133,6 +147,40 @@ export default function OrdinandDashboard() {
             <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-4">→</span>
           </Link>
         </div>
+
+        {/* Upcoming events */}
+        {events.length > 0 && (
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-8">
+            <p className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: C.allianceBlue }}>Upcoming Gatherings</p>
+            <div className="space-y-3">
+              {events.map(ev => {
+                const d = new Date(ev.event_date + 'T12:00:00')
+                const dateStr = d.toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+                const daysUntil = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                return (
+                  <div key={ev.id} className="flex items-start gap-4">
+                    <div className="text-center bg-slate-100 rounded-xl px-3 py-2 min-w-[52px] flex-shrink-0">
+                      <p className="text-xs font-black text-slate-500 uppercase">{d.toLocaleDateString('en-CA', { month: 'short' })}</p>
+                      <p className="text-xl font-black text-slate-800 leading-none">{d.getDate()}</p>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-900">{ev.title}</span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${ev.event_type === 'in_person' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {ev.event_type === 'in_person' ? '📍 In Person' : '💻 Online'}
+                        </span>
+                        {daysUntil <= 14 && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Coming up!</span>}
+                      </div>
+                      <p className="text-sm text-slate-500 font-medium mt-0.5">{dateStr}</p>
+                      {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5">📍 {ev.location}</p>}
+                      {ev.notes && <p className="text-xs text-slate-400 italic mt-0.5">{ev.notes}</p>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Submission guidance banner */}
         <div className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-4 mb-8 flex items-start gap-3">
