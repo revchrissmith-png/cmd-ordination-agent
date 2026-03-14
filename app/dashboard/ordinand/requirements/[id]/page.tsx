@@ -9,6 +9,77 @@ import { SELF_ASSESSMENT_TOPICS } from '../../../../../utils/selfAssessmentQuest
 
 type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
 
+// ── Handbook instructions shown to the ordinand on each requirement ──────────
+
+const BOOK_REPORT_REQUIREMENTS = [
+  'Approximately two pages in length, single-spaced',
+  'Summarize key ideas and themes from the book',
+  'Reflect on how the material applies to your life and ministry',
+  'Engage critically with the text in light of Alliance theology and values',
+  'Note areas of agreement, challenge, or new insight',
+  'Connect the content to your current ministry context',
+]
+
+const SERMON_REQUIREMENTS = [
+  'Submit a full sermon manuscript — not just an outline or notes',
+  'At the top of the document include: the date and occasion (e.g. Sunday service, youth group)',
+  'Identify the theme of the sermon (e.g. Divine Healing, Christ-Centred Life and Ministry)',
+  'Identify the specific question from the ordination requirements that this sermon addresses',
+  'Demonstrate faithful exegesis of a biblical text',
+  'Integrate theology and application to contemporary ministry contexts',
+  'If you are in a primary teaching role, submit a recording from your weekly worship service',
+]
+
+const PAPER_INSTRUCTIONS: Record<string, { overview: string; questions: string[] }> = {
+  christ_centred: {
+    overview: 'Write a 10–12 page theological reflection paper. Address each of the following questions, reflecting on the implications for your own life and ministry context.',
+    questions: [
+      'What is the biblical basis for the centrality of Christ in Christian worship? Why do we give preference to Christ-centred rather than Father-centred or Spirit-centred?',
+      'In what ways does the all-sufficiency of Jesus impact your life and ministry? How might you teach this to help others experience the all-sufficiency of Jesus for themselves?',
+      'How do the elements of the Fourfold Gospel have a practical impact on the life and ministry of a Christian worker? How can we restore the life-changing impact of these historic tenets of the Alliance tradition in our ministries today?',
+      'What might it look like for a Christ-centred believer to have an active and intentional discipleship to Jesus, including the making of other disciples? How does the life and ministry of Jesus as revealed in the Gospels inform the way you centre your own life around him?',
+      'Why is hearing the voice of Jesus essential to living a Christ-centred life? How would you disciple someone to hear Jesus\' voice? What are the ways in which you would coach someone to listen for it?',
+    ],
+  },
+  spirit_empowered: {
+    overview: 'Write a 10–12 page theological reflection paper. Address each of the following questions, reflecting on the implications for your own life and ministry context.',
+    questions: [
+      'Part of the Fourfold Gospel is the proclamation that Jesus Christ is our Sanctifier. Explain the dynamic link between being Spirit-empowered and the sanctifying work of Christ. Why do we believe this, why does it matter, and what are the implications — for you personally, for the church, and in a post-Christian Canada?',
+      'What does it mean to be filled with the Holy Spirit? What would be evidences that someone is "Spirit-filled"? How does one seek and experience the filling of the Holy Spirit?',
+      'What kinds of spiritual practices might someone utilize to invite a deeper work of the Spirit? How have these helped you personally? How might you disciple others to cultivate greater Spirit-empowerment?',
+      'Define the term cessationism and explain why the Alliance rejects it.',
+    ],
+  },
+  mission_focused: {
+    overview: 'Write a 10–12 page theological reflection paper. Address each of the following questions, reflecting on the implications for your own life and ministry context.',
+    questions: [
+      'Why is "Mission" important today? How does the fate of humanity motivate the Church to be engaged in mission?',
+      'How would you articulate the "Mission of God" and what scriptures would you use to challenge all believers to participate, regardless of their vocation or where they live?',
+      'Identify some key barriers of perception people have about believers being on "mission." How would you address these?',
+      'Describe how your life is currently aligned with the mission of God and how you are intentionally seeking to live out a "missionary" mindset in your community outside the walls of the church. Reflect on your practice of prayer, time and energy, personal strategy, and financial habits.',
+      'How is mission motivated by the return of Christ? What role did the return of Christ play in the formation of the Alliance\'s doctrine of mission, and what role does/should it play today?',
+    ],
+  },
+  scripture: {
+    overview: 'Write a 10–12 page theological reflection paper. Address each of the following questions, reflecting on the implications for your own life and ministry context.',
+    questions: [
+      'Why do we believe Scripture is authoritative, and what are the implications — for you personally, for the church, and in a post-Christian Canada?',
+      'How did we get the Bible as we have it today? What role did the early church councils play in the development of a Christian understanding of canonicity? How does this support the validity of the scriptural claims?',
+      'What is the basis for claiming the Bible as the authority for our lives?',
+      'What are the range and limits of the terms inspiration, inerrancy, and infallibility? Why are these doctrines important in a post-modern culture where truth is often considered relative?',
+    ],
+  },
+  divine_healing: {
+    overview: 'Write a 10–12 page theological reflection paper. Address each of the following questions, reflecting on the implications for your own life and ministry context.',
+    questions: [
+      'What do the Scriptures teach about the availability of divine healing for today? To whom and to what does it apply? What might it look like in practice?',
+      'How might we wisely steward this gift of grace with those we encounter?',
+      'What do we mean when we say that Christ is our Healer? Describe the relationship between the provision for healing and the atonement.',
+      'How would you counsel someone who has been prayed for and yet not received healing? How do you integrate a theology of suffering with a theology of healing?',
+    ],
+  },
+}
+
 const STATUS_CONFIG: Record<Status, { label: string; colour: string }> = {
   not_started:       { label: 'Not Started',       colour: 'bg-slate-100 text-slate-500' },
   submitted:         { label: 'Submitted',          colour: 'bg-blue-100 text-blue-700' },
@@ -71,9 +142,12 @@ export default function OrdinandRequirementPage() {
 
   useEffect(() => { fetchData() }, [id])
 
-  const isPaper = requirement?.requirement_templates?.type === 'paper'
-  const topic = requirement?.requirement_templates?.topic
+  const isPaper   = requirement?.requirement_templates?.type === 'paper'
+  const isSermon  = requirement?.requirement_templates?.type === 'sermon'
+  const isBook    = requirement?.requirement_templates?.type === 'book_report'
+  const topic     = requirement?.requirement_templates?.topic
   const topicData = topic ? SELF_ASSESSMENT_TOPICS[topic] : null
+  const paperInstructions = isPaper && topic ? PAPER_INSTRUCTIONS[topic] : null
   const status: Status = requirement?.status ?? 'not_started'
   const statusCfg = STATUS_CONFIG[status]
   const isLocked = status === 'submitted' || status === 'under_review' || status === 'complete'
@@ -152,6 +226,56 @@ export default function OrdinandRequirementPage() {
             </div>
           )}
         </div>
+
+        {/* ── What you need to produce ─────────────────────────────── */}
+        {isBook && (
+          <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8 mb-6">
+            <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Book Report Requirements</h2>
+            <p className="text-xs text-slate-500 font-medium mb-5">Your report should be approximately two pages, single-spaced, and must cover each of the following:</p>
+            <ul className="space-y-2">
+              {BOOK_REPORT_REQUIREMENTS.map((req, i) => (
+                <li key={i} className="flex items-start gap-3 text-sm text-slate-700 font-medium">
+                  <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                  {req}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {isSermon && (
+          <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8 mb-6">
+            <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Sermon Submission Requirements</h2>
+            <p className="text-xs text-slate-500 font-medium mb-5">Each sermon submission must meet all of the following requirements:</p>
+            <ul className="space-y-2">
+              {SERMON_REQUIREMENTS.map((req, i) => (
+                <li key={i} className="flex items-start gap-3 text-sm text-slate-700 font-medium">
+                  <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                  {req}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {isPaper && paperInstructions && (
+          <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8 mb-6">
+            <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Paper Requirements</h2>
+            <p className="text-sm text-slate-600 font-medium mb-6">{paperInstructions.overview}</p>
+            <div className="space-y-4">
+              {paperInstructions.questions.map((q, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                  <p className="text-sm text-slate-700 font-medium leading-relaxed">{q}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 bg-white rounded-2xl border border-blue-100 px-5 py-4">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Reminder</p>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">Papers should be 10–12 pages, formatted according to the CMD style guide. Writing in first-person is acceptable. Complete the self-assessment form below before submitting.</p>
+            </div>
+          </div>
+        )}
 
         {grade && (
           <div className="bg-green-50 border border-green-200 rounded-3xl p-8 mb-6">
