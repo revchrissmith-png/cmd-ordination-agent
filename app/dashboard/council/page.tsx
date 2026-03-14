@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 
+const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+
 type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
 
 const STATUS_CONFIG: Record<Status, { label: string; colour: string; dot: string }> = {
@@ -57,15 +59,36 @@ export default function CouncilDashboard() {
     { id: 'complete',     label: 'Complete',     count: completed.length },
   ]
 
-  if (loading) return <main className="min-h-screen bg-slate-50 p-10 flex items-center justify-center"><p className="text-slate-400 font-medium">Loading your assignments...</p></main>
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
+      Loading your assignments...
+    </div>
+  )
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+
+      {/* Header */}
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+          <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
+          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Dashboard</Link>
+          <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')}
+            style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.7)', padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}>
+            Sign Out
+          </button>
+        </div>
+      </header>
+
+    <main className="p-6 md:p-10">
       <div className="max-w-4xl mx-auto">
 
         <div className="mb-10">
           <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mb-1">Ordaining Council</p>
-          <h1 className="text-4xl font-black text-slate-900">{profile?.full_name || 'My Assignments'}</h1>
+          <h1 className="text-4xl font-black" style={{ color: C.deepSea }}>{profile?.full_name || 'My Assignments'}</h1>
           <p className="text-slate-400 font-medium mt-1">{assignments.length} total assignments</p>
         </div>
 
@@ -137,5 +160,6 @@ export default function CouncilDashboard() {
 
       </div>
     </main>
+    </div>
   )
 }

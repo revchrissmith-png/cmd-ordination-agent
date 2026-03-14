@@ -108,7 +108,7 @@ export default function DashboardHome() {
               <div style={{ fontSize: '1.8rem', marginBottom: '0.8rem' }}>⚖️</div>
               <h3 style={{ color: C.deepSea, fontWeight: 'bold', fontSize: '1rem', margin: '0 0 0.5rem' }}>Grading Queue</h3>
               <p style={{ color: '#666', fontSize: '0.85rem', flex: 1, margin: '0 0 1.2rem', lineHeight: 1.5 }}>Review and grade assigned submissions.</p>
-              <Link href="/dashboard/grading" style={{ backgroundColor: C.allianceBlue, color: C.white, textAlign: 'center', padding: '0.7rem', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.85rem', textDecoration: 'none', letterSpacing: '0.04em' }}>
+              <Link href="/dashboard/council" style={{ backgroundColor: C.allianceBlue, color: C.white, textAlign: 'center', padding: '0.7rem', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.85rem', textDecoration: 'none', letterSpacing: '0.04em' }}>
                 OPEN QUEUE
               </Link>
             </div>
@@ -120,7 +120,7 @@ export default function DashboardHome() {
               <div style={{ fontSize: '1.8rem', marginBottom: '0.8rem' }}>✔️</div>
               <h3 style={{ color: C.deepSea, fontWeight: 'bold', fontSize: '1rem', margin: '0 0 0.5rem' }}>Requirements</h3>
               <p style={{ color: '#666', fontSize: '0.85rem', flex: 1, margin: '0 0 1.2rem', lineHeight: 1.5 }}>View your personalized checklist.</p>
-              <Link href="/dashboard/requirements" style={{ backgroundColor: C.deepSea, color: C.white, textAlign: 'center', padding: '0.7rem', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.85rem', textDecoration: 'none', letterSpacing: '0.04em' }}>
+              <Link href="/dashboard/ordinand" style={{ backgroundColor: C.deepSea, color: C.white, textAlign: 'center', padding: '0.7rem', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.85rem', textDecoration: 'none', letterSpacing: '0.04em' }}>
                 VIEW CHECKLIST
               </Link>
             </div>
