@@ -104,13 +104,13 @@ export default function OrdinandDashboard() {
         </div>
 
         {/* Quick-access cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <Link href="/dashboard/ordinand/process"
             className="bg-white rounded-2xl border border-slate-200 px-6 py-5 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Process Guide</p>
               <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">The Ordination Journey</p>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">Requirements, timeline, mentorship & interview</p>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Timeline, mentorship & interview</p>
             </div>
             <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-4">→</span>
           </Link>
@@ -119,10 +119,27 @@ export default function OrdinandDashboard() {
             <div>
               <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Study Agent</p>
               <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">AI Theological Study Tool</p>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">Explore theology or prep for your interview</p>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Explore theology & interview prep</p>
             </div>
             <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-4">→</span>
           </Link>
+          <Link href="/dashboard/ordinand/profile"
+            className="bg-white rounded-2xl border border-slate-200 px-6 py-5 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>My Profile</p>
+              <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">Personal Details</p>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Name, email, cohort information</p>
+            </div>
+            <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-4">→</span>
+          </Link>
+        </div>
+
+        {/* Submission guidance banner */}
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-4 mb-8 flex items-start gap-3">
+          <span className="text-blue-400 text-lg mt-0.5">ℹ️</span>
+          <p className="text-sm text-blue-700 font-medium leading-relaxed">
+            <span className="font-black">To submit an assignment,</span> click on any requirement below. Each page has full submission instructions and a form to upload your work.
+          </p>
         </div>
 
         {[
@@ -151,7 +168,9 @@ export default function OrdinandDashboard() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold ${cfg.colour}`}>{cfg.label}</span>
-                      <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold">→</span>
+                      <span className="text-xs font-bold text-slate-300 group-hover:text-blue-500 transition-colors whitespace-nowrap">
+                        {status === 'not_started' ? 'Submit →' : 'View →'}
+                      </span>
                     </div>
                   </Link>
                 )

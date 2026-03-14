@@ -1,6 +1,7 @@
-// Iteration: v3.0 - Alliance Blue design system
+// Iteration: v3.1 - Hide admin card from non-admins; auto-redirect ordinands
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../../utils/supabase/client'
 import Link from 'next/link'
 
@@ -15,6 +16,7 @@ export default function DashboardHome() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     async function loadData() {
@@ -39,7 +41,15 @@ export default function DashboardHome() {
         prof = backupProf
       }
 
-      if (prof) setProfile(prof)
+      if (prof) {
+        setProfile(prof)
+        // Auto-redirect ordinands directly to their dashboard
+        const roles: string[] = prof?.roles ?? []
+        if (roles.includes('ordinand') && !roles.includes('admin') && !roles.includes('council')) {
+          router.replace('/dashboard/ordinand')
+          return
+        }
+      }
       setLoading(false)
     }
     loadData()
@@ -86,21 +96,17 @@ export default function DashboardHome() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
 
-          {/* Admin Card */}
-          <div style={{ backgroundColor: C.white, borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: isAdmin ? `2px solid ${C.allianceBlue}` : '2px solid transparent', opacity: isAdmin ? 1 : 0.5, display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
-            <div style={{ fontSize: '1.8rem', marginBottom: '0.8rem' }}>📋</div>
-            <h3 style={{ color: C.deepSea, fontWeight: 'bold', fontSize: '1rem', margin: '0 0 0.5rem' }}>Admin Console</h3>
-            <p style={{ color: '#666', fontSize: '0.85rem', flex: 1, margin: '0 0 1.2rem', lineHeight: 1.5 }}>Manage candidates and track District progress.</p>
-            {isAdmin ? (
+          {/* Admin Card — only visible to admins */}
+          {isAdmin && (
+            <div style={{ backgroundColor: C.white, borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: `2px solid ${C.allianceBlue}`, display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
+              <div style={{ fontSize: '1.8rem', marginBottom: '0.8rem' }}>📋</div>
+              <h3 style={{ color: C.deepSea, fontWeight: 'bold', fontSize: '1rem', margin: '0 0 0.5rem' }}>Admin Console</h3>
+              <p style={{ color: '#666', fontSize: '0.85rem', flex: 1, margin: '0 0 1.2rem', lineHeight: 1.5 }}>Manage ordinands and track District progress.</p>
               <Link href="/dashboard/admin" style={{ backgroundColor: C.deepSea, color: C.white, textAlign: 'center', padding: '0.7rem', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.85rem', textDecoration: 'none', letterSpacing: '0.04em' }}>
                 OPEN MANAGER
               </Link>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '0.7rem', color: '#aaa', fontWeight: 'bold', fontSize: '0.85rem', backgroundColor: C.cloudGray, borderRadius: '4px' }}>
-                RESTRICTED
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Council Grading Card */}
           {(isCouncil || isAdmin) && (
