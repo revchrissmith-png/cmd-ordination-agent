@@ -1,7 +1,7 @@
 // app/dashboard/ordinand/page.tsx
 // Ordinand dashboard — view all requirements, statuses, links to submission pages
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 
@@ -21,7 +21,10 @@ export default function OrdinandDashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
   const [events, setEvents] = useState<any[]>([])
+  const [cohortMembers, setCohortMembers] = useState<any[]>([])
+  const [showCohortPopover, setShowCohortPopover] = useState(false)
   const [loading, setLoading] = useState(true)
+  const popoverRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -29,7 +32,7 @@ export default function OrdinandDashboard() {
       if (!user) return
       const { data: prof } = await supabase
         .from('profiles')
-        .select('full_name, email, cohort_id, cohorts(year, season, sermon_topic)')
+        .select('full_name, email, cohort_id, cohorts(year, season, sermon_topic, assignment_due_date)')
         .eq('id', user.id)
         .single()
       setProfile(prof)
@@ -39,8 +42,8 @@ export default function OrdinandDashboard() {
         .eq('ordinand_id', user.id)
       setRequirements(reqs || [])
 
-      // Fetch upcoming events for this ordinand's cohort
       if (prof?.cohort_id) {
+        // Upcoming events
         const { data: evts } = await supabase
           .from('cohort_events')
           .select('id, title, event_date, event_type, location, notes')
@@ -49,6 +52,16 @@ export default function OrdinandDashboard() {
           .order('event_date', { ascending: true })
           .limit(4)
         setEvents(evts || [])
+
+        // Other ordinands in the same cohort
+        const { data: members } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .eq('cohort_id', prof.cohort_id)
+          .contains('roles', ['ordinand'])
+          .neq('id', user.id)
+          .order('last_name')
+        setCohortMembers(members || [])
       }
 
       setLoading(false)
@@ -65,6 +78,14 @@ export default function OrdinandDashboard() {
   const inProgress = requirements.filter(r => ['submitted','under_review','revision_required'].includes(r.status)).length
   const notStarted = requirements.filter(r => r.status === 'not_started').length
   const pct = total > 0 ? Math.round((complete / total) * 100) : 0
+
+  const cohort = profile?.cohorts
+  const dueDate = cohort?.assignment_due_date
+    ? new Date(cohort.assignment_due_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null
+  const daysUntilDue = cohort?.assignment_due_date
+    ? Math.ceil((new Date(cohort.assignment_due_date + 'T12:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
@@ -96,9 +117,49 @@ export default function OrdinandDashboard() {
         <div className="mb-10">
           <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mb-1">CMD Ordinand</p>
           <h1 className="text-4xl font-black" style={{ color: C.deepSea }}>{profile?.full_name || 'My Dashboard'}</h1>
-          {profile?.cohorts && <p className="text-slate-500 font-medium mt-1 capitalize">{profile.cohorts.season} {profile.cohorts.year} Cohort</p>}
+
+          {/* Cohort name with hover popover */}
+          {cohort && (
+            <div className="relative inline-block mt-1" ref={popoverRef}>
+              <button
+                className="text-slate-500 font-medium capitalize hover:text-blue-600 transition-colors focus:outline-none"
+                onMouseEnter={() => setShowCohortPopover(true)}
+                onMouseLeave={() => setShowCohortPopover(false)}
+                onClick={() => setShowCohortPopover(v => !v)}
+              >
+                {cohort.season} {cohort.year} Cohort
+                {cohortMembers.length > 0 && (
+                  <span className="ml-2 text-xs font-bold text-blue-400 bg-blue-50 px-2 py-0.5 rounded-full">
+                    {cohortMembers.length + 1} members
+                  </span>
+                )}
+              </button>
+              {showCohortPopover && cohortMembers.length > 0 && (
+                <div
+                  className="absolute top-full left-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-xl p-4 z-20 min-w-[200px]"
+                  onMouseEnter={() => setShowCohortPopover(true)}
+                  onMouseLeave={() => setShowCohortPopover(false)}
+                >
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Your Cohort</p>
+                  <ul className="space-y-2">
+                    <li className="text-sm font-bold text-blue-700 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                      {profile?.full_name} (you)
+                    </li>
+                    {cohortMembers.map(m => (
+                      <li key={m.id} className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />
+                        {m.first_name} {m.last_name}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
+        {/* Progress card */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-8">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
             <div>
@@ -115,6 +176,23 @@ export default function OrdinandDashboard() {
             <div className="bg-blue-600 h-3 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
           </div>
           <div className="flex justify-between text-xs text-slate-400 font-bold mt-2"><span>0</span><span>{total} requirements</span></div>
+
+          {/* Due date */}
+          {dueDate && (
+            <div className={`mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 flex-wrap`}>
+              <span className="text-xs text-slate-500 font-medium">
+                All assignments due by <span className="font-black text-slate-700">{dueDate}</span>
+              </span>
+              {daysUntilDue !== null && daysUntilDue >= 0 && (
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${daysUntilDue <= 30 ? 'bg-red-50 text-red-600' : daysUntilDue <= 90 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
+                  {daysUntilDue} days remaining
+                </span>
+              )}
+              {daysUntilDue !== null && daysUntilDue < 0 && (
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-400">Deadline passed</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Quick-access cards */}

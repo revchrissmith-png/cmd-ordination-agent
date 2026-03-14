@@ -41,6 +41,10 @@ export default function AdminPage() {
   const [newCohortYear, setNewCohortYear] = useState(new Date().getFullYear().toString())
   const [newCohortSeason, setNewCohortSeason] = useState<'spring' | 'fall'>('fall')
   const [newCohortSermonTopic, setNewCohortSermonTopic] = useState('christ_centred')
+  const [newCohortDueDate, setNewCohortDueDate] = useState(() => {
+    const y = new Date().getFullYear()
+    return `${y}-07-31` // default: fall due date
+  })
   const [isAddingCohort, setIsAddingCohort] = useState(false)
 
   const [events, setEvents] = useState<any[]>([])
@@ -158,15 +162,21 @@ export default function AdminPage() {
     else { flash(`${name} removed from council.`, 'success'); fetchCouncil() }
   }
 
+  function autoComputeDueDate(season: string, year: string) {
+    const y = parseInt(year) || new Date().getFullYear()
+    return season === 'spring' ? `${y}-02-28` : `${y}-07-31`
+  }
+
   async function handleAddCohort(e: React.FormEvent) {
     e.preventDefault()
     setIsAddingCohort(true)
     const name = newCohortName.trim() || `${newCohortSeason.charAt(0).toUpperCase() + newCohortSeason.slice(1)} ${newCohortYear}`
     const { error } = await supabase.from('cohorts').insert([{
       name, year: parseInt(newCohortYear), season: newCohortSeason, sermon_topic: newCohortSermonTopic,
+      assignment_due_date: newCohortDueDate || null,
     }])
     if (error) { flash('Error: ' + error.message, 'error') }
-    else { flash(`Cohort "${name}" created.`, 'success'); setNewCohortName(''); fetchCohorts() }
+    else { flash(`Cohort "${name}" created.`, 'success'); setNewCohortName(''); setNewCohortDueDate(autoComputeDueDate(newCohortSeason, newCohortYear)); fetchCohorts() }
     setIsAddingCohort(false)
   }
 
@@ -336,15 +346,20 @@ export default function AdminPage() {
               <h2 className="text-xs font-black uppercase tracking-widest mb-5" style={{ color: C.allianceBlue }}>Create New Cohort</h2>
               <form onSubmit={handleAddCohort} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className={labelClass}>Year</label><input className={inputClass} type="number" value={newCohortYear} onChange={e => setNewCohortYear(e.target.value)} required /></div>
+                  <div><label className={labelClass}>Year</label><input className={inputClass} type="number" value={newCohortYear} onChange={e => { setNewCohortYear(e.target.value); setNewCohortDueDate(autoComputeDueDate(newCohortSeason, e.target.value)) }} required /></div>
                   <div><label className={labelClass}>Season</label>
-                    <select className={inputClass} value={newCohortSeason} onChange={e => setNewCohortSeason(e.target.value as 'spring' | 'fall')}>
+                    <select className={inputClass} value={newCohortSeason} onChange={e => { setNewCohortSeason(e.target.value as 'spring' | 'fall'); setNewCohortDueDate(autoComputeDueDate(e.target.value, newCohortYear)) }}>
                       <option value="fall">Fall</option><option value="spring">Spring</option>
                     </select>
                   </div>
                 </div>
                 <div><label className={labelClass}>Cohort Name <span className="normal-case font-medium text-slate-400">(optional — auto-generated if blank)</span></label>
                   <input className={inputClass} value={newCohortName} onChange={e => setNewCohortName(e.target.value)} placeholder={`Fall ${newCohortYear}`} />
+                </div>
+                <div>
+                  <label className={labelClass}>Assignment Due Date <span className="normal-case font-medium text-slate-400">(auto-filled — override if needed)</span></label>
+                  <input className={inputClass} type="date" value={newCohortDueDate} onChange={e => setNewCohortDueDate(e.target.value)} />
+                  <p className="text-xs text-slate-400 mt-1.5 font-medium">Spring cohorts default to Feb 28 · Fall cohorts default to Jul 31. Shown to ordinands on their dashboard.</p>
                 </div>
                 <div>
                   <label className={labelClass}>Sermon Topic</label>
@@ -366,7 +381,14 @@ export default function AdminPage() {
                 <div className="divide-y divide-slate-100">
                   {cohorts.map(c => (
                     <div key={c.id} className="px-8 py-6 hover:bg-slate-50 transition-colors">
-                      <div className="font-bold text-slate-900 text-lg mb-4">{c.name}</div>
+                      <div className="flex flex-wrap items-center gap-3 mb-4">
+                        <span className="font-bold text-slate-900 text-lg">{c.name}</span>
+                        {c.assignment_due_date && (
+                          <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold">
+                            Due {new Date(c.assignment_due_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
                           <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-2">🎤 Sermon Topic (3 sermons)</p>

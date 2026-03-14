@@ -56,6 +56,8 @@ export default function CandidateDetailPage() {
   const [editLast, setEditLast] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editCohortId, setEditCohortId] = useState('')
+  const [editMentorName, setEditMentorName] = useState('')
+  const [editMentorEmail, setEditMentorEmail] = useState('')
   const [isSavingProfile, setIsSavingProfile] = useState(false)
 
   // Grading state
@@ -111,6 +113,8 @@ export default function CandidateDetailPage() {
       setEditLast(candidate.last_name || '')
       setEditEmail(candidate.email || '')
       setEditCohortId(candidate.cohort_id || '')
+      setEditMentorName(candidate.mentor_name || '')
+      setEditMentorEmail(candidate.mentor_email || '')
     }
   }, [candidate])
 
@@ -141,6 +145,8 @@ export default function CandidateDetailPage() {
         full_name: `${editFirst.trim()} ${editLast.trim()}`,
         email: editEmail.trim().toLowerCase(),
         cohort_id: editCohortId || null,
+        mentor_name: editMentorName.trim() || null,
+        mentor_email: editMentorEmail.trim().toLowerCase() || null,
       })
       .eq('id', id)
     if (error) {
@@ -326,6 +332,15 @@ CMD Ordaining Council`
                   </select>
                   <p className="text-xs text-amber-600 font-medium mt-1">⚠ Changing the cohort does not regenerate requirements. Contact support if reassignment is needed.</p>
                 </div>
+                <div>
+                  <label className={labelClass}>Mentor Name</label>
+                  <input type="text" className={inputClass} value={editMentorName} onChange={e => setEditMentorName(e.target.value)} placeholder="Rev. Jane Smith" />
+                </div>
+                <div>
+                  <label className={labelClass}>Mentor Email</label>
+                  <input type="email" className={inputClass} value={editMentorEmail} onChange={e => setEditMentorEmail(e.target.value)} placeholder="mentor@church.ca" />
+                  <p className="text-xs text-slate-400 font-medium mt-1">Displayed to the ordinand on their Process Guide page.</p>
+                </div>
               </div>
               <div className="flex gap-3 pt-2">
                 <button
@@ -342,6 +357,8 @@ CMD Ordaining Council`
                     setEditLast(candidate.last_name || '')
                     setEditEmail(candidate.email || '')
                     setEditCohortId(candidate.cohort_id || '')
+                    setEditMentorName(candidate.mentor_name || '')
+                    setEditMentorEmail(candidate.mentor_email || '')
                   }}
                   className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:text-slate-800 transition-colors"
                 >
