@@ -1,13 +1,15 @@
-// Iteration: v2.6 - Forced Session Verification
+// app/page.tsx — Login screen v3.0 — Alliance Blue branding, mobile-first
 'use client'
 import { useState } from 'react'
 import { supabase } from '../utils/supabase/client'
 import { useRouter } from 'next/navigation'
 
+const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+
 export default function Home() {
-  const [email, setEmail] = useState('')
-  const [token, setToken] = useState('')
-  const [step, setStep] = useState<'request' | 'verify'>('request')
+  const [email, setEmail]   = useState('')
+  const [token, setToken]   = useState('')
+  const [step, setStep]     = useState<'request' | 'verify'>('request')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -20,7 +22,7 @@ export default function Home() {
       setMessage(`Error: ${error.message}`)
     } else {
       setStep('verify')
-      setMessage('Code sent! Check your inbox.')
+      setMessage('')
     }
     setLoading(false)
   }
@@ -28,22 +30,15 @@ export default function Home() {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setMessage('Verifying session...')
-
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'magiclink'
-    })
-
+    setMessage('Verifying...')
+    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'magiclink' })
     if (error) {
       setMessage(`Error: ${error.message}`)
       setLoading(false)
     } else if (data.session) {
-      // FORCE CHECK: Ensure the session is actually set in the client before redirecting
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        setMessage('Session confirmed. Redirecting...')
+        setMessage('Signed in. Redirecting...')
         setTimeout(() => router.push('/dashboard'), 500)
       } else {
         setMessage('Session sync failed. Please try again.')
@@ -53,46 +48,197 @@ export default function Home() {
   }
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-6 bg-slate-50">
-      <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-slate-200">
-        <h1 className="text-4xl font-bold text-blue-900 mb-6 text-center tracking-tight">CMD Portal</h1>
-        
+    <main style={{
+      minHeight: '100vh',
+      backgroundColor: C.deepSea,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1.5rem',
+      fontFamily: 'Arial, sans-serif',
+    }}>
+
+      {/* Card */}
+      <div style={{
+        backgroundColor: C.white,
+        borderRadius: '28px',
+        padding: '3rem 2.5rem',
+        width: '100%',
+        maxWidth: '480px',
+        boxShadow: '0 32px 80px rgba(0,0,0,0.4)',
+      }}>
+
+        {/* Logo + branding */}
+        <div style={{ textAlign: 'center', marginBottom: '2.4rem' }}>
+          <img
+            src="https://i.imgur.com/ZHqDQJC.png"
+            alt="CMD Logo"
+            style={{ height: '96px', marginBottom: '1.4rem' }}
+          />
+          <h1 style={{
+            color: C.deepSea,
+            fontWeight: '900',
+            fontSize: '2rem',
+            margin: '0 0 0.4rem 0',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.2,
+          }}>
+            CMD Ordination Portal
+          </h1>
+          <p style={{ color: '#888', fontSize: '1rem', margin: 0, fontWeight: '500' }}>
+            Canadian Midwest District · The Alliance Canada
+          </p>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: '1px', backgroundColor: '#eee', marginBottom: '2rem' }} />
+
         {step === 'request' ? (
-          <form onSubmit={handleRequestOtp} className="space-y-4">
-            <input
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none text-blue-900 focus:ring-2 focus:ring-blue-500"
-              required
-            />
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition-all">
-              {loading ? 'Sending...' : 'Get Login Code'}
-            </button>
-          </form>
+          <>
+            <p style={{ color: '#555', fontSize: '1.05rem', marginBottom: '1.5rem', fontWeight: '500', textAlign: 'center', lineHeight: 1.6 }}>
+              Enter your email address to receive a sign-in code.
+            </p>
+            <form onSubmit={handleRequestOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <input
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '1.1rem 1.2rem',
+                  border: '2px solid #e2e2e2',
+                  borderRadius: '14px',
+                  fontSize: '1.15rem',
+                  fontWeight: '500',
+                  color: C.deepSea,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={e => (e.target.style.borderColor = C.allianceBlue)}
+                onBlur={e => (e.target.style.borderColor = '#e2e2e2')}
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  backgroundColor: loading ? '#aaa' : C.allianceBlue,
+                  color: C.white,
+                  padding: '1.15rem',
+                  borderRadius: '14px',
+                  border: 'none',
+                  fontWeight: '800',
+                  fontSize: '1.1rem',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  letterSpacing: '0.02em',
+                  transition: 'background-color 0.2s',
+                }}
+              >
+                {loading ? 'Sending…' : 'Send Sign-In Code'}
+              </button>
+            </form>
+          </>
         ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <input
-              type="text"
-              placeholder="Enter Code"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg text-center text-2xl tracking-widest font-bold outline-none focus:ring-2 focus:ring-blue-500 text-blue-900"
-              required
-            />
-            <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-md transition-all">
-              {loading ? 'Verifying...' : 'Sign In'}
-            </button>
-          </form>
+          <>
+            <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>📬</div>
+              <p style={{ color: C.deepSea, fontWeight: '800', fontSize: '1.2rem', margin: '0 0 0.4rem 0' }}>
+                Check your email
+              </p>
+              <p style={{ color: '#888', fontSize: '1rem', margin: 0, lineHeight: 1.6 }}>
+                We sent a 6-digit code to<br />
+                <strong style={{ color: C.deepSea }}>{email}</strong>
+              </p>
+            </div>
+            <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="000000"
+                value={token}
+                onChange={e => setToken(e.target.value)}
+                required
+                autoFocus
+                maxLength={6}
+                style={{
+                  width: '100%',
+                  padding: '1.1rem',
+                  border: '2px solid #e2e2e2',
+                  borderRadius: '14px',
+                  fontSize: '2.5rem',
+                  fontWeight: '800',
+                  textAlign: 'center',
+                  letterSpacing: '0.5em',
+                  color: C.deepSea,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={e => (e.target.style.borderColor = C.allianceBlue)}
+                onBlur={e => (e.target.style.borderColor = '#e2e2e2')}
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  backgroundColor: loading ? '#aaa' : C.deepSea,
+                  color: C.white,
+                  padding: '1.15rem',
+                  borderRadius: '14px',
+                  border: 'none',
+                  fontWeight: '800',
+                  fontSize: '1.1rem',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'background-color 0.2s',
+                }}
+              >
+                {loading ? 'Verifying…' : 'Sign In'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStep('request'); setMessage('') }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#999',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  fontWeight: '500',
+                  padding: '0.3rem 0',
+                }}
+              >
+                Use a different email
+              </button>
+            </form>
+          </>
         )}
-        
+
         {message && (
-          <div className={`mt-6 p-3 rounded text-sm text-center font-medium ${message.includes('Error') ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+          <div style={{
+            marginTop: '1.4rem',
+            padding: '0.9rem 1.2rem',
+            borderRadius: '12px',
+            textAlign: 'center',
+            fontSize: '0.95rem',
+            fontWeight: '600',
+            backgroundColor: message.includes('Error') ? '#fff0f0' : '#f0f7ff',
+            color: message.includes('Error') ? '#c0392b' : C.allianceBlue,
+            border: `1px solid ${message.includes('Error') ? '#ffc8c8' : '#c0dcf8'}`,
+          }}>
             {message}
           </div>
         )}
       </div>
+
+      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginTop: '2rem', textAlign: 'center' }}>
+        © The Alliance Canada · Canadian Midwest District
+      </p>
+
     </main>
   )
 }

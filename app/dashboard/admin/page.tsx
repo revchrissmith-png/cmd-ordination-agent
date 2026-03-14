@@ -151,7 +151,7 @@ export default function AdminPage() {
 
   async function handleAddCandidate(e: React.FormEvent) {
     e.preventDefault()
-    if (!newCandidateCohort) { flash('Please select a cohort before adding a candidate.', 'error'); return }
+    if (!newCandidateCohort) { flash('Please select a cohort before adding an ordinand.', 'error'); return }
     setIsAddingCandidate(true)
 
     const { data: { session } } = await supabase.auth.getSession()
@@ -209,11 +209,13 @@ export default function AdminPage() {
           )}
         </div>
 
-        <div className="flex gap-1 mb-8 bg-white border border-slate-200 rounded-xl p-1 w-fit shadow-sm">
+        <div className="flex flex-wrap gap-2 mb-8">
           {(['council','cohorts','candidates'] as Tab[]).map(key => (
             <button key={key} onClick={() => setActiveTab(key)}
-              style={activeTab === key ? { backgroundColor: C.deepSea, color: C.white, padding: '0.5rem 1.2rem', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', border: 'none', cursor: 'pointer' } : { backgroundColor: 'transparent', color: '#666', padding: '0.5rem 1.2rem', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', border: 'none', cursor: 'pointer' }}>
-              {key === 'council' ? '⚖️  Council Members' : key === 'cohorts' ? '📅  Cohorts' : '👤  Candidates'}
+              style={activeTab === key
+                ? { backgroundColor: C.deepSea, color: C.white, padding: '0.65rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.9rem', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,66,106,0.25)' }
+                : { backgroundColor: C.white, color: '#666', padding: '0.65rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.9rem', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+              {key === 'council' ? '⚖️  Council Members' : key === 'cohorts' ? '📅  Cohorts' : '👤  Ordinands'}
             </button>
           ))}
         </div>
@@ -248,26 +250,31 @@ export default function AdminPage() {
               {councilLoading ? <p className="px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
               : councilMembers.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No council members added yet.</p>
               : (
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">
                   <thead className="bg-slate-50"><tr>
-                    <th className="px-8 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
-                    <th className="px-8 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Email</th>
-                    <th className="px-8 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Roles</th>
-                    <th className="px-8 py-3 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
+                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
+                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest hidden md:table-cell">Email</th>
+                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Roles</th>
+                    <th className="px-8 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
                   </tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {councilMembers.map(m => (
                       <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-8 py-4 font-bold text-slate-900">{m.first_name} {m.last_name}</td>
-                        <td className="px-8 py-4 text-slate-500 font-medium">{m.email}</td>
-                        <td className="px-8 py-4"><div className="flex flex-wrap gap-1">{(m.roles || []).map((r: string) => (
-                          <span key={r} className={`px-2 py-0.5 rounded-full text-xs font-bold ${ROLE_BADGE[r] ?? 'bg-slate-100 text-slate-600'}`}>{r}</span>
+                        <td className="px-8 py-5">
+                          <div className="font-bold text-slate-900">{m.first_name} {m.last_name}</div>
+                          <div className="text-sm text-slate-400 font-medium md:hidden">{m.email}</div>
+                        </td>
+                        <td className="px-8 py-5 text-slate-500 font-medium hidden md:table-cell">{m.email}</td>
+                        <td className="px-8 py-5"><div className="flex flex-wrap gap-1.5">{(m.roles || []).map((r: string) => (
+                          <span key={r} className={`px-2.5 py-1 rounded-full text-xs font-bold ${ROLE_BADGE[r] ?? 'bg-slate-100 text-slate-600'}`}>{r}</span>
                         ))}</div></td>
-                        <td className="px-8 py-4 text-right"><button onClick={() => handleRemoveCouncil(m)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors">Remove from Council</button></td>
+                        <td className="px-8 py-5 text-right"><button onClick={() => handleRemoveCouncil(m)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap">Remove from Council</button></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
             <p className="text-xs text-slate-400 font-medium px-1">Removing a council member strips their council role only. Admin access and grading assignments are preserved until manually changed.</p>
@@ -339,10 +346,10 @@ export default function AdminPage() {
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
               <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Register New Ordinand</h2>
-              <p className="text-xs text-slate-400 font-medium mb-5">Adding a candidate automatically generates their 17 requirements based on their cohort. They will claim this profile when they first log in via Magic Link.</p>
+              <p className="text-xs text-slate-400 font-medium mb-5">Adding an ordinand automatically generates their 17 requirements based on their cohort. They will claim this profile when they first log in via Magic Link.</p>
               {cohorts.length === 0 ? (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-amber-700 text-sm font-medium">
-                  You need to create at least one cohort before registering candidates.{' '}
+                  You need to create at least one cohort before registering ordinands.{' '}
                   <button onClick={() => setActiveTab('cohorts')} className="font-black underline">Create a cohort →</button>
                 </div>
               ) : (
@@ -359,7 +366,7 @@ export default function AdminPage() {
                       {cohorts.map(c => <option key={c.id} value={c.id}>{c.name} — Sermons: {topicLabel(c.sermon_topic)}</option>)}
                     </select>
                   </div>
-                  <button type="submit" disabled={isAddingCandidate} style={{ backgroundColor: isAddingCandidate ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCandidate ? 'Registering...' : 'Register Candidate'}</button>
+                  <button type="submit" disabled={isAddingCandidate} style={{ backgroundColor: isAddingCandidate ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCandidate ? 'Registering...' : 'Register Ordinand'}</button>
                 </form>
               )}
             </div>
@@ -368,13 +375,14 @@ export default function AdminPage() {
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Registered Ordinands ({candidates.length})</h2>
               </div>
               {candidatesLoading ? <p className="px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
-              : candidates.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No candidates registered yet.</p>
+              : candidates.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No ordinands registered yet.</p>
               : (
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">
                   <thead className="bg-slate-50"><tr>
-                    <th className="px-8 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Candidate</th>
-                    <th className="px-8 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Cohort</th>
-                    <th className="px-8 py-3 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
+                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Ordinand</th>
+                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:table-cell">Cohort</th>
+                    <th className="px-8 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
                   </tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {candidates.map(person => (
@@ -382,17 +390,23 @@ export default function AdminPage() {
                         <td className="px-8 py-5">
                           <div className="font-bold text-slate-900">{person.first_name} {person.last_name}</div>
                           <div className="text-sm text-slate-400 font-medium">{person.email}</div>
+                          <div className="mt-1 sm:hidden">
+                            {person.cohorts?.name
+                              ? <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{person.cohorts.name}</span>
+                              : <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-xs font-bold">No cohort</span>}
+                          </div>
                         </td>
-                        <td className="px-8 py-5">
+                        <td className="px-8 py-5 hidden sm:table-cell">
                           {person.cohorts?.name
-                            ? <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{person.cohorts.name}</span>
-                            : <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-xs font-bold">No cohort</span>}
+                            ? <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{person.cohorts.name}</span>
+                            : <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-xs font-bold">No cohort</span>}
                         </td>
-                        <td className="px-8 py-5 text-right"><Link href={`/dashboard/admin/candidates/${person.id}`} style={{ color: C.allianceBlue }} className="font-black transition-colors text-sm">Manage →</Link></td>
+                        <td className="px-8 py-5 text-right"><Link href={`/dashboard/admin/candidates/${person.id}`} style={{ color: C.allianceBlue }} className="font-black transition-colors text-sm whitespace-nowrap">Manage →</Link></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </div>

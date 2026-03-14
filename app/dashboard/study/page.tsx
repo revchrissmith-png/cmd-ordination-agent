@@ -12,6 +12,8 @@ const C = {
   white: '#ffffff',
 }
 
+const INTERVIEW_PREP_PROMPT = 'I would like to prepare for my oral interview with the Ordaining Council. Please walk me through the interview questions one at a time, starting from the beginning.'
+
 const SUGGESTED_QUESTIONS = [
   'What does the Alliance mean by the Fourfold Gospel?',
   'How does Scripture support the doctrine of divine healing?',
@@ -113,7 +115,18 @@ export default function StudyAgentPage() {
               <div style={{ fontSize: '2.5rem', marginBottom: '0.8rem' }}>✝</div>
               <p style={{ fontWeight: 'bold', color: C.deepSea, fontSize: '1.1rem', margin: '0 0 0.3rem' }}>What would you like to explore?</p>
               <p style={{ color: '#666', fontSize: '0.85rem', margin: '0 0 1.5rem' }}>Ask about Alliance theology, the Fourfold Gospel, Scripture, or your ordination topics.</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.6rem', textAlign: 'left' }}>
+
+              {/* Interview prep — prominent button */}
+              <button onClick={() => sendMessage(INTERVIEW_PREP_PROMPT)}
+                style={{ display: 'block', width: '100%', maxWidth: '500px', margin: '0 auto 1.2rem', backgroundColor: C.deepSea, color: C.white, border: 'none', borderRadius: '10px', padding: '1rem 1.2rem', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', textAlign: 'left', lineHeight: 1.4 }}
+                onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = C.allianceBlue }}
+                onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = C.deepSea }}>
+                🎓 Help me prepare for my oral interview →
+                <span style={{ display: 'block', fontSize: '0.78rem', fontWeight: 'normal', opacity: 0.75, marginTop: '0.2rem' }}>Walk through the official Ordaining Council interview questions one by one</span>
+              </button>
+
+              {/* Topic questions */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.6rem', textAlign: 'left', maxWidth: '500px', margin: '0 auto' }}>
                 {SUGGESTED_QUESTIONS.map(q => (
                   <button key={q} onClick={() => sendMessage(q)}
                     style={{ backgroundColor: C.white, border: `1px solid #ccc`, borderRadius: '6px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#333', cursor: 'pointer', textAlign: 'left', lineHeight: 1.4 }}

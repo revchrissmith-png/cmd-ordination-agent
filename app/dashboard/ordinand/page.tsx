@@ -80,7 +80,7 @@ export default function OrdinandDashboard() {
       <div className="max-w-4xl mx-auto">
 
         <div className="mb-10">
-          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mb-1">Ordination Candidate</p>
+          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mb-1">CMD Ordinand</p>
           <h1 className="text-4xl font-black" style={{ color: C.deepSea }}>{profile?.full_name || 'My Dashboard'}</h1>
           {profile?.cohorts && <p className="text-slate-500 font-medium mt-1 capitalize">{profile.cohorts.season} {profile.cohorts.year} Cohort</p>}
         </div>

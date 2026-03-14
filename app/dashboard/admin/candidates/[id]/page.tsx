@@ -131,12 +131,12 @@ const id = params?.id ?? ''
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
-      Loading candidate...
+      Loading ordinand...
     </div>
   )
   if (!candidate) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: '#666' }}>
-      Candidate not found.
+      Ordinand not found.
     </div>
   )
 
