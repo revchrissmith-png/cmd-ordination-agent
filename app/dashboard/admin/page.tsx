@@ -98,14 +98,23 @@ export default function AdminPage() {
     e.preventDefault()
     setIsAddingCouncil(true)
     const roles = newCouncilIsAdmin ? ['council', 'admin'] : ['council']
-    const { error } = await supabase.from('profiles').insert([{
-      email: newCouncilEmail.toLowerCase().trim(),
-      first_name: newCouncilFirst.trim(),
-      last_name: newCouncilLast.trim(),
-      full_name: `${newCouncilFirst.trim()} ${newCouncilLast.trim()}`,
-      roles,
-    }])
-    if (error) { flash('Error: ' + error.message, 'error') }
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { flash('Session expired — please refresh and try again.', 'error'); setIsAddingCouncil(false); return }
+
+    const res = await fetch('/api/admin/register-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        email: newCouncilEmail,
+        firstName: newCouncilFirst,
+        lastName: newCouncilLast,
+        roles,
+      }),
+    })
+    const result = await res.json()
+
+    if (!res.ok) { flash('Error: ' + result.error, 'error') }
     else {
       flash(`${newCouncilFirst} ${newCouncilLast} added as council${newCouncilIsAdmin ? ' + admin' : ''}.`, 'success')
       setNewCouncilEmail(''); setNewCouncilFirst(''); setNewCouncilLast(''); setNewCouncilIsAdmin(false)
@@ -145,36 +154,27 @@ export default function AdminPage() {
     if (!newCandidateCohort) { flash('Please select a cohort before adding a candidate.', 'error'); return }
     setIsAddingCandidate(true)
 
-    const { data: profile, error: profileError } = await supabase.from('profiles').insert([{
-      email: newCandidateEmail.toLowerCase().trim(),
-      first_name: newCandidateFirst.trim(),
-      last_name: newCandidateLast.trim(),
-      full_name: `${newCandidateFirst.trim()} ${newCandidateLast.trim()}`,
-      roles: ['ordinand'],
-      cohort_id: newCandidateCohort,
-    }]).select().single()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { flash('Session expired — please refresh and try again.', 'error'); setIsAddingCandidate(false); return }
 
-    if (profileError) { flash('Error creating profile: ' + profileError.message, 'error'); setIsAddingCandidate(false); return }
-
-    const { data: cohort } = await supabase.from('cohorts').select('sermon_topic').eq('id', newCandidateCohort).single()
-    if (!cohort) { flash('Profile created but could not load cohort details.', 'error'); setIsAddingCandidate(false); return }
-
-    const { data: templates } = await supabase.from('requirement_templates').select('id, type, topic, title')
-    if (!templates) { flash('Profile created but could not load requirement templates.', 'error'); setIsAddingCandidate(false); return }
-
-    const assigned = templates.filter(t => {
-      if (t.type === 'book_report') return true
-      if (t.type === 'paper') return t.topic !== cohort.sermon_topic
-      if (t.type === 'sermon') return t.topic === cohort.sermon_topic && t.title !== 'Sermon: Scripture (placeholder)'
-      return false
+    const res = await fetch('/api/admin/register-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        email: newCandidateEmail,
+        firstName: newCandidateFirst,
+        lastName: newCandidateLast,
+        cohortId: newCandidateCohort,
+        roles: ['ordinand'],
+      }),
     })
+    const result = await res.json()
 
-    const rows = assigned.map(t => ({ ordinand_id: profile.id, template_id: t.id, cohort_id: newCandidateCohort, status: 'not_started' }))
-    const { error: reqError } = await supabase.from('ordinand_requirements').insert(rows)
-
-    if (reqError) { flash('Profile created but requirements failed: ' + reqError.message, 'error') }
+    if (!res.ok) { flash('Error: ' + result.error, 'error') }
     else {
-      flash(`${newCandidateFirst} ${newCandidateLast} registered with ${rows.length} requirements generated.`, 'success')
+      const count = result.requirementsCreated ?? '?'
+      flash(`${newCandidateFirst} ${newCandidateLast} registered with ${count} requirements generated.`, 'success')
+      if (result.warning) flash(result.warning, 'error')
       setNewCandidateEmail(''); setNewCandidateFirst(''); setNewCandidateLast(''); setNewCandidateCohort('')
       fetchCandidates()
     }
