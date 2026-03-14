@@ -1,5 +1,5 @@
 // app/dashboard/admin/candidates/[id]/page.tsx
-// Candidate detail view: requirements list, progress, grader assignment, grading panel
+// Ordinand detail: edit profile, reassign cohort, manage graders, grade submissions, send progress email
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -18,11 +18,11 @@ const RATING_LABELS: Record<Rating, string> = {
 }
 
 const STATUS_CONFIG: Record<Status, { label: string; colour: string }> = {
-  not_started:       { label: 'Not Started',          colour: 'bg-slate-100 text-slate-500' },
-  submitted:         { label: 'Submitted',             colour: 'bg-blue-100 text-blue-700' },
-  under_review:      { label: 'Under Review',          colour: 'bg-amber-100 text-amber-700' },
-  revision_required: { label: 'Revision Required',     colour: 'bg-red-100 text-red-700' },
-  complete:          { label: 'Complete',               colour: 'bg-green-100 text-green-700' },
+  not_started:       { label: 'Not Started',      colour: 'bg-slate-100 text-slate-500' },
+  submitted:         { label: 'Submitted',         colour: 'bg-blue-100 text-blue-700' },
+  under_review:      { label: 'Under Review',      colour: 'bg-amber-100 text-amber-700' },
+  revision_required: { label: 'Revision Required', colour: 'bg-red-100 text-red-700' },
+  complete:          { label: 'Complete',           colour: 'bg-green-100 text-green-700' },
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -31,16 +31,34 @@ const TYPE_LABELS: Record<string, string> = {
   sermon: 'Sermons',
 }
 
+const TOPIC_LABELS: Record<string, string> = {
+  christ_centred:   'Christ-Centred Life and Ministry',
+  spirit_empowered: 'Spirit-Empowered Life and Ministry',
+  mission_focused:  'Mission-Focused Life and Ministry',
+  scripture:        'The Scriptures',
+  divine_healing:   'Divine Healing',
+}
+
 export default function CandidateDetailPage() {
   const params = useParams<{ id: string }>()
-const id = params?.id ?? ''
+  const id = params?.id ?? ''
 
   const [candidate, setCandidate] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
   const [councilMembers, setCouncilMembers] = useState<any[]>([])
+  const [cohorts, setCohorts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ text: '', type: '' })
 
+  // Profile edit state
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [editFirst, setEditFirst] = useState('')
+  const [editLast, setEditLast] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editCohortId, setEditCohortId] = useState('')
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+
+  // Grading state
   const [selectedReq, setSelectedReq] = useState<any>(null)
   const [rating, setRating] = useState<Rating | ''>('')
   const [comments, setComments] = useState('')
@@ -56,26 +74,45 @@ const id = params?.id ?? ''
     setLoading(true)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('*, cohorts(name, sermon_topic)')
+      .select('*, cohorts(id, name, year, season, sermon_topic)')
       .eq('id', id)
       .single()
     setCandidate(profile)
+
     const { data: reqs } = await supabase
       .from('ordinand_requirements')
       .select(`id, status, updated_at, requirement_templates(id, type, topic, book_category, title, display_order), grading_assignments(id, council_member_id, profiles(first_name, last_name)), submissions(id, file_url), grades(id, overall_rating, overall_comments, graded_at)`)
       .eq('ordinand_id', id)
       .order('id')
     setRequirements(reqs || [])
+
     const { data: council } = await supabase
       .from('profiles')
       .select('id, first_name, last_name')
       .contains('roles', ['council'])
       .order('last_name')
     setCouncilMembers(council || [])
+
+    const { data: cohortList } = await supabase
+      .from('cohorts')
+      .select('id, name, year, season, sermon_topic')
+      .order('year', { ascending: false })
+    setCohorts(cohortList || [])
+
     setLoading(false)
   }
 
   useEffect(() => { fetchData() }, [id])
+
+  // Populate edit fields when candidate loads
+  useEffect(() => {
+    if (candidate) {
+      setEditFirst(candidate.first_name || '')
+      setEditLast(candidate.last_name || '')
+      setEditEmail(candidate.email || '')
+      setEditCohortId(candidate.cohort_id || '')
+    }
+  }, [candidate])
 
   const sorted = [...requirements].sort(
     (a, b) => (a.requirement_templates?.display_order ?? 0) - (b.requirement_templates?.display_order ?? 0)
@@ -89,7 +126,69 @@ const id = params?.id ?? ''
   const total = requirements.length
   const complete = requirements.filter(r => r.status === 'complete').length
   const inProgress = requirements.filter(r => r.status !== 'not_started' && r.status !== 'complete').length
+  const notStarted = requirements.filter(r => r.status === 'not_started').length
+  const revisionRequired = requirements.filter(r => r.status === 'revision_required').length
   const progressPct = total > 0 ? Math.round((complete / total) * 100) : 0
+
+  async function handleUpdateProfile() {
+    if (!candidate) return
+    setIsSavingProfile(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        first_name: editFirst.trim(),
+        last_name: editLast.trim(),
+        full_name: `${editFirst.trim()} ${editLast.trim()}`,
+        email: editEmail.trim().toLowerCase(),
+        cohort_id: editCohortId || null,
+      })
+      .eq('id', id)
+    if (error) {
+      flash('Error updating profile: ' + error.message, 'error')
+    } else {
+      flash('Profile updated.', 'success')
+      setEditingProfile(false)
+      fetchData()
+    }
+    setIsSavingProfile(false)
+  }
+
+  function buildProgressEmail() {
+    const name = `${candidate.first_name} ${candidate.last_name}`
+    const cohortLabel = candidate.cohorts ? `${candidate.cohorts.season} ${candidate.cohorts.year}` : 'Unknown cohort'
+    const subject = encodeURIComponent(`CMD Ordination Progress Update — ${name}`)
+
+    const revisionItems = requirements
+      .filter(r => r.status === 'revision_required')
+      .map(r => `  • ${r.requirement_templates?.title ?? 'Unknown'} — Revision Required`)
+      .join('\n')
+
+    const submittedItems = requirements
+      .filter(r => r.status === 'submitted' || r.status === 'under_review')
+      .map(r => `  • ${r.requirement_templates?.title ?? 'Unknown'} — ${r.status === 'submitted' ? 'Submitted (awaiting review)' : 'Under Review'}`)
+      .join('\n')
+
+    const body = encodeURIComponent(
+`Dear ${name},
+
+Here is a summary of your current progress in the CMD ordination process.
+
+OVERALL PROGRESS: ${progressPct}% (${complete} of ${total} requirements complete)
+
+Cohort: ${cohortLabel}
+
+SUMMARY
+  ✓ Complete: ${complete}
+  ◷ In Progress: ${inProgress}
+  ○ Not Started: ${notStarted}${revisionItems ? `\n  ⚠ Revision Required: ${revisionRequired}` : ''}
+${revisionItems ? `\nACTION REQUIRED — please revise and resubmit the following:\n${revisionItems}\n` : ''}${submittedItems ? `\nIN PROGRESS — currently under review:\n${submittedItems}\n` : ''}
+If you have any questions, please reach out to the District Office.
+
+In His service,
+CMD Ordaining Council`
+    )
+    return `mailto:${candidate.email}?subject=${subject}&body=${body}`
+  }
 
   async function handleAssignGrader(reqId: string, councilMemberId: string) {
     const { data: currentUser } = await supabase.auth.getUser()
@@ -151,113 +250,272 @@ const id = params?.id ?? ''
         <Link href="/dashboard/admin" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Admin Console</Link>
       </header>
 
-    <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
-          <div>
-            <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{candidate.first_name} {candidate.last_name}</h1>
-            <p className="text-slate-500 font-medium mt-1">{candidate.email}</p>
-            {candidate.cohorts?.name && (<span className="inline-block mt-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{candidate.cohorts.name}</span>)}
-          </div>
-          {message.text && (<div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{message.text}</div>)}
-        </div>
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Overall Progress</h2>
-            <span className="text-sm font-black text-slate-700">{complete} / {total} Complete</span>
-          </div>
-          <div className="w-full bg-slate-100 rounded-full h-3 mb-4"><div className="bg-blue-600 h-3 rounded-full transition-all" style={{ width: `${progressPct}%` }} /></div>
-          <div className="flex gap-6 text-xs font-bold">
-            <span className="text-green-600">✓ {complete} Complete</span>
-            <span className="text-amber-600">◷ {inProgress} In Progress</span>
-            <span className="text-slate-400">○ {total - complete - inProgress} Not Started</span>
-          </div>
-        </div>
-        {(['book_report', 'paper', 'sermon'] as const).map(type => {
-          const items = grouped[type]
-          if (!items || items.length === 0) return null
-          return (
-            <div key={type} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-6">
-              <div className="px-8 py-5 border-b border-slate-100"><h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">{TYPE_LABELS[type]} ({items.length})</h2></div>
-              <div className="divide-y divide-slate-100">
-                {items.map(req => {
-                  const status: Status = req.status ?? 'not_started'
-                  const statusCfg = STATUS_CONFIG[status]
-                  const grader = Array.isArray(req.grading_assignments) ? req.grading_assignments[0]?.profiles : req.grading_assignments?.profiles
-                  const grade = Array.isArray(req.grades) ? req.grades[0] : req.grades
-                  const isReassigning = reassigningId === req.id
-                  return (
-                    <div key={req.id} className="px-8 py-5 hover:bg-slate-50 transition-colors">
-                      <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <span className="font-bold text-slate-900">{req.requirement_templates?.title}</span>
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusCfg.colour}`}>{statusCfg.label}</span>
-                            {grade && (<span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700">{RATING_LABELS[grade.overall_rating as Rating]}</span>)}
-                          </div>
-                          <div className="mt-2 flex items-center gap-3 flex-wrap">
-                            {grader ? (<span className="text-xs text-slate-500 font-medium">Grader: <span className="font-bold text-slate-700">{grader.first_name} {grader.last_name}</span></span>) : (<span className="text-xs text-amber-600 font-bold">No grader assigned</span>)}
-                            {!isReassigning ? (
-                              <button onClick={() => setReassigningId(req.id)} className="text-xs text-blue-500 hover:text-blue-700 font-bold transition-colors">{grader ? 'Reassign' : 'Assign Grader'}</button>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <select className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-blue-100 outline-none" defaultValue="" onChange={e => e.target.value && handleAssignGrader(req.id, e.target.value)}>
-                                  <option value="">Select council member...</option>
-                                  {councilMembers.map(m => (<option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>))}
-                                </select>
-                                <button onClick={() => setReassigningId(null)} className="text-xs text-slate-400 hover:text-slate-600 font-bold">Cancel</button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {(status === 'submitted' || status === 'under_review') && (
-                          <button onClick={() => { setSelectedReq(req); setRating(grade?.overall_rating ?? ''); setComments(grade?.overall_comments ?? '') }} className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-sm">Grade →</button>
-                        )}
-                        {status === 'complete' && grade && (
-                          <button onClick={() => { setSelectedReq(req); setRating(grade.overall_rating); setComments(grade.overall_comments ?? '') }} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">View Grade</button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+      <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
+        <div className="max-w-5xl mx-auto">
+
+          {/* Page header */}
+          <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
+            <div>
+              <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mb-1">Ordinand</p>
+              <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>
+                {candidate.first_name} {candidate.last_name}
+              </h1>
+              <p className="text-slate-500 font-medium mt-1">{candidate.email}</p>
+              {candidate.cohorts && (
+                <span className="inline-block mt-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold capitalize">
+                  {candidate.cohorts.season} {candidate.cohorts.year} Cohort
+                  {candidate.cohorts.sermon_topic && ` · ${TOPIC_LABELS[candidate.cohorts.sermon_topic] ?? candidate.cohorts.sermon_topic} (sermon topic)`}
+                </span>
+              )}
             </div>
-          )
-        })}
-        {selectedReq && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 space-y-6">
-              <div className="flex justify-between items-start">
+            <div className="flex gap-3 flex-wrap">
+              {!editingProfile && (
+                <button
+                  onClick={() => setEditingProfile(true)}
+                  className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:border-blue-300 hover:text-blue-600 transition-all"
+                >
+                  ✏️ Edit Profile
+                </button>
+              )}
+              <a
+                href={buildProgressEmail()}
+                className="px-4 py-2.5 text-white rounded-xl text-sm font-bold transition-all"
+                style={{ backgroundColor: C.deepSea }}
+              >
+                📧 Send Progress Email
+              </a>
+            </div>
+            {message.text && (
+              <div className={`w-full px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {message.text}
+              </div>
+            )}
+          </div>
+
+          {/* Profile edit panel */}
+          {editingProfile && (
+            <div className="bg-white rounded-3xl border border-blue-200 shadow-sm p-8 mb-6">
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Edit Profile</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
                 <div>
-                  <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Grade Assignment</p>
-                  <h3 className="text-xl font-black text-slate-900">{selectedReq.requirement_templates?.title}</h3>
-                  <p className="text-sm text-slate-400 font-medium mt-1">{candidate.first_name} {candidate.last_name}</p>
+                  <label className={labelClass}>First Name</label>
+                  <input type="text" className={inputClass} value={editFirst} onChange={e => setEditFirst(e.target.value)} />
                 </div>
-                <button onClick={() => { setSelectedReq(null); setRating(''); setComments('') }} className="text-slate-400 hover:text-slate-700 font-black text-xl transition-colors">✕</button>
-              </div>
-              <div>
-                <label className={labelClass}>Rating</label>
-                <div className="grid grid-cols-5 gap-2">
-                  {(Object.keys(RATING_LABELS) as Rating[]).map(r => (
-                    <button key={r} onClick={() => setRating(r)} className={`py-2 px-1 rounded-xl text-xs font-bold transition-all border-2 ${rating === r ? (r === 'insufficient' ? 'bg-red-500 text-white border-red-500' : 'bg-blue-600 text-white border-blue-600') : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}>{RATING_LABELS[r]}</button>
-                  ))}
+                <div>
+                  <label className={labelClass}>Last Name</label>
+                  <input type="text" className={inputClass} value={editLast} onChange={e => setEditLast(e.target.value)} />
                 </div>
-                {rating === 'insufficient' && (<p className="text-xs text-red-500 font-bold mt-2">⚠ Insufficient will mark this as Revision Required</p>)}
-                {rating && rating !== 'insufficient' && (<p className="text-xs text-green-600 font-bold mt-2">✓ This rating will mark the assignment as Complete</p>)}
+                <div>
+                  <label className={labelClass}>Email Address</label>
+                  <input type="email" className={inputClass} value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+                  <p className="text-xs text-slate-400 font-medium mt-1">Updates the portal profile only. To change the sign-in email, use Supabase Auth.</p>
+                </div>
+                <div>
+                  <label className={labelClass}>Cohort</label>
+                  <select
+                    className={inputClass}
+                    value={editCohortId}
+                    onChange={e => setEditCohortId(e.target.value)}
+                  >
+                    <option value="">No cohort assigned</option>
+                    {cohorts.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.season} {c.year}{c.sermon_topic ? ` — ${TOPIC_LABELS[c.sermon_topic] ?? c.sermon_topic}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-amber-600 font-medium mt-1">⚠ Changing the cohort does not regenerate requirements. Contact support if reassignment is needed.</p>
+                </div>
               </div>
-              <div>
-                <label className={labelClass}>Feedback Comments</label>
-                <textarea className={`${inputClass} resize-none`} rows={4} value={comments} onChange={e => setComments(e.target.value)} placeholder="Provide feedback for the ordinand..." />
-              </div>
-              <div className="flex gap-3">
-                <button onClick={handleSaveGrade} disabled={!rating || isSaving} className={btnPrimary}>{isSaving ? 'Saving...' : 'Save Grade'}</button>
-                <button onClick={() => { setSelectedReq(null); setRating(''); setComments('') }} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:text-slate-800 transition-colors">Cancel</button>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleUpdateProfile}
+                  disabled={isSavingProfile}
+                  className={btnPrimary}
+                >
+                  {isSavingProfile ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingProfile(false)
+                    setEditFirst(candidate.first_name || '')
+                    setEditLast(candidate.last_name || '')
+                    setEditEmail(candidate.email || '')
+                    setEditCohortId(candidate.cohort_id || '')
+                  }}
+                  className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
+          )}
+
+          {/* Progress summary */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Overall Progress</h2>
+              <span className="text-sm font-black text-slate-700">{complete} / {total} Complete</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-3 mb-4">
+              <div className="bg-blue-600 h-3 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+            </div>
+            <div className="flex gap-6 text-xs font-bold flex-wrap">
+              <span className="text-green-600">✓ {complete} Complete</span>
+              <span className="text-amber-600">◷ {inProgress} In Progress</span>
+              <span className="text-slate-400">○ {notStarted} Not Started</span>
+              {revisionRequired > 0 && <span className="text-red-500">⚠ {revisionRequired} Revision Required</span>}
+            </div>
           </div>
-        )}
-      </div>
-    </main>
+
+          {/* Requirements by type */}
+          {(['book_report', 'paper', 'sermon'] as const).map(type => {
+            const items = grouped[type]
+            if (!items || items.length === 0) return null
+            return (
+              <div key={type} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+                <div className="px-8 py-5 border-b border-slate-100">
+                  <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">{TYPE_LABELS[type]} ({items.length})</h2>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {items.map(req => {
+                    const status: Status = req.status ?? 'not_started'
+                    const statusCfg = STATUS_CONFIG[status]
+                    const grader = Array.isArray(req.grading_assignments) ? req.grading_assignments[0]?.profiles : req.grading_assignments?.profiles
+                    const grade = Array.isArray(req.grades) ? req.grades[0] : req.grades
+                    const isReassigning = reassigningId === req.id
+                    return (
+                      <div key={req.id} className="px-8 py-5 hover:bg-slate-50 transition-colors">
+                        <div className="flex flex-wrap items-center gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span className="font-bold text-slate-900">{req.requirement_templates?.title}</span>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusCfg.colour}`}>{statusCfg.label}</span>
+                              {grade && (
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700">
+                                  {RATING_LABELS[grade.overall_rating as Rating]}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2 flex items-center gap-3 flex-wrap">
+                              {grader
+                                ? <span className="text-xs text-slate-500 font-medium">Grader: <span className="font-bold text-slate-700">{grader.first_name} {grader.last_name}</span></span>
+                                : <span className="text-xs text-amber-600 font-bold">No grader assigned</span>
+                              }
+                              {!isReassigning ? (
+                                <button
+                                  onClick={() => setReassigningId(req.id)}
+                                  className="text-xs text-blue-500 hover:text-blue-700 font-bold transition-colors"
+                                >
+                                  {grader ? 'Reassign' : 'Assign Grader'}
+                                </button>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-blue-100 outline-none"
+                                    defaultValue=""
+                                    onChange={e => e.target.value && handleAssignGrader(req.id, e.target.value)}
+                                  >
+                                    <option value="">Select council member…</option>
+                                    {councilMembers.map(m => (
+                                      <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
+                                    ))}
+                                  </select>
+                                  <button onClick={() => setReassigningId(null)} className="text-xs text-slate-400 hover:text-slate-600 font-bold">Cancel</button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {(status === 'submitted' || status === 'under_review') && (
+                            <button
+                              onClick={() => { setSelectedReq(req); setRating(grade?.overall_rating ?? ''); setComments(grade?.overall_comments ?? '') }}
+                              className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-sm"
+                            >
+                              Grade →
+                            </button>
+                          )}
+                          {status === 'complete' && grade && (
+                            <button
+                              onClick={() => { setSelectedReq(req); setRating(grade.overall_rating); setComments(grade.overall_comments ?? '') }}
+                              className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
+                            >
+                              View Grade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+
+          {requirements.length === 0 && (
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
+              <p className="text-slate-400 font-bold">No requirements found for this ordinand.</p>
+              <p className="text-slate-300 text-sm font-medium mt-1">Requirements are generated automatically when a cohort is assigned during registration.</p>
+            </div>
+          )}
+
+          {/* Grade modal */}
+          {selectedReq && (
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 space-y-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Grade Assignment</p>
+                    <h3 className="text-xl font-black text-slate-900">{selectedReq.requirement_templates?.title}</h3>
+                    <p className="text-sm text-slate-400 font-medium mt-1">{candidate.first_name} {candidate.last_name}</p>
+                  </div>
+                  <button
+                    onClick={() => { setSelectedReq(null); setRating(''); setComments('') }}
+                    className="text-slate-400 hover:text-slate-700 font-black text-xl transition-colors"
+                  >✕</button>
+                </div>
+                <div>
+                  <label className={labelClass}>Rating</label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {(Object.keys(RATING_LABELS) as Rating[]).map(r => (
+                      <button
+                        key={r}
+                        onClick={() => setRating(r)}
+                        className={`py-2 px-1 rounded-xl text-xs font-bold transition-all border-2 ${rating === r ? (r === 'insufficient' ? 'bg-red-500 text-white border-red-500' : 'bg-blue-600 text-white border-blue-600') : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}
+                      >
+                        {RATING_LABELS[r]}
+                      </button>
+                    ))}
+                  </div>
+                  {rating === 'insufficient' && <p className="text-xs text-red-500 font-bold mt-2">⚠ Insufficient will mark this as Revision Required</p>}
+                  {rating && rating !== 'insufficient' && <p className="text-xs text-green-600 font-bold mt-2">✓ This rating will mark the assignment as Complete</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Feedback Comments</label>
+                  <textarea
+                    className={`${inputClass} resize-none`}
+                    rows={4}
+                    value={comments}
+                    onChange={e => setComments(e.target.value)}
+                    placeholder="Provide feedback for the ordinand…"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleSaveGrade} disabled={!rating || isSaving} className={btnPrimary}>
+                    {isSaving ? 'Saving…' : 'Save Grade'}
+                  </button>
+                  <button
+                    onClick={() => { setSelectedReq(null); setRating(''); setComments('') }}
+                    className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </main>
     </div>
   )
 }

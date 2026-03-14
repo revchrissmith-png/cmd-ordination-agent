@@ -34,7 +34,7 @@ export default function OrdinandDashboard() {
       setProfile(prof)
       const { data: reqs } = await supabase
         .from('ordinand_requirements')
-        .select(`id, status, requirement_templates(id, type, topic, title, category)`)
+        .select(`id, status, requirement_templates(id, type, topic, title, book_category)`)
         .eq('ordinand_id', user.id)
         .order('created_at', { ascending: true })
       setRequirements(reqs || [])
