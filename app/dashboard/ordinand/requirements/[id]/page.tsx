@@ -118,7 +118,7 @@ export default function OrdinandRequirementPage() {
 
     const { data: sub } = await supabase
       .from('submissions')
-      .select('id, file_url, self_assessment, submitted_at')
+      .select('id, file_url, file_name, self_assessment, submitted_at')
       .eq('ordinand_requirement_id', id)
       .order('submitted_at', { ascending: false })
       .limit(1)
@@ -170,12 +170,18 @@ export default function OrdinandRequirementPage() {
         fileUrl = urlData.publicUrl
       }
       const selfAssessmentPayload = isPaper ? { answers, self_assessments: selfAssessments, topic, submitted_at: new Date().toISOString() } : null
+      const fileName = file ? file.name : (submission?.file_name ?? 'submission')
+      let saveError: any = null
       if (submission) {
-        await supabase.from('submissions').update({ file_url: fileUrl, self_assessment: selfAssessmentPayload }).eq('id', submission.id)
+        const { error } = await supabase.from('submissions').update({ file_url: fileUrl, file_name: fileName, self_assessment: selfAssessmentPayload }).eq('id', submission.id)
+        saveError = error
       } else {
-        await supabase.from('submissions').insert({ ordinand_requirement_id: id, ordinand_id: requirement.ordinand_id, file_url: fileUrl, self_assessment: selfAssessmentPayload })
+        const { error } = await supabase.from('submissions').insert({ ordinand_requirement_id: id, ordinand_id: requirement.ordinand_id, file_url: fileUrl, file_name: fileName, self_assessment: selfAssessmentPayload })
+        saveError = error
       }
-      await supabase.from('ordinand_requirements').update({ status: 'submitted' }).eq('id', id)
+      if (saveError) { flash('Error saving submission: ' + saveError.message, 'error'); setIsSubmitting(false); return }
+      const { error: statusError } = await supabase.from('ordinand_requirements').update({ status: 'submitted' }).eq('id', id)
+      if (statusError) { flash('Submission saved but status update failed: ' + statusError.message, 'error'); setIsSubmitting(false); return }
       flash('Submitted successfully!', 'success')
       fetchData()
     } catch (err: any) {
