@@ -47,9 +47,9 @@ export default function OrdinandRequirementPage() {
 
     const { data: sub } = await supabase
       .from('submissions')
-      .select('id, file_url, self_assessment, created_at')
+      .select('id, file_url, self_assessment, submitted_at')
       .eq('ordinand_requirement_id', id)
-      .order('created_at', { ascending: false })
+      .order('submitted_at', { ascending: false })
       .limit(1)
       .single()
 
@@ -110,19 +110,37 @@ export default function OrdinandRequirementPage() {
     setIsSubmitting(false)
   }
 
+  const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
   const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
   const btnPrimary = "bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-300 disabled:shadow-none"
 
-  if (loading) return <main className="min-h-screen bg-slate-50 p-10 flex items-center justify-center"><p className="text-slate-400 font-medium">Loading requirement...</p></main>
-  if (!requirement) return <main className="min-h-screen bg-slate-50 p-10 flex items-center justify-center"><p className="text-slate-400 font-medium">Requirement not found.</p></main>
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
+      Loading requirement...
+    </div>
+  )
+  if (!requirement) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: '#666' }}>
+      Requirement not found.
+    </div>
+  )
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+          <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
+          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
+        </div>
+        <Link href="/dashboard/ordinand" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← My Requirements</Link>
+      </header>
+
+    <main className="p-6 md:p-10">
       <div className="max-w-3xl mx-auto">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
           <div>
-            <Link href="/dashboard" className="text-slate-400 hover:text-blue-600 font-bold text-sm transition-colors">← Dashboard</Link>
-            <h1 className="text-3xl font-black text-slate-900 mt-1">{requirement.requirement_templates?.title}</h1>
+            <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{requirement.requirement_templates?.title}</h1>
             <div className="flex items-center gap-3 mt-2">
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusCfg.colour}`}>{statusCfg.label}</span>
               {isPaper && <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700">Theological Paper</span>}
@@ -243,5 +261,6 @@ export default function OrdinandRequirementPage() {
         )}
       </div>
     </main>
+    </div>
   )
 }

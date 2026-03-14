@@ -46,8 +46,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: authError?.message ?? 'Failed to create auth user' }, { status: 400 })
   }
 
-  // 4. Create the profile using the real auth UUID
-  const { error: profileError } = await serviceClient.from('profiles').insert({
+  // 4. Update the profile the trigger auto-created with our complete data
+  // (the on_auth_user_created trigger inserts a partial row the moment createUser fires,
+  // so we upsert to fill in full_name, roles array, and cohort_id)
+  const { error: profileError } = await serviceClient.from('profiles').upsert({
     id: user.id,
     email: email.toLowerCase().trim(),
     first_name: firstName.trim(),
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
     full_name: `${firstName.trim()} ${lastName.trim()}`,
     roles,
     cohort_id: cohortId ?? null,
-  })
+  }, { onConflict: 'id' })
 
   if (profileError) {
     // Roll back: delete the auth user so we don't leave orphaned accounts

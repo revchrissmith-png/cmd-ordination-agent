@@ -66,9 +66,9 @@ export default function CouncilPaperGradePage() {
 
     const { data: sub } = await supabase
       .from('submissions')
-      .select('id, file_url, self_assessment, created_at')
+      .select('id, file_url, self_assessment, submitted_at')
       .eq('ordinand_requirement_id', assign.ordinand_requirement_id)
-      .order('created_at', { ascending: false })
+      .order('submitted_at', { ascending: false })
       .limit(1)
       .single()
     setSubmission(sub)
@@ -97,7 +97,7 @@ export default function CouncilPaperGradePage() {
         }).eq('id', existingGrade.id)
       } else {
         await supabase.from('grades').insert({
-          submission_id: submission.id, ordinand_requirement_id: requirement.id,
+          submission_id: submission.id, grading_assignment_id: assignment.id,
           overall_rating: rating, overall_comments: comments,
           graded_by: assignment.council_member_id, graded_at: new Date().toISOString(),
         })
@@ -110,6 +110,7 @@ export default function CouncilPaperGradePage() {
     setIsSaving(false)
   }
 
+  const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
   const isPaper = requirement?.requirement_templates?.type === 'paper'
   const topic = requirement?.requirement_templates?.topic
   const topicData = topic ? SELF_ASSESSMENT_TOPICS[topic] : null
@@ -117,17 +118,34 @@ export default function CouncilPaperGradePage() {
   const selfRatings: Record<string, string> = submission?.self_assessment?.self_assessments || {}
   const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
 
-  if (loading) return <main className="min-h-screen bg-slate-50 p-10 flex items-center justify-center"><p className="text-slate-400 font-medium">Loading assignment...</p></main>
-  if (!assignment || !requirement) return <main className="min-h-screen bg-slate-50 p-10 flex items-center justify-center"><p className="text-slate-400 font-medium">Assignment not found.</p></main>
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
+      Loading assignment...
+    </div>
+  )
+  if (!assignment || !requirement) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: '#666' }}>
+      Assignment not found.
+    </div>
+  )
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+          <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
+          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
+        </div>
+        <Link href="/dashboard/council" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← My Assignments</Link>
+      </header>
+
+    <main className="p-6 md:p-10">
       <div className="max-w-6xl mx-auto">
 
         <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
           <div>
-            <Link href="/dashboard/council" className="text-slate-400 hover:text-blue-600 font-bold text-sm transition-colors">← My Assignments</Link>
-            <h1 className="text-3xl font-black text-slate-900 mt-1">{requirement.requirement_templates?.title}</h1>
+            <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{requirement.requirement_templates?.title}</h1>
             <p className="text-slate-500 font-medium mt-1">
               {requirement.profiles?.full_name}
               <span className="text-slate-300 mx-2">·</span>
@@ -156,7 +174,7 @@ export default function CouncilPaperGradePage() {
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">📄</span>
                   <div>
-                    <p className="text-sm font-bold text-slate-700">Submitted {new Date(submission.created_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="text-sm font-bold text-slate-700">Submitted {new Date(submission.submitted_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                     <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-sm underline">Open paper →</a>
                   </div>
                 </div>
@@ -249,5 +267,6 @@ export default function CouncilPaperGradePage() {
         )}
       </div>
     </main>
+    </div>
   )
 }
