@@ -48,6 +48,7 @@ function InfoRow({ label, value, valueNode }: { label: string; value?: string; v
 export default function OrdinandProcessPage() {
   const [profile, setProfile] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
+  const [cohortEvents, setCohortEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -65,6 +66,17 @@ export default function OrdinandProcessPage() {
         .select('id, status, requirement_templates(type, topic, book_category, title, display_order)')
         .eq('ordinand_id', user.id)
       setRequirements(reqs || [])
+      if (prof?.cohort_id) {
+        const today = new Date().toISOString().split('T')[0]
+        const { data: evts } = await supabase
+          .from('cohort_events')
+          .select('id, title, event_date, event_type, location, notes')
+          .eq('cohort_id', prof.cohort_id)
+          .gte('event_date', today)
+          .order('event_date', { ascending: true })
+          .limit(4)
+        setCohortEvents(evts || [])
+      }
       setLoading(false)
     }
     fetchData()
@@ -164,24 +176,39 @@ export default function OrdinandProcessPage() {
             <p className="text-sm text-slate-600 font-medium leading-relaxed mb-5">
               You are placed in a cohort — spring or fall — based on your anticipated interview season. Cohort gatherings provide peer learning, shared accountability, and group formation led by members of the Ordaining Council.
             </p>
-            <div className="space-y-0">
-              {[
-                { month: 'September', type: 'Online', detail: 'Virtual cohort gathering' },
-                { month: 'November', type: 'Online', detail: 'Virtual cohort gathering' },
-                { month: 'February', type: 'Online', detail: 'Virtual cohort gathering' },
-                { month: 'June', type: 'In-Person', detail: 'Annual in-person cohort gathering (location varies; costs covered by your local church)' },
-              ].map(item => (
-                <div key={item.month} className="flex items-start gap-4 py-3.5 border-b border-slate-100 last:border-0">
-                  <div className="w-24 flex-shrink-0">
-                    <span className="text-sm font-black" style={{ color: C.deepSea }}>{item.month}</span>
-                  </div>
-                  <div>
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold mr-2 ${item.type === 'In-Person' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>{item.type}</span>
-                    <span className="text-sm text-slate-600 font-medium">{item.detail}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {cohortEvents.length > 0 ? (
+              <div className="space-y-0">
+                {cohortEvents.map(ev => {
+                  const d = new Date(ev.event_date + 'T12:00:00')
+                  const monthLabel = d.toLocaleDateString('en-CA', { month: 'long' })
+                  const dayLabel = d.toLocaleDateString('en-CA', { weekday: 'long', day: 'numeric' })
+                  const yearLabel = d.getFullYear()
+                  const isInPerson = ev.event_type === 'in_person'
+                  return (
+                    <div key={ev.id} className="flex items-start gap-4 py-3.5 border-b border-slate-100 last:border-0">
+                      <div className="w-28 flex-shrink-0">
+                        <p className="text-sm font-black" style={{ color: C.deepSea }}>{monthLabel}</p>
+                        <p className="text-xs text-slate-400 font-medium">{dayLabel}, {yearLabel}</p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${isInPerson ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                            {isInPerson ? 'In Person' : 'Online'}
+                          </span>
+                          <span className="text-sm text-slate-800 font-bold">{ev.title}</span>
+                        </div>
+                        {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5">📍 {ev.location}</p>}
+                        {ev.notes && <p className="text-xs text-slate-500 font-medium mt-0.5 italic">{ev.notes}</p>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : !loading ? (
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl px-5 py-5 mb-5">
+                <p className="text-sm text-slate-500 font-medium">No upcoming gatherings have been scheduled yet. Check back soon, or contact the District Office for dates.</p>
+              </div>
+            ) : null}
             <div className="mt-5 bg-amber-50 border border-amber-100 rounded-2xl px-5 py-4">
               <p className="text-xs font-bold text-amber-700 leading-relaxed">Attendance at all quarterly gatherings is expected. If you must miss one, notify the Chair of the Ordaining Council in advance and complete any required catch-up work.</p>
             </div>
