@@ -66,6 +66,8 @@ export default function CandidateDetailPage() {
   const [comments, setComments] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [reassigningId, setReassigningId] = useState<string | null>(null)
+  const [confirmResetId, setConfirmResetId] = useState<string | null>(null)
+  const [isResetting, setIsResetting] = useState(false)
 
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
@@ -209,6 +211,22 @@ CMD Ordaining Council`
     flash('Grader assigned.', 'success')
     setReassigningId(null)
     fetchData()
+  }
+
+  async function handleResetSubmission(reqId: string) {
+    setIsResetting(true)
+    const { error } = await supabase
+      .from('ordinand_requirements')
+      .update({ status: 'not_started' })
+      .eq('id', reqId)
+    if (error) {
+      flash('Error resetting submission: ' + error.message, 'error')
+    } else {
+      flash('Submission reset. The ordinand can now resubmit.', 'success')
+      setConfirmResetId(null)
+      fetchData()
+    }
+    setIsResetting(false)
   }
 
   async function handleSaveGrade() {
@@ -460,6 +478,35 @@ CMD Ordaining Council`
                             >
                               View Grade
                             </button>
+                          )}
+                          {/* Reset button — available for any submitted/graded status */}
+                          {status !== 'not_started' && (
+                            confirmResetId === req.id ? (
+                              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-1.5">
+                                <span className="text-xs font-bold text-red-700">Reset to Not Started?</span>
+                                <button
+                                  onClick={() => handleResetSubmission(req.id)}
+                                  disabled={isResetting}
+                                  className="text-xs font-black text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
+                                >
+                                  {isResetting ? '…' : 'Yes'}
+                                </button>
+                                <button
+                                  onClick={() => setConfirmResetId(null)}
+                                  className="text-xs font-black text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                  No
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmResetId(req.id)}
+                                className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold hover:bg-red-50 hover:text-red-600 transition-all"
+                                title="Reject submission and reset to Not Started"
+                              >
+                                ↩ Reset
+                              </button>
+                            )
                           )}
                         </div>
                       </div>
