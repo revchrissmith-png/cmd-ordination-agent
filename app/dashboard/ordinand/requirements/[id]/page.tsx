@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
 import { SELF_ASSESSMENT_TOPICS } from '../../../../../utils/selfAssessmentQuestions'
+import { SERMON_RUBRIC_SECTIONS, sectionAverage } from '../../../../../utils/sermonRubric'
 
 type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
 
@@ -172,7 +173,7 @@ export default function OrdinandRequirementPage() {
       }
       const { data: g } = await supabase
         .from('grades')
-        .select('id, overall_rating, overall_comments, graded_at')
+        .select('id, overall_rating, overall_comments, graded_at, sermon_rubric')
         .eq('submission_id', sub.id)
         .single()
       setGrade(g)
@@ -347,6 +348,30 @@ export default function OrdinandRequirementPage() {
               <span className="text-xs text-green-600 font-medium">— graded {new Date(grade.graded_at).toLocaleDateString()}</span>
             </div>
             {grade.overall_comments && <p className="text-sm text-green-900 font-medium leading-relaxed">{grade.overall_comments}</p>}
+            {/* Sermon rubric section averages */}
+            {isSermon && grade.sermon_rubric && (
+              <div className="mt-5 pt-5 border-t border-green-200">
+                <p className="text-xs font-black text-green-700 uppercase tracking-widest mb-3">Rubric Section Scores</p>
+                <div className="space-y-2.5">
+                  {SERMON_RUBRIC_SECTIONS.map(section => {
+                    const avg = sectionAverage(section.id, grade.sermon_rubric)
+                    if (avg === null) return null
+                    const pct = (avg / 4) * 100
+                    const sectionName = section.title.replace(/^[IVX]+\.\s+/, '')
+                    const barColour = avg >= 3.5 ? 'bg-purple-500' : avg >= 2.75 ? 'bg-green-500' : avg >= 2.25 ? 'bg-blue-500' : avg >= 1.75 ? 'bg-amber-500' : 'bg-red-500'
+                    return (
+                      <div key={section.id} className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-green-900 w-32 shrink-0">{sectionName}</span>
+                        <div className="flex-1 bg-green-100 rounded-full h-2">
+                          <div className={`h-2 rounded-full transition-all ${barColour}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs font-bold text-green-700 shrink-0 w-10 text-right">{avg.toFixed(1)} / 4</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

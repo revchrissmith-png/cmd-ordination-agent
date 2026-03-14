@@ -1,11 +1,16 @@
 // app/dashboard/council/grade/[assignmentId]/page.tsx
-// Council member grading view for theological papers
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
 import { SELF_ASSESSMENT_TOPICS } from '../../../../../utils/selfAssessmentQuestions'
+import {
+  SERMON_RUBRIC_SECTIONS,
+  TOTAL_RUBRIC_CRITERIA,
+  suggestRubricGrade,
+  type SermonRubricScores,
+} from '../../../../../utils/sermonRubric'
 
 const RATINGS = ['insufficient', 'adequate', 'good', 'excellent', 'exceptional'] as const
 type Rating = typeof RATINGS[number]
@@ -26,9 +31,17 @@ const SELF_ASSESSMENT_COLOUR: Record<string, string> = {
   exceptional:  'bg-purple-100 text-purple-700',
 }
 
-export default function CouncilPaperGradePage() {
-    const params = useParams<{ assignmentId: string }>()
-    const assignmentId = params?.assignmentId ?? ''
+const SCORE_COLOUR = (n: number, selected: boolean) => {
+  if (!selected) return 'bg-white border-2 border-slate-200 text-slate-400 hover:border-slate-300'
+  if (n === 1) return 'bg-red-500 text-white border-2 border-red-500'
+  if (n === 2) return 'bg-amber-500 text-white border-2 border-amber-500'
+  if (n === 3) return 'bg-blue-500 text-white border-2 border-blue-500'
+  return 'bg-green-500 text-white border-2 border-green-500'
+}
+
+export default function CouncilGradePage() {
+  const params = useParams<{ assignmentId: string }>()
+  const assignmentId = params?.assignmentId ?? ''
   const [assignment, setAssignment] = useState<any>(null)
   const [requirement, setRequirement] = useState<any>(null)
   const [submission, setSubmission] = useState<any>(null)
@@ -37,6 +50,7 @@ export default function CouncilPaperGradePage() {
   const [message, setMessage] = useState({ text: '', type: '' })
   const [rating, setRating] = useState<Rating | ''>('')
   const [comments, setComments] = useState('')
+  const [rubricScores, setRubricScores] = useState<SermonRubricScores>({})
   const [isSaving, setIsSaving] = useState(false)
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null)
 
@@ -76,10 +90,15 @@ export default function CouncilPaperGradePage() {
     if (sub) {
       const { data: g } = await supabase
         .from('grades')
-        .select('id, overall_rating, overall_comments, graded_at')
+        .select('id, overall_rating, overall_comments, graded_at, sermon_rubric')
         .eq('submission_id', sub.id)
         .single()
-      if (g) { setExistingGrade(g); setRating(g.overall_rating); setComments(g.overall_comments || '') }
+      if (g) {
+        setExistingGrade(g)
+        setRating(g.overall_rating)
+        setComments(g.overall_comments || '')
+        if (g.sermon_rubric) setRubricScores(g.sermon_rubric)
+      }
     }
     setLoading(false)
   }
@@ -89,17 +108,30 @@ export default function CouncilPaperGradePage() {
   async function handleSaveGrade() {
     if (!rating) { flash('Please select a rating before saving.', 'error'); return }
     if (!submission) { flash('No submission found to grade.', 'error'); return }
+    if (isSermon) {
+      const scoredCount = Object.values(rubricScores).filter(v => v > 0).length
+      if (scoredCount < TOTAL_RUBRIC_CRITERIA) {
+        flash(`Please complete all ${TOTAL_RUBRIC_CRITERIA} rubric criteria before saving.`, 'error')
+        return
+      }
+    }
     setIsSaving(true)
     try {
+      const gradeData: any = {
+        overall_rating: rating,
+        overall_comments: comments,
+        graded_at: new Date().toISOString(),
+      }
+      if (isSermon) gradeData.sermon_rubric = rubricScores
+
       if (existingGrade) {
-        await supabase.from('grades').update({
-          overall_rating: rating, overall_comments: comments, graded_at: new Date().toISOString(),
-        }).eq('id', existingGrade.id)
+        await supabase.from('grades').update(gradeData).eq('id', existingGrade.id)
       } else {
         await supabase.from('grades').insert({
-          submission_id: submission.id, grading_assignment_id: assignment.id,
-          overall_rating: rating, overall_comments: comments,
-          graded_by: assignment.council_member_id, graded_at: new Date().toISOString(),
+          submission_id: submission.id,
+          grading_assignment_id: assignment.id,
+          graded_by: assignment.council_member_id,
+          ...gradeData,
         })
       }
       const newStatus = rating === 'insufficient' ? 'revision_required' : 'complete'
@@ -119,6 +151,10 @@ export default function CouncilPaperGradePage() {
   const answers: Record<string, string> = submission?.self_assessment?.answers || {}
   const selfRatings: Record<string, string> = submission?.self_assessment?.self_assessments || {}
   const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
+
+  const scoredCount = Object.values(rubricScores).filter(v => v > 0).length
+  const suggestedGrade = suggestRubricGrade(rubricScores)
+  const allRubricScored = !isSermon || scoredCount >= TOTAL_RUBRIC_CRITERIA
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
@@ -142,149 +178,232 @@ export default function CouncilPaperGradePage() {
         <Link href="/dashboard/council" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← My Assignments</Link>
       </header>
 
-    <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
-      <div className="max-w-6xl mx-auto">
+      <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
+        <div className="max-w-6xl mx-auto">
 
-        <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{requirement.requirement_templates?.title}</h1>
-            <p className="text-slate-500 font-medium mt-1">
-              {requirement.profiles?.full_name}
-              <span className="text-slate-300 mx-2">·</span>
-              <span className="text-slate-400 text-sm">{requirement.profiles?.email}</span>
-            </p>
+          <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{requirement.requirement_templates?.title}</h1>
+              <p className="text-slate-500 font-medium mt-1">
+                {requirement.profiles?.full_name}
+                <span className="text-slate-300 mx-2">·</span>
+                <span className="text-slate-400 text-sm">{requirement.profiles?.email}</span>
+              </p>
+            </div>
+            {message.text && (
+              <div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {message.text}
+              </div>
+            )}
           </div>
-          {message.text && (
-            <div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-              {message.text}
+
+          {!submission && (
+            <div className="bg-amber-50 border border-amber-200 rounded-3xl p-8 text-center">
+              <p className="text-amber-700 font-bold">No submission has been received for this requirement yet.</p>
             </div>
           )}
-        </div>
 
-        {!submission && (
-          <div className="bg-amber-50 border border-amber-200 rounded-3xl p-8 text-center">
-            <p className="text-amber-700 font-bold">No submission has been received for this requirement yet.</p>
-          </div>
-        )}
+          {submission && (
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-        {submission && (
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              {/* ── Left column ── */}
+              <div className="lg:col-span-3 space-y-4">
 
-            <div className="lg:col-span-3 space-y-4">
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-                <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-3">
-                  {isBook ? 'Submitted Book Report' : isSermon ? 'Submitted Sermon' : 'Submitted Paper'}
-                </h2>
-                {/* Book selected */}
-                {isBook && submission.selected_book && (
-                  <div className="mb-3 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
-                    <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Book:</span>
-                    <span className="text-sm font-bold text-slate-800">{submission.selected_book}</span>
-                  </div>
-                )}
-                {/* Sermon recording link */}
-                {isSermon && submission.notes && (
-                  <div className="mb-3 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
-                    <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Recording:</span>
-                    <a href={submission.notes} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-sm underline truncate">{submission.notes}</a>
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">📄</span>
-                  <div>
-                    <p className="text-sm font-bold text-slate-700">Submitted {new Date(submission.submitted_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                    <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-sm underline">Open file →</a>
+                {/* Submission card */}
+                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+                  <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-3">
+                    {isBook ? 'Submitted Book Report' : isSermon ? 'Submitted Sermon' : 'Submitted Paper'}
+                  </h2>
+                  {isBook && submission.selected_book && (
+                    <div className="mb-3 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
+                      <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Book:</span>
+                      <span className="text-sm font-bold text-slate-800">{submission.selected_book}</span>
+                    </div>
+                  )}
+                  {isSermon && submission.notes && (
+                    <div className="mb-3 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
+                      <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Recording:</span>
+                      <a href={submission.notes} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-sm underline truncate">{submission.notes}</a>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📄</span>
+                    <div>
+                      <p className="text-sm font-bold text-slate-700">Submitted {new Date(submission.submitted_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                      <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-sm underline">Open manuscript →</a>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {isPaper && topicData ? (
-                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-                  <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Self-Assessment Responses</h2>
-                  <p className="text-xs text-slate-400 font-medium mb-6">{topicData.title} — submitted by ordinand</p>
-                  <div className="space-y-6">
-                    {topicData.questions.map((q, i) => {
-                      const answer = answers[q.id] || ''
-                      const selfRating = selfRatings[q.id] || ''
-                      const isActive = activeQuestion === q.id
-                      return (
-                        <div key={q.id}
-                          className={`border rounded-2xl p-5 cursor-pointer transition-all ${isActive ? 'border-blue-300 bg-blue-50/40 shadow-sm' : 'border-slate-100 hover:border-slate-200 bg-slate-50/50'}`}
-                          onClick={() => setActiveQuestion(isActive ? null : q.id)}>
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <p className="text-sm font-bold text-slate-800 leading-relaxed flex-1">
-                              <span className="text-blue-500 font-black mr-2">{i + 1}.</span>{q.question}
-                            </p>
-                            {selfRating && (
-                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 capitalize ${SELF_ASSESSMENT_COLOUR[selfRating] || 'bg-slate-100 text-slate-500'}`}>{selfRating}</span>
-                            )}
+                {/* Sermon rubric */}
+                {isSermon && (
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+                    <div className="flex items-center justify-between mb-1">
+                      <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest">Sermon Marking Rubric</h2>
+                      <span className="text-xs font-bold text-slate-400">{scoredCount} / {TOTAL_RUBRIC_CRITERIA} scored</span>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mb-6">
+                      <div
+                        className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${(scoredCount / TOTAL_RUBRIC_CRITERIA) * 100}%` }}
+                      />
+                    </div>
+
+                    <div className="space-y-8">
+                      {SERMON_RUBRIC_SECTIONS.map(section => (
+                        <div key={section.id}>
+                          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">{section.title}</h3>
+                          <div className="space-y-4">
+                            {section.criteria.map(criterion => {
+                              const score = rubricScores[criterion.id] || 0
+                              return (
+                                <div key={criterion.id} className="bg-slate-50 rounded-2xl border border-slate-100 p-4">
+                                  <p className="text-sm font-bold text-slate-800 mb-3 leading-snug">{criterion.text}</p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-400 font-medium flex-1 min-w-0 leading-tight">{criterion.low}</span>
+                                    <div className="flex gap-1.5 shrink-0">
+                                      {[1, 2, 3, 4].map(n => (
+                                        <button
+                                          key={n}
+                                          onClick={() => setRubricScores(prev => ({ ...prev, [criterion.id]: n }))}
+                                          className={`w-10 h-10 rounded-xl font-black text-sm transition-all ${SCORE_COLOUR(n, score === n)}`}
+                                        >
+                                          {n}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <span className="text-xs text-slate-400 font-medium flex-1 min-w-0 text-right leading-tight">{criterion.high}</span>
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
-                          {answer ? (
-                            <p className={`text-sm text-slate-700 leading-relaxed font-medium transition-all ${isActive ? '' : 'line-clamp-3'}`}>{answer}</p>
-                          ) : (
-                            <p className="text-xs text-slate-400 italic">No response provided.</p>
-                          )}
-                          {!isActive && answer.length > 200 && <p className="text-xs text-blue-500 font-bold mt-1">Click to read more</p>}
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-                  <p className="text-slate-400 font-medium text-sm">No self-assessment form for this assignment type.</p>
-                </div>
-              )}
-            </div>
-
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 sticky top-6">
-                <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Grade</h2>
-                <p className="text-xs text-slate-400 font-medium mb-6">{existingGrade ? `Last graded ${new Date(existingGrade.graded_at).toLocaleDateString()}` : 'Not yet graded'}</p>
-
-                <div className="space-y-2 mb-6">
-                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Overall Rating</p>
-                  {RATINGS.map(r => {
-                    const cfg = RATING_CONFIG[r]
-                    const isSelected = rating === r
-                    return (
-                      <button key={r} onClick={() => setRating(r)}
-                        className={`w-full px-4 py-3 rounded-xl border-2 font-bold text-sm text-left transition-all ${isSelected ? cfg.colour + ' border-current' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
-                        {cfg.label}
-                        {r === 'insufficient' && <span className="text-xs ml-2 opacity-70">(Revision Required)</span>}
-                        {r === 'adequate' && <span className="text-xs ml-2 opacity-70">(Pass)</span>}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <div className="mb-6">
-                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Feedback Comments</label>
-                  <textarea className={`${inputClass} resize-none`} rows={6} value={comments} onChange={e => setComments(e.target.value)} placeholder="Provide constructive feedback for the ordinand..." />
-                </div>
-
-                {topicData && (
-                  <div className="mb-6 bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Rubric</p>
-                    <div className="space-y-1">
-                      {topicData.rubricItems.map(item => <p key={item} className="text-xs text-slate-500 font-medium">· {item}</p>)}
+                      ))}
                     </div>
                   </div>
                 )}
 
-                <button onClick={handleSaveGrade} disabled={isSaving || !rating}
-                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none">
-                  {isSaving ? 'Saving...' : existingGrade ? 'Update Grade' : 'Save Grade'}
-                </button>
-                {rating === 'insufficient' && <p className="text-xs text-red-600 font-bold text-center mt-3">This will mark the assignment as Revision Required</p>}
-                {rating && rating !== 'insufficient' && <p className="text-xs text-green-600 font-bold text-center mt-3">This will mark the assignment as Complete</p>}
-              </div>
-            </div>
+                {/* Paper self-assessment */}
+                {isPaper && topicData && (
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+                    <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Self-Assessment Responses</h2>
+                    <p className="text-xs text-slate-400 font-medium mb-6">{topicData.title} — submitted by ordinand</p>
+                    <div className="space-y-6">
+                      {topicData.questions.map((q, i) => {
+                        const answer = answers[q.id] || ''
+                        const selfRating = selfRatings[q.id] || ''
+                        const isActive = activeQuestion === q.id
+                        return (
+                          <div key={q.id}
+                            className={`border rounded-2xl p-5 cursor-pointer transition-all ${isActive ? 'border-blue-300 bg-blue-50/40 shadow-sm' : 'border-slate-100 hover:border-slate-200 bg-slate-50/50'}`}
+                            onClick={() => setActiveQuestion(isActive ? null : q.id)}>
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <p className="text-sm font-bold text-slate-800 leading-relaxed flex-1">
+                                <span className="text-blue-500 font-black mr-2">{i + 1}.</span>{q.question}
+                              </p>
+                              {selfRating && (
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 capitalize ${SELF_ASSESSMENT_COLOUR[selfRating] || 'bg-slate-100 text-slate-500'}`}>{selfRating}</span>
+                              )}
+                            </div>
+                            {answer ? (
+                              <p className={`text-sm text-slate-700 leading-relaxed font-medium transition-all ${isActive ? '' : 'line-clamp-3'}`}>{answer}</p>
+                            ) : (
+                              <p className="text-xs text-slate-400 italic">No response provided.</p>
+                            )}
+                            {!isActive && answer.length > 200 && <p className="text-xs text-blue-500 font-bold mt-1">Click to read more</p>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
-          </div>
-        )}
-      </div>
-    </main>
+                {/* Book / no assessment */}
+                {isBook && (
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+                    <p className="text-slate-400 font-medium text-sm">No self-assessment form for book reports.</p>
+                  </div>
+                )}
+
+              </div>
+
+              {/* ── Right column: grade panel ── */}
+              <div className="lg:col-span-2">
+                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 sticky top-6 overflow-y-auto max-h-[calc(100vh-4rem)]">
+                  <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Grade</h2>
+                  <p className="text-xs text-slate-400 font-medium mb-6">{existingGrade ? `Last graded ${new Date(existingGrade.graded_at).toLocaleDateString()}` : 'Not yet graded'}</p>
+
+                  {/* Rubric suggestion (sermons only) */}
+                  {isSermon && (
+                    <div className={`mb-5 rounded-2xl p-4 border transition-all ${scoredCount === TOTAL_RUBRIC_CRITERIA && suggestedGrade ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-100'}`}>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Rubric Progress</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+                          <div
+                            className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                            style={{ width: `${(scoredCount / TOTAL_RUBRIC_CRITERIA) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-bold text-slate-500 shrink-0">{scoredCount}/{TOTAL_RUBRIC_CRITERIA}</span>
+                      </div>
+                      {suggestedGrade ? (
+                        <p className="text-sm font-bold text-blue-700">
+                          Rubric suggests: <span className="capitalize">{suggestedGrade}</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-400 font-medium">Complete all criteria to see suggested grade</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-2 mb-6">
+                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Overall Rating</p>
+                    {RATINGS.map(r => {
+                      const cfg = RATING_CONFIG[r]
+                      const isSelected = rating === r
+                      return (
+                        <button key={r} onClick={() => setRating(r)}
+                          className={`w-full px-4 py-3 rounded-xl border-2 font-bold text-sm text-left transition-all ${isSelected ? cfg.colour + ' border-current' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                          {cfg.label}
+                          {r === 'insufficient' && <span className="text-xs ml-2 opacity-70">(Revision Required)</span>}
+                          {r === 'adequate' && <span className="text-xs ml-2 opacity-70">(Pass)</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div className="mb-6">
+                    <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Feedback Comments</label>
+                    <textarea className={`${inputClass} resize-none`} rows={6} value={comments} onChange={e => setComments(e.target.value)} placeholder="Provide constructive feedback for the ordinand..." />
+                  </div>
+
+                  {topicData && (
+                    <div className="mb-6 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Rubric</p>
+                      <div className="space-y-1">
+                        {topicData.rubricItems.map(item => <p key={item} className="text-xs text-slate-500 font-medium">· {item}</p>)}
+                      </div>
+                    </div>
+                  )}
+
+                  <button onClick={handleSaveGrade} disabled={isSaving || !rating || !allRubricScored}
+                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none">
+                    {isSaving ? 'Saving...' : existingGrade ? 'Update Grade' : 'Save Grade'}
+                  </button>
+                  {isSermon && !allRubricScored && (
+                    <p className="text-xs text-amber-600 font-bold text-center mt-3">Complete all {TOTAL_RUBRIC_CRITERIA} rubric criteria to save</p>
+                  )}
+                  {rating === 'insufficient' && <p className="text-xs text-red-600 font-bold text-center mt-3">This will mark the assignment as Revision Required</p>}
+                  {rating && rating !== 'insufficient' && <p className="text-xs text-green-600 font-bold text-center mt-3">This will mark the assignment as Complete</p>}
+                </div>
+              </div>
+
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   )
 }
