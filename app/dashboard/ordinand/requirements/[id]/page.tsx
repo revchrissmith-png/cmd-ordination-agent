@@ -27,7 +27,7 @@ const SERMON_REQUIREMENTS = [
   'Identify the specific question from the ordination requirements that this sermon addresses',
   'Demonstrate faithful exegesis of a biblical text',
   'Integrate theology and application to contemporary ministry contexts',
-  'If you are in a primary teaching role, submit a recording from your weekly worship service',
+  'If you are in a primary teaching role, paste a link to your sermon recording in the field below',
 ]
 
 const PAPER_INSTRUCTIONS: Record<string, { overview: string; questions: string[] }> = {
@@ -100,6 +100,7 @@ export default function OrdinandRequirementPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [selfAssessments, setSelfAssessments] = useState<Record<string, string>>({})
   const [file, setFile] = useState<File | null>(null)
+  const [recordingUrl, setRecordingUrl] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   function flash(text: string, type: 'success' | 'error') {
@@ -111,14 +112,14 @@ export default function OrdinandRequirementPage() {
     setLoading(true)
     const { data: req } = await supabase
       .from('ordinand_requirements')
-      .select(`id, status, updated_at, ordinand_id, requirement_templates(id, type, topic, title, description), cohorts(sermon_topic)`)
+      .select(`id, status, updated_at, ordinand_id, requirement_templates(id, type, topic, title, description, sermon_question_index), cohorts(sermon_topic)`)
       .eq('id', id)
       .single()
     setRequirement(req)
 
     const { data: sub } = await supabase
       .from('submissions')
-      .select('id, file_url, file_name, self_assessment, submitted_at')
+      .select('id, file_url, file_name, notes, self_assessment, submitted_at')
       .eq('ordinand_requirement_id', id)
       .order('submitted_at', { ascending: false })
       .limit(1)
@@ -126,6 +127,7 @@ export default function OrdinandRequirementPage() {
 
     if (sub) {
       setSubmission(sub)
+      if (sub.notes) setRecordingUrl(sub.notes)
       if (sub.self_assessment) {
         setAnswers(sub.self_assessment.answers || {})
         setSelfAssessments(sub.self_assessment.self_assessments || {})
@@ -157,7 +159,7 @@ export default function OrdinandRequirementPage() {
   async function handleSubmit() {
     if (!requirement) return
     if (isPaper && !allAnswered) { flash('Please answer all self-assessment questions before submitting.', 'error'); return }
-    if (!file && !submission?.file_url) { flash('Please upload your paper or assignment file before submitting.', 'error'); return }
+    if (!file && !submission?.file_url) { flash('Please upload your manuscript file before submitting.', 'error'); return }
     setIsSubmitting(true)
     try {
       let fileUrl = submission?.file_url ?? ''
@@ -172,11 +174,12 @@ export default function OrdinandRequirementPage() {
       const selfAssessmentPayload = isPaper ? { answers, self_assessments: selfAssessments, topic, submitted_at: new Date().toISOString() } : null
       const fileName = file ? file.name : (submission?.file_name ?? 'submission')
       let saveError: any = null
+      const notesPayload = isSermon ? (recordingUrl.trim() || null) : null
       if (submission) {
-        const { error } = await supabase.from('submissions').update({ file_url: fileUrl, file_name: fileName, self_assessment: selfAssessmentPayload }).eq('id', submission.id)
+        const { error } = await supabase.from('submissions').update({ file_url: fileUrl, file_name: fileName, notes: notesPayload, self_assessment: selfAssessmentPayload }).eq('id', submission.id)
         saveError = error
       } else {
-        const { error } = await supabase.from('submissions').insert({ ordinand_requirement_id: id, ordinand_id: requirement.ordinand_id, file_url: fileUrl, file_name: fileName, self_assessment: selfAssessmentPayload })
+        const { error } = await supabase.from('submissions').insert({ ordinand_requirement_id: id, ordinand_id: requirement.ordinand_id, file_url: fileUrl, file_name: fileName, notes: notesPayload, self_assessment: selfAssessmentPayload })
         saveError = error
       }
       if (saveError) { flash('Error saving submission: ' + saveError.message, 'error'); setIsSubmitting(false); return }
@@ -250,17 +253,25 @@ export default function OrdinandRequirementPage() {
         )}
 
         {isSermon && (
-          <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8 mb-6">
-            <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Sermon Submission Requirements</h2>
-            <p className="text-xs text-slate-500 font-medium mb-5">Each sermon submission must meet all of the following requirements:</p>
-            <ul className="space-y-2">
-              {SERMON_REQUIREMENTS.map((req, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-slate-700 font-medium">
-                  <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                  {req}
-                </li>
-              ))}
-            </ul>
+          <div className="space-y-4 mb-6">
+            {/* Question being addressed */}
+            <div className="bg-blue-600 rounded-3xl p-8">
+              <p className="text-xs font-black uppercase tracking-widest text-blue-200 mb-2">Question This Sermon Addresses</p>
+              <p className="text-white font-bold text-lg leading-relaxed">{requirement.requirement_templates?.description}</p>
+            </div>
+            {/* Requirements */}
+            <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8">
+              <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Sermon Submission Requirements</h2>
+              <p className="text-xs text-slate-500 font-medium mb-5">Your manuscript must meet all of the following:</p>
+              <ul className="space-y-2">
+                {SERMON_REQUIREMENTS.map((req, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-slate-700 font-medium">
+                    <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                    {req}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
 
@@ -354,11 +365,11 @@ export default function OrdinandRequirementPage() {
         )}
 
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
-          <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">{isPaper ? 'Upload Your Paper' : 'Upload Your Assignment'}</h2>
+          <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">{isPaper ? 'Upload Your Paper' : isSermon ? 'Upload Your Sermon Manuscript' : 'Upload Your Assignment'}</h2>
           <p className="text-xs text-slate-400 font-medium mb-5">Accepted formats: PDF, DOCX, DOC. Maximum file size: 20MB.</p>
           {submission?.file_url && (
             <div className="mb-4 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-              <span className="text-green-600 font-bold text-sm">✓ File submitted</span>
+              <span className="text-green-600 font-bold text-sm">✓ Manuscript submitted</span>
               <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-xs underline">View file →</a>
             </div>
           )}
@@ -370,6 +381,31 @@ export default function OrdinandRequirementPage() {
                 <p className="text-sm font-bold text-slate-700">{file ? file.name : 'Click to choose a file'}</p>
                 <p className="text-xs text-slate-400 font-medium mt-1">{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'PDF, DOCX, or DOC'}</p>
               </label>
+            </div>
+          )}
+
+          {/* Recording link — sermons only */}
+          {isSermon && (
+            <div className="mt-6 pt-6 border-t border-slate-100">
+              <label className="block text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Sermon Recording Link</label>
+              <p className="text-xs text-slate-400 font-medium mb-3">
+                If you are in a primary teaching role, paste a link to your sermon recording below (YouTube, Vimeo, church website, etc.). This is optional for those not in a primary teaching role.
+              </p>
+              {submission?.notes && !canEdit && (
+                <div className="mb-3 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                  <span className="text-green-600 font-bold text-sm">✓ Recording linked</span>
+                  <a href={submission.notes} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-xs underline truncate">{submission.notes}</a>
+                </div>
+              )}
+              {canEdit && (
+                <input
+                  type="url"
+                  className={inputClass}
+                  value={recordingUrl}
+                  onChange={e => setRecordingUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+              )}
             </div>
           )}
         </div>
