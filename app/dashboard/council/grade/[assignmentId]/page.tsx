@@ -66,7 +66,7 @@ export default function CouncilPaperGradePage() {
 
     const { data: sub } = await supabase
       .from('submissions')
-      .select('id, file_url, self_assessment, submitted_at')
+      .select('id, file_url, notes, selected_book, self_assessment, submitted_at')
       .eq('ordinand_requirement_id', assign.ordinand_requirement_id)
       .order('submitted_at', { ascending: false })
       .limit(1)
@@ -111,7 +111,9 @@ export default function CouncilPaperGradePage() {
   }
 
   const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
-  const isPaper = requirement?.requirement_templates?.type === 'paper'
+  const isPaper  = requirement?.requirement_templates?.type === 'paper'
+  const isSermon = requirement?.requirement_templates?.type === 'sermon'
+  const isBook   = requirement?.requirement_templates?.type === 'book_report'
   const topic = requirement?.requirement_templates?.topic
   const topicData = topic ? SELF_ASSESSMENT_TOPICS[topic] : null
   const answers: Record<string, string> = submission?.self_assessment?.answers || {}
@@ -170,12 +172,28 @@ export default function CouncilPaperGradePage() {
 
             <div className="lg:col-span-3 space-y-4">
               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-                <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-3">Submitted Paper</h2>
+                <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-3">
+                  {isBook ? 'Submitted Book Report' : isSermon ? 'Submitted Sermon' : 'Submitted Paper'}
+                </h2>
+                {/* Book selected */}
+                {isBook && submission.selected_book && (
+                  <div className="mb-3 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
+                    <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Book:</span>
+                    <span className="text-sm font-bold text-slate-800">{submission.selected_book}</span>
+                  </div>
+                )}
+                {/* Sermon recording link */}
+                {isSermon && submission.notes && (
+                  <div className="mb-3 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
+                    <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Recording:</span>
+                    <a href={submission.notes} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-sm underline truncate">{submission.notes}</a>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">📄</span>
                   <div>
                     <p className="text-sm font-bold text-slate-700">Submitted {new Date(submission.submitted_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                    <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-sm underline">Open paper →</a>
+                    <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-sm underline">Open file →</a>
                   </div>
                 </div>
               </div>

@@ -9,6 +9,42 @@ import { SELF_ASSESSMENT_TOPICS } from '../../../../../utils/selfAssessmentQuest
 
 type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
 
+// ── Book options per category ─────────────────────────────────────────────────
+
+const BOOK_OPTIONS: Record<string, string[]> = {
+  history: [
+    'All For Jesus — Robert L. Niklaus',
+    'A.B. Simpson and the Making of Modern Evangelicalism — Daryn Henry',
+  ],
+  theology: [
+    'Abide and Go: Missional Theosis in the Gospel of John — Michael J. Gorman',
+    'Rethinking Holiness: A Theological Introduction — Bernie Van De Walle',
+    'Surprised by Hope: Rethinking Heaven, the Resurrection, and the Mission of the Church — N.T. Wright',
+  ],
+  deeper_life: [
+    'Strengthening the Soul of Your Leadership — Ruth Haley Barton',
+    'Hearing God: Developing a Conversational Relationship With God — Dallas Willard',
+  ],
+  missions: [
+    'Completion of the Kairos Course',
+    'Short-term mission trip with the Alliance Canada + On Mission: Why We Go — Ronald Brown',
+    'The Mission of God\'s People: A Biblical Theology of the Church\'s Mission — Christopher J.H. Wright',
+  ],
+  holy_scripture: [
+    'God Has Spoken — J.I. Packer',
+    'The Blue Parakeet: Rethinking How You Read The Bible — Scot McKnight',
+  ],
+  anthropology: [
+    'Strange New World: How Thinkers and Activists Redefined Identity and Sparked the Sexual Revolution — Carl R. Trueman',
+    'The Genesis of Gender — Abigail Favale',
+    'Love Thy Body — Nancy Pearcy',
+  ],
+  disciple_making: [
+    'The Great Omission: Reclaiming Jesus\' Essential Teachings on Discipleship — Dallas Willard',
+  ],
+  specific_ministry_focus: [], // free text — ordinand enters their own book
+}
+
 // ── Handbook instructions shown to the ordinand on each requirement ──────────
 
 const BOOK_REPORT_REQUIREMENTS = [
@@ -101,6 +137,7 @@ export default function OrdinandRequirementPage() {
   const [selfAssessments, setSelfAssessments] = useState<Record<string, string>>({})
   const [file, setFile] = useState<File | null>(null)
   const [recordingUrl, setRecordingUrl] = useState('')
+  const [selectedBook, setSelectedBook] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   function flash(text: string, type: 'success' | 'error') {
@@ -112,14 +149,14 @@ export default function OrdinandRequirementPage() {
     setLoading(true)
     const { data: req } = await supabase
       .from('ordinand_requirements')
-      .select(`id, status, updated_at, ordinand_id, requirement_templates(id, type, topic, title, description, sermon_question_index), cohorts(sermon_topic)`)
+      .select(`id, status, updated_at, ordinand_id, requirement_templates(id, type, topic, book_category, title, description, sermon_question_index), cohorts(sermon_topic)`)
       .eq('id', id)
       .single()
     setRequirement(req)
 
     const { data: sub } = await supabase
       .from('submissions')
-      .select('id, file_url, file_name, notes, self_assessment, submitted_at')
+      .select('id, file_url, file_name, notes, selected_book, self_assessment, submitted_at')
       .eq('ordinand_requirement_id', id)
       .order('submitted_at', { ascending: false })
       .limit(1)
@@ -128,6 +165,7 @@ export default function OrdinandRequirementPage() {
     if (sub) {
       setSubmission(sub)
       if (sub.notes) setRecordingUrl(sub.notes)
+      if (sub.selected_book) setSelectedBook(sub.selected_book)
       if (sub.self_assessment) {
         setAnswers(sub.self_assessment.answers || {})
         setSelfAssessments(sub.self_assessment.self_assessments || {})
@@ -144,11 +182,15 @@ export default function OrdinandRequirementPage() {
 
   useEffect(() => { fetchData() }, [id])
 
-  const isPaper   = requirement?.requirement_templates?.type === 'paper'
-  const isSermon  = requirement?.requirement_templates?.type === 'sermon'
-  const isBook    = requirement?.requirement_templates?.type === 'book_report'
-  const topic     = requirement?.requirement_templates?.topic
-  const topicData = topic ? SELF_ASSESSMENT_TOPICS[topic] : null
+  const isPaper      = requirement?.requirement_templates?.type === 'paper'
+  const isSermon     = requirement?.requirement_templates?.type === 'sermon'
+  const isBook       = requirement?.requirement_templates?.type === 'book_report'
+  const topic        = requirement?.requirement_templates?.topic
+  const bookCategory = requirement?.requirement_templates?.book_category ?? ''
+  const bookOptions  = BOOK_OPTIONS[bookCategory] ?? []
+  const isRequiredBook = bookOptions.length === 1  // e.g. disciple_making
+  const isFreeTextBook = bookCategory === 'specific_ministry_focus'
+  const topicData    = topic ? SELF_ASSESSMENT_TOPICS[topic] : null
   const paperInstructions = isPaper && topic ? PAPER_INSTRUCTIONS[topic] : null
   const status: Status = requirement?.status ?? 'not_started'
   const statusCfg = STATUS_CONFIG[status]
@@ -159,6 +201,8 @@ export default function OrdinandRequirementPage() {
   async function handleSubmit() {
     if (!requirement) return
     if (isPaper && !allAnswered) { flash('Please answer all self-assessment questions before submitting.', 'error'); return }
+    if (isBook && !isFreeTextBook && !selectedBook) { flash('Please select the book you read before submitting.', 'error'); return }
+    if (isBook && isFreeTextBook && !selectedBook.trim()) { flash('Please enter the title of your book before submitting.', 'error'); return }
     if (!file && !submission?.file_url) { flash('Please upload your manuscript file before submitting.', 'error'); return }
     setIsSubmitting(true)
     try {
@@ -175,11 +219,12 @@ export default function OrdinandRequirementPage() {
       const fileName = file ? file.name : (submission?.file_name ?? 'submission')
       let saveError: any = null
       const notesPayload = isSermon ? (recordingUrl.trim() || null) : null
+      const bookPayload = isBook ? (isRequiredBook ? bookOptions[0] : selectedBook.trim() || null) : null
       if (submission) {
-        const { error } = await supabase.from('submissions').update({ file_url: fileUrl, file_name: fileName, notes: notesPayload, self_assessment: selfAssessmentPayload }).eq('id', submission.id)
+        const { error } = await supabase.from('submissions').update({ file_url: fileUrl, file_name: fileName, notes: notesPayload, selected_book: bookPayload, self_assessment: selfAssessmentPayload }).eq('id', submission.id)
         saveError = error
       } else {
-        const { error } = await supabase.from('submissions').insert({ ordinand_requirement_id: id, ordinand_id: requirement.ordinand_id, file_url: fileUrl, file_name: fileName, notes: notesPayload, self_assessment: selfAssessmentPayload })
+        const { error } = await supabase.from('submissions').insert({ ordinand_requirement_id: id, ordinand_id: requirement.ordinand_id, file_url: fileUrl, file_name: fileName, notes: notesPayload, selected_book: bookPayload, self_assessment: selfAssessmentPayload })
         saveError = error
       }
       if (saveError) { flash('Error saving submission: ' + saveError.message, 'error'); setIsSubmitting(false); return }
@@ -361,6 +406,47 @@ export default function OrdinandRequirementPage() {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Book selection — book reports only */}
+        {isBook && (
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
+            <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Book Selection</h2>
+            <p className="text-xs text-slate-400 font-medium mb-4">
+              {isFreeTextBook ? 'Enter the title and author of the book you chose for this category.' : isRequiredBook ? 'This category has one required title.' : 'Select the book you read from the approved list below.'}
+            </p>
+            {submission?.selected_book && !canEdit && (
+              <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                <span className="text-green-600 font-bold text-sm">✓ Book recorded:</span>
+                <span className="text-slate-700 font-bold text-sm">{submission.selected_book}</span>
+              </div>
+            )}
+            {canEdit && isRequiredBook && (
+              <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                <span className="text-blue-600 font-bold text-sm">📖 Required:</span>
+                <span className="text-slate-700 font-bold text-sm">{bookOptions[0]}</span>
+              </div>
+            )}
+            {canEdit && !isRequiredBook && !isFreeTextBook && (
+              <select
+                className={inputClass}
+                value={selectedBook}
+                onChange={e => setSelectedBook(e.target.value)}
+              >
+                <option value="">Select a book…</option>
+                {bookOptions.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            )}
+            {canEdit && isFreeTextBook && (
+              <input
+                type="text"
+                className={inputClass}
+                value={selectedBook}
+                onChange={e => setSelectedBook(e.target.value)}
+                placeholder="e.g. The Emotionally Healthy Church — Peter Scazzero"
+              />
+            )}
           </div>
         )}
 

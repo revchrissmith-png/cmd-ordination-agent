@@ -341,7 +341,12 @@ export default function OrdinandProcessPage() {
               <InfoRow label="Meeting frequency" value="Monthly, 60–90 minutes (in person or online)" />
               <InfoRow label="Your mentor's role" value="To listen, ask questions, offer challenge, and encourage growth — not to evaluate performance" />
               <InfoRow label="Your responsibility" value="Initiate meetings, come prepared with reflection on current assignments or ministry situations, be open to feedback and spiritual challenge" />
-              <InfoRow label="Monthly reports" value="Your mentor submits a short reflective report each month, noting growth areas, prayer needs, and any concerns" />
+              <InfoRow label="Monthly reports" valueNode={
+                <span className="text-sm text-slate-700 font-medium leading-relaxed">
+                  You send a short written report to your mentor each month before your meeting — covering spiritual formation, ministry, and personal development.{' '}
+                  <Link href="/dashboard/ordinand/mentor-report" className="text-blue-600 hover:text-blue-800 font-bold underline">View the report template →</Link>
+                </span>
+              } />
               <InfoRow label="Pre-interview evaluation" value="Your mentor completes a formal evaluation in the months leading up to your oral interview" />
             </div>
           </Section>
