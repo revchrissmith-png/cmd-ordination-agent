@@ -1,14 +1,41 @@
 // app/dashboard/ordinand/requirements/[id]/page.tsx
-// Ordinand requirement view: self-assessment form (papers) + file upload + submission
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
-import { SELF_ASSESSMENT_TOPICS } from '../../../../../utils/selfAssessmentQuestions'
+import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../utils/selfAssessmentQuestions'
 import { SERMON_RUBRIC_SECTIONS, sectionAverage } from '../../../../../utils/sermonRubric'
 
 type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
+
+// ── Rating helpers ─────────────────────────────────────────────────────────────
+
+const RATING_NUM: Record<string, number> = { insufficient: 1, adequate: 2, good: 3, excellent: 4, exceptional: 5 }
+const RATING_COLOUR: Record<string, string> = {
+  insufficient: 'bg-red-100 text-red-700',
+  adequate:     'bg-amber-100 text-amber-700',
+  good:         'bg-blue-100 text-blue-700',
+  excellent:    'bg-green-100 text-green-700',
+  exceptional:  'bg-purple-100 text-purple-700',
+}
+
+function avgRatingLabel(ratings: Record<string, string>): { label: string; colour: string } | null {
+  const vals = Object.values(ratings).map(r => RATING_NUM[r] || 0).filter(v => v > 0)
+  if (!vals.length) return null
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length
+  let label = 'Insufficient'
+  if (avg >= 4.5) label = 'Exceptional'
+  else if (avg >= 3.5) label = 'Excellent'
+  else if (avg >= 2.5) label = 'Good'
+  else if (avg >= 1.5) label = 'Adequate'
+  return { label, colour: RATING_COLOUR[label.toLowerCase()] || 'bg-slate-100 text-slate-500' }
+}
+
+function singleRatingDisplay(r: string): { label: string; colour: string } | null {
+  if (!r) return null
+  return { label: r.charAt(0).toUpperCase() + r.slice(1), colour: RATING_COLOUR[r] || 'bg-slate-100 text-slate-500' }
+}
 
 // ── Book options per category ─────────────────────────────────────────────────
 
@@ -29,7 +56,7 @@ const BOOK_OPTIONS: Record<string, string[]> = {
   missions: [
     'Completion of the Kairos Course',
     'Short-term mission trip with the Alliance Canada + On Mission: Why We Go — Ronald Brown',
-    'The Mission of God\'s People: A Biblical Theology of the Church\'s Mission — Christopher J.H. Wright',
+    "The Mission of God's People: A Biblical Theology of the Church's Mission — Christopher J.H. Wright",
   ],
   holy_scripture: [
     'God Has Spoken — J.I. Packer',
@@ -41,12 +68,12 @@ const BOOK_OPTIONS: Record<string, string[]> = {
     'Love Thy Body — Nancy Pearcy',
   ],
   disciple_making: [
-    'The Great Omission: Reclaiming Jesus\' Essential Teachings on Discipleship — Dallas Willard',
+    "The Great Omission: Reclaiming Jesus' Essential Teachings on Discipleship — Dallas Willard",
   ],
   specific_ministry_focus: [], // free text — ordinand enters their own book
 }
 
-// ── Handbook instructions shown to the ordinand on each requirement ──────────
+// ── Handbook instructions ─────────────────────────────────────────────────────
 
 const BOOK_REPORT_REQUIREMENTS = [
   'Approximately two pages in length, single-spaced',
@@ -75,7 +102,7 @@ const PAPER_INSTRUCTIONS: Record<string, { overview: string; questions: string[]
       'In what ways does the all-sufficiency of Jesus impact your life and ministry? How might you teach this to help others experience the all-sufficiency of Jesus for themselves?',
       'How do the elements of the Fourfold Gospel have a practical impact on the life and ministry of a Christian worker? How can we restore the life-changing impact of these historic tenets of the Alliance tradition in our ministries today?',
       'What might it look like for a Christ-centred believer to have an active and intentional discipleship to Jesus, including the making of other disciples? How does the life and ministry of Jesus as revealed in the Gospels inform the way you centre your own life around him?',
-      'Why is hearing the voice of Jesus essential to living a Christ-centred life? How would you disciple someone to hear Jesus\' voice? What are the ways in which you would coach someone to listen for it?',
+      "Why is hearing the voice of Jesus essential to living a Christ-centred life? How would you disciple someone to hear Jesus' voice? What are the ways in which you would coach someone to listen for it?",
     ],
   },
   spirit_empowered: {
@@ -94,7 +121,7 @@ const PAPER_INSTRUCTIONS: Record<string, { overview: string; questions: string[]
       'How would you articulate the "Mission of God" and what scriptures would you use to challenge all believers to participate, regardless of their vocation or where they live?',
       'Identify some key barriers of perception people have about believers being on "mission." How would you address these?',
       'Describe how your life is currently aligned with the mission of God and how you are intentionally seeking to live out a "missionary" mindset in your community outside the walls of the church. Reflect on your practice of prayer, time and energy, personal strategy, and financial habits.',
-      'How is mission motivated by the return of Christ? What role did the return of Christ play in the formation of the Alliance\'s doctrine of mission, and what role does/should it play today?',
+      "How is mission motivated by the return of Christ? What role did the return of Christ play in the formation of the Alliance's doctrine of mission, and what role does/should it play today?",
     ],
   },
   scripture: {
@@ -125,21 +152,35 @@ const STATUS_CONFIG: Record<Status, { label: string; colour: string }> = {
   complete:          { label: 'Complete',            colour: 'bg-green-100 text-green-700' },
 }
 
+const RATING_OPTIONS = [
+  { value: 'insufficient', label: 'Insufficient — not meaningfully addressed' },
+  { value: 'adequate',     label: 'Adequate — addressed at a basic level' },
+  { value: 'good',         label: 'Good — addressed clearly and substantively' },
+  { value: 'excellent',    label: 'Excellent — addressed with depth and insight' },
+  { value: 'exceptional',  label: 'Exceptional — addressed with exceptional depth, originality, or precision' },
+]
+
 export default function OrdinandRequirementPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id ?? ''
 
-  const [requirement, setRequirement] = useState<any>(null)
-  const [submission, setSubmission] = useState<any>(null)
-  const [grade, setGrade] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState({ text: '', type: '' })
-  const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [selfAssessments, setSelfAssessments] = useState<Record<string, string>>({})
-  const [file, setFile] = useState<File | null>(null)
+  const [requirement, setRequirement]   = useState<any>(null)
+  const [submission, setSubmission]     = useState<any>(null)
+  const [grade, setGrade]               = useState<any>(null)
+  const [loading, setLoading]           = useState(true)
+  const [message, setMessage]           = useState({ text: '', type: '' })
+  const [file, setFile]                 = useState<File | null>(null)
   const [recordingUrl, setRecordingUrl] = useState('')
   const [selectedBook, setSelectedBook] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // ── Self-assessment state (new v2 format) ──────────────────────────────────
+  // Completeness section: per-question rating + evidence
+  const [questionRatings,  setQuestionRatings]  = useState<Record<string, string>>({})
+  const [questionEvidence, setQuestionEvidence] = useState<Record<string, string>>({})
+  // Sections 2-6: single rating + evidence per section
+  const [sectionRatings,  setSectionRatings]  = useState<Record<string, string>>({})
+  const [sectionEvidence, setSectionEvidence] = useState<Record<string, string>>({})
 
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
@@ -167,13 +208,30 @@ export default function OrdinandRequirementPage() {
       setSubmission(sub)
       if (sub.notes) setRecordingUrl(sub.notes)
       if (sub.selected_book) setSelectedBook(sub.selected_book)
-      if (sub.self_assessment) {
-        setAnswers(sub.self_assessment.answers || {})
-        setSelfAssessments(sub.self_assessment.self_assessments || {})
+
+      // Load self-assessment — v2 format only
+      if (sub.self_assessment?.version === 2 && sub.self_assessment?.sections) {
+        const s = sub.self_assessment.sections
+        if (s.completeness) {
+          setQuestionRatings(s.completeness.question_ratings || {})
+          setQuestionEvidence(s.completeness.question_evidence || {})
+        }
+        const otherSectionIds = ['theological_depth', 'scripture', 'personal_reflection', 'sources', 'grammar']
+        const ratings: Record<string, string> = {}
+        const evidence: Record<string, string> = {}
+        otherSectionIds.forEach(sid => {
+          if (s[sid]) {
+            ratings[sid]  = s[sid].rating  || ''
+            evidence[sid] = s[sid].evidence || ''
+          }
+        })
+        setSectionRatings(ratings)
+        setSectionEvidence(evidence)
       }
+
       const { data: g } = await supabase
         .from('grades')
-        .select('id, overall_rating, overall_comments, graded_at, sermon_rubric')
+        .select('id, overall_rating, overall_comments, graded_at, sermon_rubric, paper_assessment')
         .eq('submission_id', sub.id)
         .single()
       setGrade(g)
@@ -189,19 +247,28 @@ export default function OrdinandRequirementPage() {
   const topic        = requirement?.requirement_templates?.topic
   const bookCategory = requirement?.requirement_templates?.book_category ?? ''
   const bookOptions  = BOOK_OPTIONS[bookCategory] ?? []
-  const isRequiredBook = bookOptions.length === 1  // e.g. disciple_making
+  const isRequiredBook = bookOptions.length === 1
   const isFreeTextBook = bookCategory === 'specific_ministry_focus'
   const topicData    = topic ? SELF_ASSESSMENT_TOPICS[topic] : null
   const paperInstructions = isPaper && topic ? PAPER_INSTRUCTIONS[topic] : null
   const status: Status = requirement?.status ?? 'not_started'
   const statusCfg = STATUS_CONFIG[status]
-  const isLocked = status === 'submitted' || status === 'under_review' || status === 'complete'
-    const canEdit = !isLocked
-  const allAnswered = topicData ? topicData.questions.every(q => (answers[q.id] || '').trim().length > 0) : true
+  const isLocked  = status === 'submitted' || status === 'under_review' || status === 'complete'
+  const canEdit   = !isLocked
+
+  const isNewFormatSA = submission?.self_assessment?.version === 2
+
+  // All self-assessment fields filled for new format
+  const allAnswered = topicData ? (
+    topicData.questions.every(q => (questionRatings[q.id] || '').trim() && (questionEvidence[q.id] || '').trim()) &&
+    PAPER_SECTIONS.filter(s => s.id !== 'completeness').every(s =>
+      (sectionRatings[s.id] || '').trim() && (sectionEvidence[s.id] || '').trim()
+    )
+  ) : true
 
   async function handleSubmit() {
     if (!requirement) return
-    if (isPaper && !allAnswered) { flash('Please answer all self-assessment questions before submitting.', 'error'); return }
+    if (isPaper && !allAnswered) { flash('Please complete all self-assessment sections before submitting.', 'error'); return }
     if (isBook && !isFreeTextBook && !selectedBook) { flash('Please select the book you read before submitting.', 'error'); return }
     if (isBook && isFreeTextBook && !selectedBook.trim()) { flash('Please enter the title of your book before submitting.', 'error'); return }
     if (!file && !submission?.file_url) { flash('Please upload your manuscript file before submitting.', 'error'); return }
@@ -216,21 +283,54 @@ export default function OrdinandRequirementPage() {
         const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(filePath)
         fileUrl = urlData.publicUrl
       }
-      const selfAssessmentPayload = isPaper ? { answers, self_assessments: selfAssessments, topic, submitted_at: new Date().toISOString() } : null
-      const fileName = file ? file.name : (submission?.file_name ?? 'submission')
-      let saveError: any = null
+
+      // Build self-assessment payload (v2 format)
+      let selfAssessmentPayload = null
+      if (isPaper && topicData) {
+        const sectionData: Record<string, any> = {
+          completeness: {
+            question_ratings: questionRatings,
+            question_evidence: questionEvidence,
+          },
+        }
+        PAPER_SECTIONS.filter(s => s.id !== 'completeness').forEach(s => {
+          sectionData[s.id] = {
+            rating:   sectionRatings[s.id]  || '',
+            evidence: sectionEvidence[s.id] || '',
+          }
+        })
+        selfAssessmentPayload = {
+          version: 2,
+          topic,
+          sections: sectionData,
+          submitted_at: new Date().toISOString(),
+        }
+      }
+
+      const fileName    = file ? file.name : (submission?.file_name ?? 'submission')
       const notesPayload = isSermon ? (recordingUrl.trim() || null) : null
-      const bookPayload = isBook ? (isRequiredBook ? bookOptions[0] : selectedBook.trim() || null) : null
+      const bookPayload  = isBook ? (isRequiredBook ? bookOptions[0] : selectedBook.trim() || null) : null
+
+      let saveError: any = null
       if (submission) {
-        const { error } = await supabase.from('submissions').update({ file_url: fileUrl, file_name: fileName, notes: notesPayload, selected_book: bookPayload, self_assessment: selfAssessmentPayload }).eq('id', submission.id)
+        const { error } = await supabase.from('submissions').update({
+          file_url: fileUrl, file_name: fileName, notes: notesPayload,
+          selected_book: bookPayload, self_assessment: selfAssessmentPayload,
+        }).eq('id', submission.id)
         saveError = error
       } else {
-        const { error } = await supabase.from('submissions').insert({ ordinand_requirement_id: id, ordinand_id: requirement.ordinand_id, file_url: fileUrl, file_name: fileName, notes: notesPayload, selected_book: bookPayload, self_assessment: selfAssessmentPayload })
+        const { error } = await supabase.from('submissions').insert({
+          ordinand_requirement_id: id, ordinand_id: requirement.ordinand_id,
+          file_url: fileUrl, file_name: fileName, notes: notesPayload,
+          selected_book: bookPayload, self_assessment: selfAssessmentPayload,
+        })
         saveError = error
       }
       if (saveError) { flash('Error saving submission: ' + saveError.message, 'error'); setIsSubmitting(false); return }
+
       const { error: statusError } = await supabase.from('ordinand_requirements').update({ status: 'submitted' }).eq('id', id)
       if (statusError) { flash('Submission saved but status update failed: ' + statusError.message, 'error'); setIsSubmitting(false); return }
+
       flash('Submitted successfully!', 'success')
       fetchData()
     } catch (err: any) {
@@ -240,8 +340,10 @@ export default function OrdinandRequirementPage() {
   }
 
   const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
-  const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
-  const btnPrimary = "bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-300 disabled:shadow-none"
+  const inputClass    = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
+  const selectClass   = (disabled: boolean) => `w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:ring-4 focus:ring-blue-100 outline-none transition-all ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`
+  const textareaClass = (disabled: boolean) => `${inputClass} resize-none ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`
+  const btnPrimary    = "bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-300 disabled:shadow-none"
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
@@ -254,6 +356,9 @@ export default function OrdinandRequirementPage() {
     </div>
   )
 
+  // ── Paper grade sections display (for ordinand after grading) ────────────────
+  const hasSectionFeedback = grade?.paper_assessment?.sections
+
   return (
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
 
@@ -265,52 +370,33 @@ export default function OrdinandRequirementPage() {
         <Link href="/dashboard/ordinand" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← My Requirements</Link>
       </header>
 
-    <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
-          <div>
-            <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{requirement.requirement_templates?.title}</h1>
-            <div className="flex items-center gap-3 mt-2">
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusCfg.colour}`}>{statusCfg.label}</span>
-              {isPaper && <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700">Theological Paper</span>}
-            </div>
-          </div>
-          {message.text && (
-            <div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-              {message.text}
-            </div>
-          )}
-        </div>
+      <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
+        <div className="max-w-3xl mx-auto">
 
-        {/* ── What you need to produce ─────────────────────────────── */}
-        {isBook && (
-          <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8 mb-6">
-            <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Book Report Requirements</h2>
-            <p className="text-xs text-slate-500 font-medium mb-5">Your report should be approximately two pages, single-spaced, and must cover each of the following:</p>
-            <ul className="space-y-2">
-              {BOOK_REPORT_REQUIREMENTS.map((req, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-slate-700 font-medium">
-                  <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                  {req}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {isSermon && (
-          <div className="space-y-4 mb-6">
-            {/* Question being addressed */}
-            <div className="bg-blue-600 rounded-3xl p-8">
-              <p className="text-xs font-black uppercase tracking-widest text-blue-200 mb-2">Question This Sermon Addresses</p>
-              <p className="text-white font-bold text-lg leading-relaxed">{requirement.requirement_templates?.description}</p>
+          {/* Title + status */}
+          <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
+            <div>
+              <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{requirement.requirement_templates?.title}</h1>
+              <div className="flex items-center gap-3 mt-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusCfg.colour}`}>{statusCfg.label}</span>
+                {isPaper && <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700">Theological Paper</span>}
+              </div>
             </div>
-            {/* Requirements */}
-            <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8">
-              <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Sermon Submission Requirements</h2>
-              <p className="text-xs text-slate-500 font-medium mb-5">Your manuscript must meet all of the following:</p>
+            {message.text && (
+              <div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {message.text}
+              </div>
+            )}
+          </div>
+
+          {/* ── Requirement instructions ───────────────────────────────────── */}
+
+          {isBook && (
+            <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8 mb-6">
+              <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Book Report Requirements</h2>
+              <p className="text-xs text-slate-500 font-medium mb-5">Your report should be approximately two pages, single-spaced, and must cover each of the following:</p>
               <ul className="space-y-2">
-                {SERMON_REQUIREMENTS.map((req, i) => (
+                {BOOK_REPORT_REQUIREMENTS.map((req, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-slate-700 font-medium">
                     <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
                     {req}
@@ -318,231 +404,358 @@ export default function OrdinandRequirementPage() {
                 ))}
               </ul>
             </div>
-          </div>
-        )}
+          )}
 
-        {isPaper && paperInstructions && (
-          <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8 mb-6">
-            <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Paper Requirements</h2>
-            <p className="text-sm text-slate-600 font-medium mb-6">{paperInstructions.overview}</p>
-            <div className="space-y-4">
-              {paperInstructions.questions.map((q, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                  <p className="text-sm text-slate-700 font-medium leading-relaxed">{q}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 bg-white rounded-2xl border border-blue-100 px-5 py-4">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Reminder</p>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">Papers should be 10–12 pages, formatted according to the CMD style guide. Writing in first-person is acceptable. Complete the self-assessment form below before submitting.</p>
-            </div>
-          </div>
-        )}
-
-        {grade && (
-          <div className="bg-green-50 border border-green-200 rounded-3xl p-8 mb-6">
-            <h2 className="text-xs font-black text-green-600 uppercase tracking-widest mb-4">Council Feedback</h2>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-sm font-black text-green-800 capitalize">{grade.overall_rating}</span>
-              <span className="text-xs text-green-600 font-medium">— graded {new Date(grade.graded_at).toLocaleDateString()}</span>
-            </div>
-            {grade.overall_comments && <p className="text-sm text-green-900 font-medium leading-relaxed">{grade.overall_comments}</p>}
-            {/* Sermon rubric section averages */}
-            {isSermon && grade.sermon_rubric && (
-              <div className="mt-5 pt-5 border-t border-green-200">
-                <p className="text-xs font-black text-green-700 uppercase tracking-widest mb-3">Rubric Section Scores</p>
-                <div className="space-y-2.5">
-                  {SERMON_RUBRIC_SECTIONS.map(section => {
-                    const avg = sectionAverage(section.id, grade.sermon_rubric)
-                    if (avg === null) return null
-                    const pct = (avg / 4) * 100
-                    const sectionName = section.title.replace(/^[IVX]+\.\s+/, '')
-                    const barColour = avg >= 3.5 ? 'bg-purple-500' : avg >= 2.75 ? 'bg-green-500' : avg >= 2.25 ? 'bg-blue-500' : avg >= 1.75 ? 'bg-amber-500' : 'bg-red-500'
-                    return (
-                      <div key={section.id} className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-green-900 w-32 shrink-0">{sectionName}</span>
-                        <div className="flex-1 bg-green-100 rounded-full h-2">
-                          <div className={`h-2 rounded-full transition-all ${barColour}`} style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-xs font-bold text-green-700 shrink-0 w-10 text-right">{avg.toFixed(1)} / 4</span>
-                      </div>
-                    )
-                  })}
-                </div>
+          {isSermon && (
+            <div className="space-y-4 mb-6">
+              <div className="bg-blue-600 rounded-3xl p-8">
+                <p className="text-xs font-black uppercase tracking-widest text-blue-200 mb-2">Question This Sermon Addresses</p>
+                <p className="text-white font-bold text-lg leading-relaxed">{requirement.requirement_templates?.description}</p>
               </div>
-            )}
-          </div>
-        )}
-
-        {status === 'revision_required' && (
-          <div className="bg-red-50 border border-red-200 rounded-3xl p-6 mb-6">
-            <p className="text-sm font-bold text-red-700">⚠ This assignment requires revision. Please review the feedback above, make corrections, and resubmit.</p>
-          </div>
-        )}
-
-        {isPaper && topicData && (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
-            <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Self-Assessment</h2>
-            <p className="text-sm text-slate-600 font-medium mb-1 leading-relaxed">
-              For each criterion below, rate how well your paper addresses it, then briefly describe <strong>where and how</strong> your paper engages with it — cite specific sections, arguments, or page numbers.
-            </p>
-            <p className="text-xs text-amber-600 font-bold mb-6">You are not being asked to answer these questions again — you are evaluating how well your submitted paper already addresses them.</p>
-            <div className="space-y-8">
-              {topicData.questions.map((q, i) => (
-                <div key={q.id} className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Criterion {i + 1}</p>
-                  <p className="text-sm font-bold text-slate-800 mb-4 leading-relaxed">{q.question}</p>
-                  <div className="mb-3">
-                    <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">How well does your paper address this criterion?</label>
-                    <select
-                      className={`w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:ring-4 focus:ring-blue-100 outline-none transition-all ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      value={selfAssessments[q.id] || ''}
-                      onChange={e => setSelfAssessments(prev => ({ ...prev, [q.id]: e.target.value }))}
-                      disabled={!canEdit}
-                    >
-                      <option value="">Select a rating…</option>
-                      <option value="insufficient">Insufficient — not meaningfully addressed</option>
-                      <option value="adequate">Adequate — addressed at a basic level</option>
-                      <option value="good">Good — addressed clearly and substantively</option>
-                      <option value="excellent">Excellent — addressed with depth and insight</option>
-                      <option value="exceptional">Exceptional — addressed with exceptional depth, originality, or precision</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Where does your paper address this? (cite sections, arguments, or page numbers)</label>
-                    <textarea
-                      className={`${inputClass} resize-none ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      rows={3}
-                      value={answers[q.id] || ''}
-                      onChange={e => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
-                      placeholder="e.g. 'Pages 3–5 address this through my discussion of… In section 2 I argue that…'"
-                      disabled={!canEdit}
-                    />
-                  </div>
-                </div>
-              ))}
+              <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8">
+                <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Sermon Submission Requirements</h2>
+                <p className="text-xs text-slate-500 font-medium mb-5">Your manuscript must meet all of the following:</p>
+                <ul className="space-y-2">
+                  {SERMON_REQUIREMENTS.map((req, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-slate-700 font-medium">
+                      <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                      {req}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            <div className="mt-6 bg-blue-50 rounded-2xl p-5 border border-blue-100">
-              <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-3">Council Grading Criteria</p>
-              <div className="flex flex-wrap gap-2">
-                {topicData.rubricItems.map(item => (
-                  <span key={item} className="px-3 py-1 bg-white border border-blue-100 rounded-full text-xs font-bold text-slate-600">{item}</span>
+          )}
+
+          {isPaper && paperInstructions && (
+            <div className="bg-blue-50 border border-blue-100 rounded-3xl p-8 mb-6">
+              <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: '#0077C8' }}>Paper Requirements</h2>
+              <p className="text-sm text-slate-600 font-medium mb-6">{paperInstructions.overview}</p>
+              <div className="space-y-4">
+                {paperInstructions.questions.map((q, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                    <p className="text-sm text-slate-700 font-medium leading-relaxed">{q}</p>
+                  </div>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Book selection — book reports only */}
-        {isBook && (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
-            <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Book Selection</h2>
-            <p className="text-xs text-slate-400 font-medium mb-4">
-              {isFreeTextBook ? 'Enter the title and author of the book you chose for this category.' : isRequiredBook ? 'This category has one required title.' : 'Select the book you read from the approved list below.'}
-            </p>
-            {submission?.selected_book && !canEdit && (
-              <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-                <span className="text-green-600 font-bold text-sm">✓ Book recorded:</span>
-                <span className="text-slate-700 font-bold text-sm">{submission.selected_book}</span>
+              <div className="mt-6 bg-white rounded-2xl border border-blue-100 px-5 py-4">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Reminder</p>
+                <p className="text-xs text-slate-500 font-medium leading-relaxed">Papers should be 10–12 pages, formatted according to the CMD style guide. Writing in first-person is acceptable. Complete the self-assessment form below before submitting.</p>
               </div>
-            )}
-            {canEdit && isRequiredBook && (
-              <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-                <span className="text-blue-600 font-bold text-sm">📖 Required:</span>
-                <span className="text-slate-700 font-bold text-sm">{bookOptions[0]}</span>
-              </div>
-            )}
-            {canEdit && !isRequiredBook && !isFreeTextBook && (
-              <select
-                className={inputClass}
-                value={selectedBook}
-                onChange={e => setSelectedBook(e.target.value)}
-              >
-                <option value="">Select a book…</option>
-                {bookOptions.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-            )}
-            {canEdit && isFreeTextBook && (
-              <input
-                type="text"
-                className={inputClass}
-                value={selectedBook}
-                onChange={e => setSelectedBook(e.target.value)}
-                placeholder="e.g. The Emotionally Healthy Church — Peter Scazzero"
-              />
-            )}
-          </div>
-        )}
-
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
-          <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">{isPaper ? 'Upload Your Paper' : isSermon ? 'Upload Your Sermon Manuscript' : 'Upload Your Assignment'}</h2>
-          <p className="text-xs text-slate-400 font-medium mb-5">Accepted formats: PDF, DOCX, DOC. Maximum file size: 20MB.</p>
-          {submission?.file_url && (
-            <div className="mb-4 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-              <span className="text-green-600 font-bold text-sm">✓ Manuscript submitted</span>
-              <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-xs underline">View file →</a>
-            </div>
-          )}
-          {canEdit && (
-            <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-blue-300 transition-colors">
-              <input type="file" accept=".pdf,.doc,.docx" onChange={e => setFile(e.target.files?.[0] ?? null)} className="hidden" id="file-upload" />
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <div className="text-3xl mb-2">📄</div>
-                <p className="text-sm font-bold text-slate-700">{file ? file.name : 'Click to choose a file'}</p>
-                <p className="text-xs text-slate-400 font-medium mt-1">{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'PDF, DOCX, or DOC'}</p>
-              </label>
             </div>
           )}
 
-          {/* Recording link — sermons only */}
-          {isSermon && (
-            <div className="mt-6 pt-6 border-t border-slate-100">
-              <label className="block text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Sermon Recording Link</label>
-              <p className="text-xs text-slate-400 font-medium mb-3">
-                If you are in a primary teaching role, paste a link to your sermon recording below (YouTube, Vimeo, church website, etc.). This is optional for those not in a primary teaching role.
-              </p>
-              {submission?.notes && !canEdit && (
-                <div className="mb-3 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-                  <span className="text-green-600 font-bold text-sm">✓ Recording linked</span>
-                  <a href={submission.notes} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-xs underline truncate">{submission.notes}</a>
+          {/* ── Council feedback (shown when graded) ─────────────────────────── */}
+
+          {grade && isPaper && hasSectionFeedback && (
+            <div className="bg-green-50 border border-green-200 rounded-3xl p-8 mb-6">
+              <h2 className="text-xs font-black text-green-600 uppercase tracking-widest mb-5">Council Assessment</h2>
+              <div className="space-y-4">
+                {PAPER_SECTIONS.map((section, idx) => {
+                  const councilComment = grade.paper_assessment.sections?.[section.id] || ''
+                  let display: { label: string; colour: string } | null = null
+                  if (section.id === 'completeness' && isNewFormatSA) {
+                    display = avgRatingLabel(questionRatings)
+                  } else if (isNewFormatSA && sectionRatings[section.id]) {
+                    display = singleRatingDisplay(sectionRatings[section.id])
+                  }
+                  return (
+                    <div key={section.id} className="bg-white rounded-2xl border border-green-100 p-5">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-green-200 text-green-700 font-black text-xs flex items-center justify-center">{idx + 1}</span>
+                          <h3 className="text-sm font-black text-green-800">{section.title}</h3>
+                        </div>
+                        {display && (
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold capitalize ${display.colour}`}>{display.label}</span>
+                        )}
+                      </div>
+                      {councilComment ? (
+                        <p className="text-sm text-green-900 font-medium leading-relaxed">{councilComment}</p>
+                      ) : (
+                        <p className="text-xs text-green-600 italic">No section feedback provided.</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-5 pt-5 border-t border-green-200">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-sm font-black text-green-800 capitalize">{grade.overall_rating}</span>
+                  <span className="text-xs text-green-600 font-medium">— graded {new Date(grade.graded_at).toLocaleDateString()}</span>
+                </div>
+                {grade.overall_comments && <p className="text-sm text-green-900 font-medium leading-relaxed">{grade.overall_comments}</p>}
+              </div>
+            </div>
+          )}
+
+          {grade && isPaper && !hasSectionFeedback && (
+            <div className="bg-green-50 border border-green-200 rounded-3xl p-8 mb-6">
+              <h2 className="text-xs font-black text-green-600 uppercase tracking-widest mb-4">Council Feedback</h2>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-sm font-black text-green-800 capitalize">{grade.overall_rating}</span>
+                <span className="text-xs text-green-600 font-medium">— graded {new Date(grade.graded_at).toLocaleDateString()}</span>
+              </div>
+              {grade.overall_comments && <p className="text-sm text-green-900 font-medium leading-relaxed">{grade.overall_comments}</p>}
+            </div>
+          )}
+
+          {grade && !isPaper && (
+            <div className="bg-green-50 border border-green-200 rounded-3xl p-8 mb-6">
+              <h2 className="text-xs font-black text-green-600 uppercase tracking-widest mb-4">Council Feedback</h2>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-sm font-black text-green-800 capitalize">{grade.overall_rating}</span>
+                <span className="text-xs text-green-600 font-medium">— graded {new Date(grade.graded_at).toLocaleDateString()}</span>
+              </div>
+              {grade.overall_comments && <p className="text-sm text-green-900 font-medium leading-relaxed">{grade.overall_comments}</p>}
+              {isSermon && grade.sermon_rubric && (
+                <div className="mt-5 pt-5 border-t border-green-200">
+                  <p className="text-xs font-black text-green-700 uppercase tracking-widest mb-3">Rubric Section Scores</p>
+                  <div className="space-y-2.5">
+                    {SERMON_RUBRIC_SECTIONS.map(section => {
+                      const avg = sectionAverage(section.id, grade.sermon_rubric)
+                      if (avg === null) return null
+                      const pct = (avg / 4) * 100
+                      const sectionName = section.title.replace(/^[IVX]+\.\s+/, '')
+                      const barColour = avg >= 3.5 ? 'bg-purple-500' : avg >= 2.75 ? 'bg-green-500' : avg >= 2.25 ? 'bg-blue-500' : avg >= 1.75 ? 'bg-amber-500' : 'bg-red-500'
+                      return (
+                        <div key={section.id} className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-green-900 w-32 shrink-0">{sectionName}</span>
+                          <div className="flex-1 bg-green-100 rounded-full h-2">
+                            <div className={`h-2 rounded-full transition-all ${barColour}`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-xs font-bold text-green-700 shrink-0 w-10 text-right">{avg.toFixed(1)} / 4</span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
-              {canEdit && (
+            </div>
+          )}
+
+          {status === 'revision_required' && (
+            <div className="bg-red-50 border border-red-200 rounded-3xl p-6 mb-6">
+              <p className="text-sm font-bold text-red-700">⚠ This assignment requires revision. Please review the feedback above, make corrections, and resubmit.</p>
+            </div>
+          )}
+
+          {/* ── Paper self-assessment (6 sections) ───────────────────────────── */}
+
+          {isPaper && topicData && (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
+              <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Self-Assessment</h2>
+              <p className="text-sm text-slate-600 font-medium mb-1 leading-relaxed">
+                For each section below, rate how well your paper addresses the criterion, then briefly describe <strong>where and how</strong> your paper engages with it — cite specific sections, arguments, or page numbers.
+              </p>
+              <p className="text-xs text-amber-600 font-bold mb-6">You are evaluating how well your submitted paper addresses each criterion — not answering the questions again.</p>
+
+              <div className="space-y-8">
+
+                {/* Section 1: Completeness — per-question rating */}
+                <div className="bg-slate-50 rounded-2xl border border-slate-100 p-6">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="w-7 h-7 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center flex-shrink-0">1</span>
+                    <h3 className="text-sm font-black text-slate-800">Completeness</h3>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium mb-5 ml-10">Have you addressed each of the key questions as outlined in the assignment guide?</p>
+
+                  <div className="space-y-5">
+                    {topicData.questions.map((q, i) => (
+                      <div key={q.id} className="bg-white rounded-xl border border-slate-200 p-4">
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Question {i + 1}</p>
+                        <p className="text-sm font-bold text-slate-700 mb-3 leading-relaxed">{q.question}</p>
+                        <div className="mb-3">
+                          <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">How well does your paper address this question?</label>
+                          <select
+                            className={selectClass(!canEdit)}
+                            value={questionRatings[q.id] || ''}
+                            onChange={e => setQuestionRatings(prev => ({ ...prev, [q.id]: e.target.value }))}
+                            disabled={!canEdit}
+                          >
+                            <option value="">Select a rating…</option>
+                            {RATING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Where does your paper address this? (cite sections or pages)</label>
+                          <textarea
+                            className={textareaClass(!canEdit)}
+                            rows={3}
+                            value={questionEvidence[q.id] || ''}
+                            onChange={e => setQuestionEvidence(prev => ({ ...prev, [q.id]: e.target.value }))}
+                            placeholder="e.g. Pages 3–5 address this through my discussion of…"
+                            disabled={!canEdit}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sections 2–6 */}
+                {PAPER_SECTIONS.filter(s => s.id !== 'completeness').map((section, idx) => (
+                  <div key={section.id} className="bg-slate-50 rounded-2xl border border-slate-100 p-6">
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="w-7 h-7 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center flex-shrink-0">{idx + 2}</span>
+                      <h3 className="text-sm font-black text-slate-800">{section.title}</h3>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium mb-5 ml-10 leading-relaxed">{section.prompt}</p>
+
+                    {section.note && (
+                      <div className="ml-10 mb-4 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                        <p className="text-xs text-amber-700 font-medium leading-relaxed">{section.note}</p>
+                      </div>
+                    )}
+
+                    <div className="bg-white rounded-xl border border-slate-200 p-4">
+                      <div className="mb-3">
+                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Self-Assessment Rating</label>
+                        <select
+                          className={selectClass(!canEdit)}
+                          value={sectionRatings[section.id] || ''}
+                          onChange={e => setSectionRatings(prev => ({ ...prev, [section.id]: e.target.value }))}
+                          disabled={!canEdit}
+                        >
+                          <option value="">Select a rating…</option>
+                          {RATING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Point to evidence from your paper</label>
+                        <textarea
+                          className={textareaClass(!canEdit)}
+                          rows={3}
+                          value={sectionEvidence[section.id] || ''}
+                          onChange={e => setSectionEvidence(prev => ({ ...prev, [section.id]: e.target.value }))}
+                          placeholder="e.g. In section 3 I engage with three scholarly sources on this point…"
+                          disabled={!canEdit}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+              </div>
+            </div>
+          )}
+
+          {/* ── Book selection ────────────────────────────────────────────────── */}
+
+          {isBook && (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
+              <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Book Selection</h2>
+              <p className="text-xs text-slate-400 font-medium mb-4">
+                {isFreeTextBook ? 'Enter the title and author of the book you chose for this category.' : isRequiredBook ? 'This category has one required title.' : 'Select the book you read from the approved list below.'}
+              </p>
+              {submission?.selected_book && !canEdit && (
+                <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                  <span className="text-green-600 font-bold text-sm">✓ Book recorded:</span>
+                  <span className="text-slate-700 font-bold text-sm">{submission.selected_book}</span>
+                </div>
+              )}
+              {canEdit && isRequiredBook && (
+                <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                  <span className="text-blue-600 font-bold text-sm">📖 Required:</span>
+                  <span className="text-slate-700 font-bold text-sm">{bookOptions[0]}</span>
+                </div>
+              )}
+              {canEdit && !isRequiredBook && !isFreeTextBook && (
+                <select className={inputClass} value={selectedBook} onChange={e => setSelectedBook(e.target.value)}>
+                  <option value="">Select a book…</option>
+                  {bookOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              )}
+              {canEdit && isFreeTextBook && (
                 <input
-                  type="url"
+                  type="text"
                   className={inputClass}
-                  value={recordingUrl}
-                  onChange={e => setRecordingUrl(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={selectedBook}
+                  onChange={e => setSelectedBook(e.target.value)}
+                  placeholder="e.g. The Emotionally Healthy Church — Peter Scazzero"
                 />
               )}
             </div>
           )}
+
+          {/* ── File upload ───────────────────────────────────────────────────── */}
+
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
+            <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">
+              {isPaper ? 'Upload Your Paper' : isSermon ? 'Upload Your Sermon Manuscript' : 'Upload Your Assignment'}
+            </h2>
+            <p className="text-xs text-slate-400 font-medium mb-5">Accepted formats: PDF, DOCX, DOC. Maximum file size: 20MB.</p>
+            {submission?.file_url && (
+              <div className="mb-4 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                <span className="text-green-600 font-bold text-sm">✓ Manuscript submitted</span>
+                <a href={submission.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-xs underline">View file →</a>
+              </div>
+            )}
+            {canEdit && (
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-blue-300 transition-colors">
+                <input type="file" accept=".pdf,.doc,.docx" onChange={e => setFile(e.target.files?.[0] ?? null)} className="hidden" id="file-upload" />
+                <label htmlFor="file-upload" className="cursor-pointer">
+                  <div className="text-3xl mb-2">📄</div>
+                  <p className="text-sm font-bold text-slate-700">{file ? file.name : 'Click to choose a file'}</p>
+                  <p className="text-xs text-slate-400 font-medium mt-1">{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'PDF, DOCX, or DOC'}</p>
+                </label>
+              </div>
+            )}
+
+            {/* Recording link — sermons only */}
+            {isSermon && (
+              <div className="mt-6 pt-6 border-t border-slate-100">
+                <label className="block text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Sermon Recording Link</label>
+                <p className="text-xs text-slate-400 font-medium mb-3">
+                  If you are in a primary teaching role, paste a link to your sermon recording below (YouTube, Vimeo, church website, etc.). This is optional for those not in a primary teaching role.
+                </p>
+                {submission?.notes && !canEdit && (
+                  <div className="mb-3 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                    <span className="text-green-600 font-bold text-sm">✓ Recording linked</span>
+                    <a href={submission.notes} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-bold text-xs underline truncate">{submission.notes}</a>
+                  </div>
+                )}
+                {canEdit && (
+                  <input
+                    type="url"
+                    className={inputClass}
+                    value={recordingUrl}
+                    onChange={e => setRecordingUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Submit button ─────────────────────────────────────────────────── */}
+
+          {canEdit && (
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting || (isPaper && !allAnswered) || (!file && !submission?.file_url)}
+                className={btnPrimary}
+              >
+                {isSubmitting ? 'Submitting...' : status === 'revision_required' ? 'Resubmit' : 'Submit'}
+              </button>
+              {isPaper && !allAnswered && (
+                <p className="text-xs text-amber-600 font-bold">Please complete all self-assessment sections to submit</p>
+              )}
+            </div>
+          )}
+
+          {!canEdit && (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4">
+              <p className="text-sm font-bold text-slate-500">
+                {status === 'complete' ? '✓ This assignment is complete.' : '⏳ This assignment has been submitted and is awaiting review.'}
+              </p>
+            </div>
+          )}
+
         </div>
-
-        {canEdit && (
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting || (isPaper && !allAnswered) || (!file && !submission?.file_url)}
-              className={btnPrimary}
-            >
-              {isSubmitting ? 'Submitting...' : status === 'revision_required' ? 'Resubmit' : 'Submit'}
-            </button>
-            {isPaper && !allAnswered && <p className="text-xs text-amber-600 font-bold">Please answer all {topicData?.questions.length} questions to submit</p>}
-          </div>
-        )}
-
-        {!canEdit && (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4">
-            <p className="text-sm font-bold text-slate-500">
-              {status === 'complete' ? '✓ This assignment is complete.' : '⏳ This assignment has been submitted and is awaiting review.'}
-            </p>
-          </div>
-        )}
-      </div>
-    </main>
+      </main>
     </div>
   )
 }
