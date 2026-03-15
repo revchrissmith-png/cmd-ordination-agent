@@ -257,6 +257,15 @@ export default function AdminPage() {
         <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Dashboard</Link>
       </header>
 
+      {/* ── ALPHA BANNER — remove before public launch ── */}
+      <div style={{ backgroundColor: '#FEF3C7', borderBottom: '1px solid #F59E0B', padding: '0.5rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
+        <span style={{ fontSize: '1rem' }}>⚗️</span>
+        <span style={{ color: '#92400E', fontSize: '0.82rem', fontWeight: '700', letterSpacing: '0.02em' }}>
+          Alpha Build · v0.1.0 · Testing in progress — please report any issues to the District Office
+        </span>
+      </div>
+      {/* ── END ALPHA BANNER ── */}
+
     <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
