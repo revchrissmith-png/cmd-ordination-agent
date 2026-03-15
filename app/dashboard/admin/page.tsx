@@ -7,7 +7,7 @@ import Link from 'next/link'
 
 const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
 
-type Tab = 'council' | 'cohorts' | 'candidates' | 'calendar'
+type Tab = 'council' | 'cohorts' | 'candidates' | 'calendar' | 'activity'
 
 const TOPICS = [
   { value: 'christ_centred',   label: 'Christ-Centred Life and Ministry' },
@@ -65,6 +65,9 @@ export default function AdminPage() {
   const [newCandidateCohort, setNewCandidateCohort] = useState('')
   const [isAddingCandidate, setIsAddingCandidate] = useState(false)
 
+  const [activityLogs, setActivityLogs]     = useState<any[]>([])
+  const [activityLoading, setActivityLoading] = useState(false)
+
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
@@ -110,6 +113,17 @@ export default function AdminPage() {
       .order('last_name', { ascending: true })
     if (!error) setCandidates(data || [])
     setCandidatesLoading(false)
+  }
+
+  async function fetchActivity() {
+    setActivityLoading(true)
+    const { data } = await supabase
+      .from('activity_logs')
+      .select('id, event_type, page, metadata, created_at, profiles(first_name, last_name, email, roles)')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    setActivityLogs(data || [])
+    setActivityLoading(false)
   }
 
   useEffect(() => {
@@ -278,12 +292,12 @@ export default function AdminPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-8">
-          {(['council','cohorts','candidates','calendar'] as Tab[]).map(key => (
-            <button key={key} onClick={() => setActiveTab(key)}
+          {(['council','cohorts','candidates','calendar','activity'] as Tab[]).map(key => (
+            <button key={key} onClick={() => { setActiveTab(key); if (key === 'activity') fetchActivity() }}
               style={activeTab === key
                 ? { backgroundColor: C.deepSea, color: C.white, padding: '0.65rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.9rem', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,66,106,0.25)' }
                 : { backgroundColor: C.white, color: '#666', padding: '0.65rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.9rem', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
-              {key === 'council' ? '⚖️  Council Members' : key === 'cohorts' ? '🎓  Cohorts' : key === 'candidates' ? '👤  Ordinands' : '📆  Calendar'}
+              {key === 'council' ? '⚖️  Council Members' : key === 'cohorts' ? '🎓  Cohorts' : key === 'candidates' ? '👤  Ordinands' : key === 'calendar' ? '📆  Calendar' : '📊  Activity'}
             </button>
           ))}
         </div>
@@ -583,6 +597,84 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── Activity Tab ── */}
+        {activeTab === 'activity' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: C.allianceBlue }}>User Activity Log</h2>
+              <button onClick={fetchActivity} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors" style={{ color: C.allianceBlue }}>
+                ↻ Refresh
+              </button>
+            </div>
+
+            {activityLoading ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 font-medium text-sm">Loading activity…</div>
+            ) : activityLogs.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 font-medium text-sm">No activity recorded yet.</div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50">
+                      <th className="text-left px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400">User</th>
+                      <th className="text-left px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Event</th>
+                      <th className="text-left px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hidden md:table-cell">Details</th>
+                      <th className="text-right px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400">When</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activityLogs.map((log, i) => {
+                      const prof = log.profiles
+                      const name = prof ? `${prof.first_name || ''} ${prof.last_name || ''}`.trim() : 'Unknown'
+                      const roles: string[] = prof?.roles || []
+                      const roleLabel = roles.includes('admin') ? 'Admin' : roles.includes('council') ? 'Council' : 'Ordinand'
+                      const roleColor = roles.includes('admin') ? 'bg-blue-100 text-blue-700' : roles.includes('council') ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
+                      const eventLabels: Record<string, string> = {
+                        login:              '🔐 Login',
+                        ordinand_dashboard: '🏠 Dashboard',
+                        requirement_view:   '📄 Viewed Requirement',
+                        submission:         '📤 Submitted',
+                        study_agent:        '🤖 Study Agent',
+                        council_dashboard:  '⚖️ Council Dashboard',
+                        grading_view:       '👁 Viewed Submission',
+                        grade_submitted:    '✅ Grade Submitted',
+                        process_guide:      '📖 Process Guide',
+                        profile_view:       '👤 Profile',
+                      }
+                      const eventLabel = eventLabels[log.event_type] || log.event_type
+                      const details = log.metadata?.title || log.metadata?.rating
+                        ? [log.metadata?.title, log.metadata?.rating ? `→ ${log.metadata.rating}` : '', log.metadata?.ordinand ? `for ${log.metadata.ordinand}` : ''].filter(Boolean).join(' ')
+                        : ''
+                      const when = new Date(log.created_at)
+                      const isToday = new Date().toDateString() === when.toDateString()
+                      const timeStr = isToday
+                        ? when.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
+                        : when.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      return (
+                        <tr key={log.id} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-800">{name}</span>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${roleColor}`}>{roleLabel}</span>
+                            </div>
+                            <div className="text-xs text-slate-400 font-medium mt-0.5">{prof?.email}</div>
+                          </td>
+                          <td className="px-5 py-3 font-medium text-slate-700">{eventLabel}</td>
+                          <td className="px-5 py-3 text-slate-500 hidden md:table-cell max-w-xs truncate">{details}</td>
+                          <td className="px-5 py-3 text-right text-xs font-medium text-slate-400 whitespace-nowrap">{timeStr}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                <div className="px-5 py-3 border-t border-slate-100 text-xs text-slate-400 font-medium">
+                  Showing most recent {activityLogs.length} events
+                </div>
+              </div>
+            )}
           </div>
         )}
 

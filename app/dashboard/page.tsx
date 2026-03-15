@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../utils/supabase/client'
+import { logActivity } from '../../utils/logActivity'
 import Link from 'next/link'
 
 const C = {
@@ -43,6 +44,7 @@ export default function DashboardHome() {
 
       if (prof) {
         setProfile(prof)
+        logActivity(authUser.id, 'login', '/dashboard', { roles: prof.roles })
         // Auto-redirect ordinands directly to their dashboard
         const roles: string[] = prof?.roles ?? []
         if (roles.includes('ordinand') && !roles.includes('admin') && !roles.includes('council')) {

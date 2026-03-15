@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
+import { logActivity } from '../../../../../utils/logActivity'
 import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../utils/selfAssessmentQuestions'
 import {
   SERMON_RUBRIC_SECTIONS,
@@ -105,6 +106,14 @@ export default function CouncilGradePage() {
         if (g.paper_assessment?.sections) setPaperFeedback(g.paper_assessment.sections)
       }
     }
+    if (req) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) logActivity(user.id, 'grading_view', `/dashboard/council/grade/${assignmentId}`, {
+        title: (req.requirement_templates as any)?.title,
+        type: (req.requirement_templates as any)?.type,
+        ordinand: (req.profiles as any)?.full_name,
+      })
+    }
     setLoading(false)
   }
 
@@ -167,6 +176,13 @@ export default function CouncilGradePage() {
       const newStatus = rating === 'insufficient' ? 'revision_required' : 'complete'
       await supabase.from('ordinand_requirements').update({ status: newStatus }).eq('id', requirement.id)
       flash('Grade saved successfully.', 'success')
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) logActivity(user.id, 'grade_submitted', `/dashboard/council/grade/${assignmentId}`, {
+        title: requirement?.requirement_templates?.title,
+        ordinand: requirement?.profiles?.full_name,
+        rating,
+        outcome: newStatus,
+      })
       fetchData()
     } catch (err: any) { flash('Error saving grade: ' + err.message, 'error') }
     setIsSaving(false)

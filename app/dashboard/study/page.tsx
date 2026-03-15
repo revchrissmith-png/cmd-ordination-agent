@@ -2,6 +2,8 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { supabase } from '../../../utils/supabase/client'
+import { logActivity } from '../../../utils/logActivity'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
@@ -29,6 +31,12 @@ export default function StudyAgentPage() {
   const [isLoading, setIsLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) logActivity(user.id, 'study_agent', '/dashboard/study')
+    })
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

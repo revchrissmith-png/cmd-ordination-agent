@@ -4,6 +4,7 @@
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
+import { logActivity } from '../../../utils/logActivity'
 
 const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
 
@@ -64,6 +65,7 @@ export default function OrdinandDashboard() {
         setCohortMembers(members || [])
       }
 
+      logActivity(user.id, 'ordinand_dashboard', '/dashboard/ordinand')
       setLoading(false)
     }
     fetchData()

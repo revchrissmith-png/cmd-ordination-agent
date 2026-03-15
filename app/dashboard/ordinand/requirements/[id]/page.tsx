@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
+import { logActivity } from '../../../../../utils/logActivity'
 import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../utils/selfAssessmentQuestions'
 import { SERMON_RUBRIC_SECTIONS, sectionAverage } from '../../../../../utils/sermonRubric'
 
@@ -195,6 +196,14 @@ export default function OrdinandRequirementPage() {
       .eq('id', id)
       .single()
     setRequirement(req)
+    if (req) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) logActivity(user.id, 'requirement_view', `/dashboard/ordinand/requirements/${id}`, {
+        title: (req.requirement_templates as any)?.title,
+        type: (req.requirement_templates as any)?.type,
+        status: req.status,
+      })
+    }
 
     const { data: sub } = await supabase
       .from('submissions')
@@ -333,6 +342,11 @@ export default function OrdinandRequirementPage() {
       if (statusError) { flash('Submission saved but status update failed: ' + statusError.message, 'error'); setIsSubmitting(false); return }
 
       flash('Submitted successfully!', 'success')
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) logActivity(user.id, 'submission', `/dashboard/ordinand/requirements/${id}`, {
+        title: requirement?.requirement_templates?.title,
+        type: requirement?.requirement_templates?.type,
+      })
       fetchData()
     } catch (err: any) {
       flash('Unexpected error: ' + err.message, 'error')
