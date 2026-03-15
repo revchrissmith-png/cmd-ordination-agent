@@ -175,9 +175,9 @@ export default function OrdinandRequirementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // ── Self-assessment state (new v2 format) ──────────────────────────────────
-  // Completeness section: per-question rating + evidence
-  const [questionRatings,  setQuestionRatings]  = useState<Record<string, string>>({})
-  const [questionEvidence, setQuestionEvidence] = useState<Record<string, string>>({})
+  // Completeness section: per-question rating + one shared evidence field
+  const [questionRatings,      setQuestionRatings]      = useState<Record<string, string>>({})
+  const [completenessEvidence, setCompletenessEvidence] = useState('')
   // Sections 2-6: single rating + evidence per section
   const [sectionRatings,  setSectionRatings]  = useState<Record<string, string>>({})
   const [sectionEvidence, setSectionEvidence] = useState<Record<string, string>>({})
@@ -214,7 +214,7 @@ export default function OrdinandRequirementPage() {
         const s = sub.self_assessment.sections
         if (s.completeness) {
           setQuestionRatings(s.completeness.question_ratings || {})
-          setQuestionEvidence(s.completeness.question_evidence || {})
+          setCompletenessEvidence(s.completeness.evidence || '')
         }
         const otherSectionIds = ['theological_depth', 'scripture', 'personal_reflection', 'sources', 'grammar']
         const ratings: Record<string, string> = {}
@@ -260,7 +260,8 @@ export default function OrdinandRequirementPage() {
 
   // All self-assessment fields filled for new format
   const allAnswered = topicData ? (
-    topicData.questions.every(q => (questionRatings[q.id] || '').trim() && (questionEvidence[q.id] || '').trim()) &&
+    topicData.questions.every(q => (questionRatings[q.id] || '').trim()) &&
+    completenessEvidence.trim().length > 0 &&
     PAPER_SECTIONS.filter(s => s.id !== 'completeness').every(s =>
       (sectionRatings[s.id] || '').trim() && (sectionEvidence[s.id] || '').trim()
     )
@@ -290,7 +291,7 @@ export default function OrdinandRequirementPage() {
         const sectionData: Record<string, any> = {
           completeness: {
             question_ratings: questionRatings,
-            question_evidence: questionEvidence,
+            evidence: completenessEvidence,
           },
         }
         PAPER_SECTIONS.filter(s => s.id !== 'completeness').forEach(s => {
@@ -561,36 +562,34 @@ export default function OrdinandRequirementPage() {
                   </div>
                   <p className="text-xs text-slate-500 font-medium mb-5 ml-10">Have you addressed each of the key questions as outlined in the assignment guide?</p>
 
-                  <div className="space-y-5">
+                  <div className="space-y-3 mb-5">
                     {topicData.questions.map((q, i) => (
                       <div key={q.id} className="bg-white rounded-xl border border-slate-200 p-4">
                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Question {i + 1}</p>
                         <p className="text-sm font-bold text-slate-700 mb-3 leading-relaxed">{q.question}</p>
-                        <div className="mb-3">
-                          <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">How well does your paper address this question?</label>
-                          <select
-                            className={selectClass(!canEdit)}
-                            value={questionRatings[q.id] || ''}
-                            onChange={e => setQuestionRatings(prev => ({ ...prev, [q.id]: e.target.value }))}
-                            disabled={!canEdit}
-                          >
-                            <option value="">Select a rating…</option>
-                            {RATING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Where does your paper address this? (cite sections or pages)</label>
-                          <textarea
-                            className={textareaClass(!canEdit)}
-                            rows={3}
-                            value={questionEvidence[q.id] || ''}
-                            onChange={e => setQuestionEvidence(prev => ({ ...prev, [q.id]: e.target.value }))}
-                            placeholder="e.g. Pages 3–5 address this through my discussion of…"
-                            disabled={!canEdit}
-                          />
-                        </div>
+                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">How well does your paper address this question?</label>
+                        <select
+                          className={selectClass(!canEdit)}
+                          value={questionRatings[q.id] || ''}
+                          onChange={e => setQuestionRatings(prev => ({ ...prev, [q.id]: e.target.value }))}
+                          disabled={!canEdit}
+                        >
+                          <option value="">Select a rating…</option>
+                          {RATING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
                       </div>
                     ))}
+                  </div>
+                  <div className="bg-white rounded-xl border border-slate-200 p-4">
+                    <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Point to features or evidence from your work to substantiate your assessment</label>
+                    <textarea
+                      className={textareaClass(!canEdit)}
+                      rows={4}
+                      value={completenessEvidence}
+                      onChange={e => setCompletenessEvidence(e.target.value)}
+                      placeholder="e.g. All five questions are addressed. Pages 3–5 cover question 1 through my discussion of… Section 3 addresses question 3 by…"
+                      disabled={!canEdit}
+                    />
                   </div>
                 </div>
 

@@ -353,34 +353,31 @@ export default function CouncilGradePage() {
                             </div>
                           </div>
 
-                          {/* Per-question ordinand responses */}
-                          <div className="space-y-3 mb-5">
+                          {/* Per-question ordinand ratings */}
+                          <div className="space-y-2 mb-4">
                             {topicData.questions.map((q, i) => {
-                              const qRating   = saSections.completeness?.question_ratings?.[q.id]  || ''
-                              const qEvidence = saSections.completeness?.question_evidence?.[q.id] || ''
-                              const isActive  = activeQuestion === q.id
+                              const qRating = saSections.completeness?.question_ratings?.[q.id] || ''
                               return (
-                                <div key={q.id}
-                                  className={`border rounded-xl p-4 cursor-pointer transition-all ${isActive ? 'border-blue-300 bg-blue-50/40 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}
-                                  onClick={() => setActiveQuestion(isActive ? null : q.id)}>
-                                  <div className="flex items-start justify-between gap-3 mb-1">
-                                    <p className="text-sm font-bold text-slate-700 flex-1 leading-relaxed">
-                                      <span className="text-blue-500 font-black mr-2">{i + 1}.</span>{q.question}
-                                    </p>
-                                    {qRating && (
-                                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 capitalize ${SELF_ASSESSMENT_COLOUR[qRating] || 'bg-slate-100 text-slate-500'}`}>{qRating}</span>
-                                    )}
-                                  </div>
-                                  {qEvidence ? (
-                                    <p className={`text-sm text-slate-600 font-medium leading-relaxed transition-all ${isActive ? '' : 'line-clamp-2'}`}>{qEvidence}</p>
+                                <div key={q.id} className="flex items-start justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3">
+                                  <p className="text-sm font-medium text-slate-700 flex-1 leading-relaxed">
+                                    <span className="text-blue-500 font-black mr-2">{i + 1}.</span>{q.question}
+                                  </p>
+                                  {qRating ? (
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 capitalize ${SELF_ASSESSMENT_COLOUR[qRating] || 'bg-slate-100 text-slate-500'}`}>{qRating}</span>
                                   ) : (
-                                    <p className="text-xs text-slate-400 italic">No evidence provided.</p>
+                                    <span className="text-xs text-slate-300 font-medium shrink-0">—</span>
                                   )}
-                                  {!isActive && qEvidence.length > 150 && <p className="text-xs text-blue-500 font-bold mt-1">Click to read more</p>}
                                 </div>
                               )
                             })}
                           </div>
+                          {/* Shared evidence field */}
+                          {saSections.completeness?.evidence && (
+                            <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 mb-4">
+                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Evidence from ordinand</p>
+                              <p className="text-sm text-slate-600 font-medium leading-relaxed">{saSections.completeness.evidence}</p>
+                            </div>
+                          )}
 
                           {/* Council feedback field */}
                           <div>
