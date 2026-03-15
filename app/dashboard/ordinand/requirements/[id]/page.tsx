@@ -285,7 +285,7 @@ export default function OrdinandRequirementPage() {
       }
 
       // Build self-assessment payload (v2 format)
-      let selfAssessmentPayload = null
+      let selfAssessmentPayload: Record<string, any> | null = null
       if (isPaper && topicData) {
         const sectionData: Record<string, any> = {
           completeness: {
