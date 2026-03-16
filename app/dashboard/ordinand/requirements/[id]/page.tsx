@@ -343,10 +343,24 @@ export default function OrdinandRequirementPage() {
 
       flash('Submitted successfully!', 'success')
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) logActivity(user.id, 'submission', `/dashboard/ordinand/requirements/${id}`, {
-        title: requirement?.requirement_templates?.title,
-        type: requirement?.requirement_templates?.type,
-      })
+      if (user) {
+        logActivity(user.id, 'submission', `/dashboard/ordinand/requirements/${id}`, {
+          title: requirement?.requirement_templates?.title,
+          type: requirement?.requirement_templates?.type,
+        })
+        // Notify the assigned grader (fire-and-forget — don't block the UI on email success)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          fetch('/api/notify-grader', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ requirementId: id }),
+          }).catch(() => {}) // silent fail — submission already saved
+        }
+      }
       fetchData()
     } catch (err: any) {
       flash('Unexpected error: ' + err.message, 'error')
