@@ -405,12 +405,12 @@ export default function OrdinandProcessPage() {
           {/* Study agent link */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
             <div>
-              <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Study Agent</h2>
-              <p className="text-sm text-slate-600 font-medium leading-relaxed">Use the CMD Study Agent to explore theology, work through paper topics, or practise for your oral interview with guided question walkthroughs.</p>
+              <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Pardington</h2>
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">Use Pardington — your AI ordination study partner — to explore theology, work through paper topics, or practise for your oral interview with guided question walkthroughs.</p>
             </div>
             <Link href="/dashboard/study"
               style={{ backgroundColor: C.deepSea, color: C.white, padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.9rem', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              Open Study Agent →
+              Open Pardington →
             </Link>
           </div>
 

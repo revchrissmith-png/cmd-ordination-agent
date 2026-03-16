@@ -8,6 +8,7 @@ export type EventType =
   | 'requirement_view'
   | 'submission'
   | 'study_agent'
+  | 'pardington'
   | 'council_dashboard'
   | 'grading_view'
   | 'grade_submitted'

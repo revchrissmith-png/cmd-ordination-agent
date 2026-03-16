@@ -1,4 +1,4 @@
-// app/dashboard/study/page.tsx
+// app/dashboard/study/page.tsx — Pardington AI Ordination Study Partner
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
@@ -25,7 +25,7 @@ const SUGGESTED_QUESTIONS = [
   'How do I think about the relationship between faith and healing?',
 ]
 
-export default function StudyAgentPage() {
+export default function PardingtonPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -34,7 +34,7 @@ export default function StudyAgentPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) logActivity(user.id, 'study_agent', '/dashboard/study')
+      if (user) logActivity(user.id, 'pardington', '/dashboard/study')
     })
   }, [])
 
@@ -98,9 +98,14 @@ export default function StudyAgentPage() {
 
       {/* Header */}
       <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
-          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD STUDY AGENT</span>
+          <div style={{ width: '1px', height: '28px', backgroundColor: 'rgba(255,255,255,0.2)' }} />
+          <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '32px', width: '32px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.3)' }} />
+          <div>
+            <div style={{ color: C.white, fontWeight: '900', fontSize: '1rem', letterSpacing: '0.05em', lineHeight: 1.1 }}>PARDINGTON</div>
+            <div style={{ color: '#90C8F0', fontSize: '0.65rem', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ordination Study Partner</div>
+          </div>
         </div>
         <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>
           ← Dashboard
@@ -110,7 +115,7 @@ export default function StudyAgentPage() {
       {/* Integrity banner */}
       <div style={{ backgroundColor: '#FFF8E1', borderBottom: '1px solid #F0D060', padding: '0.6rem 1.2rem', textAlign: 'center' }}>
         <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 'bold', color: '#7A5800' }}>
-          This assistant is here to help you <span style={{ textDecoration: 'underline' }}>think and study</span> — it will not write your papers, sermons, or assignments for you.
+          Pardington is here to help you <span style={{ textDecoration: 'underline' }}>think and study</span> — he will not write your papers, sermons, or assignments for you.
         </p>
       </div>
 
@@ -120,9 +125,16 @@ export default function StudyAgentPage() {
 
           {messages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '2.5rem 0' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.8rem' }}>✝</div>
-              <p style={{ fontWeight: 'bold', color: C.deepSea, fontSize: '1.1rem', margin: '0 0 0.3rem' }}>What would you like to explore?</p>
-              <p style={{ color: '#666', fontSize: '0.85rem', margin: '0 0 1.5rem' }}>Ask about Alliance theology, the Fourfold Gospel, Scripture, or your ordination topics.</p>
+              <img
+                src="/pardington-portrait.png"
+                alt="Pardington"
+                style={{ width: '120px', height: '120px', objectFit: 'cover', objectPosition: 'top', borderRadius: '50%', margin: '0 auto 1rem', display: 'block', border: `3px solid ${C.allianceBlue}`, backgroundColor: '#f5f5f0' }}
+              />
+              <p style={{ fontWeight: '900', color: C.deepSea, fontSize: '1.15rem', margin: '0 0 0.15rem', letterSpacing: '0.03em' }}>PARDINGTON</p>
+              <p style={{ color: C.allianceBlue, fontSize: '0.75rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 0.5rem' }}>Ordination Study Partner</p>
+              <p style={{ color: '#666', fontSize: '0.85rem', margin: '0 0 1.8rem', maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+                Ask about Alliance theology, the Fourfold Gospel, Scripture, or your ordination topics. Named in honour of G.P. Pardington, theologian and colleague of A.B. Simpson.
+              </p>
 
               {/* Interview prep — prominent button */}
               <button onClick={() => sendMessage(INTERVIEW_PREP_PROMPT)}
@@ -150,22 +162,27 @@ export default function StudyAgentPage() {
           {messages.map((msg, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-start', gap: '0.6rem' }}>
               {msg.role === 'assistant' && (
-                <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: C.allianceBlue, color: C.white, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', flexShrink: 0, marginTop: '2px' }}>✝</div>
+                <img
+                  src="/pardington-avatar.png"
+                  alt="Pardington"
+                  style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, marginTop: '2px', border: `1.5px solid ${C.allianceBlue}`, backgroundColor: '#f5f5f0' }}
+                />
               )}
               <div style={{
                 maxWidth: '85%',
-                backgroundColor: msg.role === 'user' ? C.allianceBlue : C.cloudGray,
+                backgroundColor: msg.role === 'user' ? C.allianceBlue : C.white,
                 color: msg.role === 'user' ? C.white : '#222',
                 padding: '0.85rem 1.1rem',
                 borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
                 fontSize: '0.9rem',
                 lineHeight: 1.55,
                 whiteSpace: 'pre-wrap',
+                boxShadow: msg.role === 'assistant' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
               }}>
                 {msg.content || (isLoading && i === messages.length - 1
                   ? <span style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '18px' }}>
                       {[0, 150, 300].map(delay => (
-                        <span key={delay} style={{ width: '6px', height: '6px', backgroundColor: C.deepSea, borderRadius: '50%', display: 'inline-block', animation: 'bounce 1s infinite', animationDelay: `${delay}ms` }} />
+                        <span key={delay} style={{ width: '6px', height: '6px', backgroundColor: C.allianceBlue, borderRadius: '50%', display: 'inline-block', animation: 'bounce 1s infinite', animationDelay: `${delay}ms` }} />
                       ))}
                     </span>
                   : null
@@ -186,7 +203,7 @@ export default function StudyAgentPage() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a theological question... (Enter to send, Shift+Enter for new line)"
+            placeholder="Ask Pardington a theological question… (Enter to send, Shift+Enter for new line)"
             rows={1}
             disabled={isLoading}
             style={{ flex: 1, padding: '0.75rem', border: `1px solid ${C.allianceBlue}`, borderRadius: '4px', fontSize: '16px', resize: 'none', maxHeight: '140px', overflowY: 'auto', outline: 'none', fontFamily: 'Arial, sans-serif', opacity: isLoading ? 0.6 : 1 }}

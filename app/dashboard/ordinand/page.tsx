@@ -220,8 +220,8 @@ export default function OrdinandDashboard() {
           <Link href="/dashboard/study"
             className="bg-white rounded-2xl border border-slate-200 px-6 py-5 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Study Agent</p>
-              <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">AI Theological Study Tool</p>
+              <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Pardington</p>
+              <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">AI Ordination Study Partner</p>
               <p className="text-xs text-slate-400 font-medium mt-0.5">Explore theology & interview prep</p>
             </div>
             <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-4">→</span>

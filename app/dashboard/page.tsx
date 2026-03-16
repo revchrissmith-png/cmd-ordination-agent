@@ -143,13 +143,18 @@ export default function DashboardHome() {
             </div>
           )}
 
-          {/* Study Agent Card */}
+          {/* Pardington Card */}
           <div style={{ backgroundColor: C.allianceBlue, borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,119,200,0.3)', border: '2px solid transparent', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
-            <div style={{ fontSize: '1.8rem', marginBottom: '0.8rem' }}>🤖</div>
-            <h3 style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', margin: '0 0 0.5rem' }}>Study Agent</h3>
-            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', flex: 1, margin: '0 0 1.2rem', lineHeight: 1.5 }}>Access the AI theological study assistant.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem' }}>
+              <img src="/pardington-avatar.png" alt="Pardington" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', backgroundColor: '#f5f5f0' }} />
+              <div>
+                <div style={{ color: C.white, fontWeight: '900', fontSize: '0.95rem', letterSpacing: '0.04em', lineHeight: 1.1 }}>PARDINGTON</div>
+                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.6rem', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Study Partner</div>
+              </div>
+            </div>
+            <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', flex: 1, margin: '0 0 1.2rem', lineHeight: 1.5 }}>Your AI theological study partner for Alliance theology and interview preparation.</p>
             <Link href="/dashboard/study" style={{ backgroundColor: C.deepSea, color: C.white, textAlign: 'center', padding: '0.7rem', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.85rem', textDecoration: 'none', letterSpacing: '0.04em' }}>
-              LAUNCH AGENT
+              OPEN PARDINGTON
             </Link>
           </div>
 
