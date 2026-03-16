@@ -101,7 +101,7 @@ export default function PardingtonPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
           <div style={{ width: '1px', height: '28px', backgroundColor: 'rgba(255,255,255,0.2)' }} />
-          <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '32px', width: '32px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.3)' }} />
+          <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '38px' }} />
           <div>
             <div style={{ color: C.white, fontWeight: '900', fontSize: '1rem', letterSpacing: '0.05em', lineHeight: 1.1 }}>PARDINGTON</div>
             <div style={{ color: '#90C8F0', fontSize: '0.65rem', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ordination Study Partner</div>
@@ -128,12 +128,12 @@ export default function PardingtonPage() {
               <img
                 src="/pardington-portrait.png"
                 alt="Pardington"
-                style={{ width: '120px', height: '120px', objectFit: 'cover', objectPosition: 'top', borderRadius: '50%', margin: '0 auto 1rem', display: 'block', border: `3px solid ${C.allianceBlue}`, backgroundColor: '#f5f5f0' }}
+                style={{ width: '180px', margin: '0 auto 1rem', display: 'block' }}
               />
               <p style={{ fontWeight: '900', color: C.deepSea, fontSize: '1.15rem', margin: '0 0 0.15rem', letterSpacing: '0.03em' }}>PARDINGTON</p>
               <p style={{ color: C.allianceBlue, fontSize: '0.75rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 0.5rem' }}>Ordination Study Partner</p>
               <p style={{ color: '#666', fontSize: '0.85rem', margin: '0 0 1.8rem', maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
-                Ask about Alliance theology, the Fourfold Gospel, Scripture, or your ordination topics. Named in honour of G.P. Pardington, theologian and colleague of A.B. Simpson.
+                Ask about Alliance theology, the Fourfold Gospel, Scripture, or your ordination topics.
               </p>
 
               {/* Interview prep — prominent button */}
@@ -165,7 +165,7 @@ export default function PardingtonPage() {
                 <img
                   src="/pardington-avatar.png"
                   alt="Pardington"
-                  style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, marginTop: '2px', border: `1.5px solid ${C.allianceBlue}`, backgroundColor: '#f5f5f0' }}
+                  style={{ width: '42px', height: '42px', flexShrink: 0, marginTop: '2px' }}
                 />
               )}
               <div style={{

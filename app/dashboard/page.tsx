@@ -146,7 +146,7 @@ export default function DashboardHome() {
           {/* Pardington Card */}
           <div style={{ backgroundColor: C.allianceBlue, borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,119,200,0.3)', border: '2px solid transparent', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem' }}>
-              <img src="/pardington-avatar.png" alt="Pardington" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)', backgroundColor: '#f5f5f0' }} />
+              <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '42px' }} />
               <div>
                 <div style={{ color: C.white, fontWeight: '900', fontSize: '0.95rem', letterSpacing: '0.04em', lineHeight: 1.1 }}>PARDINGTON</div>
                 <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.6rem', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Study Partner</div>
