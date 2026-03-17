@@ -358,7 +358,7 @@ export default function OrdinandRequirementPage() {
               'Authorization': `Bearer ${session.access_token}`,
             },
             body: JSON.stringify({ requirementId: id }),
-          }).catch(() => {}) // silent fail — submission already saved
+          }).then(r => r.json()).then(r => console.log('[notify-grader]', r)).catch(e => console.error('[notify-grader error]', e))
         }
       }
       fetchData()
