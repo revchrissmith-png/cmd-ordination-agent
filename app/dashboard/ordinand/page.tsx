@@ -307,7 +307,13 @@ export default function OrdinandDashboard() {
                           <div className="flex items-start gap-2 mb-2">
                             <span className="text-slate-400 text-xs mt-0.5">📍</span>
                             {/^https?:\/\//i.test(ev.location)
-                              ? <a href={ev.location} target="_blank" rel="noopener noreferrer" className="text-sm font-medium" style={{ color: '#0077C8', textDecoration: 'underline' }}>{ev.location}</a>
+                              ? <a href={ev.location} target="_blank" rel="noopener noreferrer" className="text-sm font-bold" style={{ color: '#0077C8', textDecoration: 'underline' }}>
+                                  {/zoom\.us/i.test(ev.location) ? '📹 Join Zoom Meeting'
+                                    : /teams\.microsoft|teams\.live/i.test(ev.location) ? '💬 Join Teams Meeting'
+                                    : /meet\.google/i.test(ev.location) ? '📹 Join Google Meet'
+                                    : /webex/i.test(ev.location) ? '📹 Join Webex Meeting'
+                                    : '🔗 Click here to join meeting'}
+                                </a>
                               : <p className="text-sm text-slate-600 font-medium">{ev.location}</p>
                             }
                           </div>
