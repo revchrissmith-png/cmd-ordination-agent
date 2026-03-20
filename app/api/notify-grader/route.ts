@@ -1,5 +1,4 @@
 // app/api/notify-grader/route.ts
-// Sends an email notification to the assigned council grader when an ordinand submits an assignment.
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -9,72 +8,54 @@ const serviceClient = createClient(
 )
 
 export async function POST(req: NextRequest) {
+  const diag: Record<string, any> = {}
+
   const body = await req.json().catch(() => ({}))
   const { requirementId } = body
-  if (!requirementId) {
-    console.log('[notify-grader] Missing requirementId')
-    return NextResponse.json({ sent: false, reason: 'Missing requirementId' })
-  }
-  console.log('[notify-grader] requirementId:', requirementId)
+  diag.requirementId = requirementId ?? null
 
-  // Look up the requirement + template
+  if (!requirementId) {
+    return NextResponse.json({ sent: false, reason: 'Missing requirementId', diag })
+  }
+
+  // 1. Requirement
   const { data: reqRow, error: reqErr } = await serviceClient
     .from('ordinand_requirements')
     .select('id, ordinand_id, template_id')
     .eq('id', requirementId)
     .single()
+  diag.requirement = reqRow ? 'found' : `not found (${reqErr?.message})`
+  if (!reqRow) return NextResponse.json({ sent: false, reason: 'Requirement not found', diag })
 
-  if (reqErr || !reqRow) {
-    console.log('[notify-grader] Requirement not found:', reqErr?.message)
-    return NextResponse.json({ sent: false, reason: 'Requirement not found' })
-  }
-
-  // Get template title
+  // 2. Template title
   const { data: template } = await serviceClient
-    .from('requirement_templates')
-    .select('title')
-    .eq('id', reqRow.template_id)
-    .single()
+    .from('requirement_templates').select('title').eq('id', reqRow.template_id).single()
+  diag.template = template?.title ?? 'not found'
 
-  // Get ordinand name
+  // 3. Ordinand name
   const { data: ordinandProfile } = await serviceClient
-    .from('profiles')
-    .select('first_name, last_name')
-    .eq('id', reqRow.ordinand_id)
-    .single()
+    .from('profiles').select('first_name, last_name').eq('id', reqRow.ordinand_id).single()
+  diag.ordinand = ordinandProfile ? `${ordinandProfile.first_name} ${ordinandProfile.last_name}` : 'not found'
 
-  // Look up grading assignment
-  const { data: assignment } = await serviceClient
-    .from('grading_assignments')
-    .select('id, council_member_id')
-    .eq('ordinand_requirement_id', requirementId)
-    .maybeSingle()
+  // 4. Grading assignment
+  const { data: assignment, error: assignErr } = await serviceClient
+    .from('grading_assignments').select('id, council_member_id')
+    .eq('ordinand_requirement_id', requirementId).maybeSingle()
+  diag.assignment = assignment ? `found (id: ${assignment.id})` : `none (${assignErr?.message ?? 'no row'})`
+  if (!assignment) return NextResponse.json({ sent: false, reason: 'No grader assigned', diag })
 
-  if (!assignment) {
-    console.log('[notify-grader] No grader assigned for', requirementId)
-    return NextResponse.json({ sent: false, reason: 'No grader assigned' })
-  }
-  console.log('[notify-grader] Grader:', assignment.council_member_id)
+  // 5. Grader email
+  const { data: graderProfile, error: graderErr } = await serviceClient
+    .from('profiles').select('first_name, email').eq('id', assignment.council_member_id).single()
+  diag.grader = graderProfile?.email ? `${graderProfile.first_name} <${graderProfile.email}>` : `no email (${graderErr?.message})`
+  if (!graderProfile?.email) return NextResponse.json({ sent: false, reason: 'Grader email not found', diag })
 
-  // Get grader email
-  const { data: graderProfile } = await serviceClient
-    .from('profiles')
-    .select('first_name, email')
-    .eq('id', assignment.council_member_id)
-    .single()
-
-  if (!graderProfile?.email) {
-    console.log('[notify-grader] Grader has no email')
-    return NextResponse.json({ sent: false, reason: 'Grader email not found' })
-  }
-  console.log('[notify-grader] Sending to:', graderProfile.email)
-
+  // 6. Resend key
   const resendKey = process.env.RESEND_API_KEY
-  if (!resendKey) {
-    console.error('[notify-grader] RESEND_API_KEY not set')
-    return NextResponse.json({ sent: false, reason: 'Email service not configured' })
-  }
+  diag.resendKeyPresent = !!resendKey
+  if (!resendKey) return NextResponse.json({ sent: false, reason: 'RESEND_API_KEY not set in Vercel env vars', diag })
 
+  // 7. Send
   const ordinandName    = [ordinandProfile?.first_name, ordinandProfile?.last_name].filter(Boolean).join(' ') || 'An ordinand'
   const graderName      = graderProfile.first_name || 'Council Member'
   const assignmentTitle = template?.title || 'an assignment'
@@ -82,10 +63,7 @@ export async function POST(req: NextRequest) {
 
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${resendKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: 'CMD Ordination Portal <noreply@canadianmidwest.ca>',
       to: [graderProfile.email],
@@ -111,17 +89,17 @@ export async function POST(req: NextRequest) {
               If you have questions, please contact the CMD District Office.
             </p>
           </div>
-        </div>
-      `,
+        </div>`,
     }),
   })
 
   const resendBody = await resendRes.text()
+  diag.resendStatus = resendRes.status
+  diag.resendResponse = resendBody
+
   if (!resendRes.ok) {
-    console.error('[notify-grader] Resend error', resendRes.status, resendBody)
-    return NextResponse.json({ sent: false, reason: 'Email delivery failed', detail: resendBody })
+    return NextResponse.json({ sent: false, reason: 'Resend API error', diag })
   }
 
-  console.log('[notify-grader] Sent successfully to', graderProfile.email)
-  return NextResponse.json({ sent: true })
+  return NextResponse.json({ sent: true, diag })
 }
