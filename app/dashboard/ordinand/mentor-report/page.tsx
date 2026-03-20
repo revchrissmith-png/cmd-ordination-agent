@@ -133,8 +133,8 @@ export default function MentorReportPage() {
       bodyLines.push(`— ${section.title.toUpperCase()} —`)
       bodyLines.push(``)
       sectionAnswers.forEach(({ q, a }) => {
-        bodyLines.push(`Q: ${q}`)
-        bodyLines.push(`A: ${a}`)
+        bodyLines.push(`» ${q}`)
+        bodyLines.push(a)
         bodyLines.push(``)
       })
     })
