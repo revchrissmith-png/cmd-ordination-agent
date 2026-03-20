@@ -49,7 +49,7 @@ export default function OrdinandDashboard() {
         const today = new Date().toISOString().slice(0, 10)
         const { data: evts } = await supabase
           .from('cohort_events')
-          .select('id, title, event_date, event_type, location, notes')
+          .select('id, title, event_date, event_type, location, notes, requirement_templates!linked_template_id(id, title, type)')
           .or(`cohort_id.eq.${prof.cohort_id},cohort_id.is.null`)
           .gte('event_date', today)
           .order('event_date', { ascending: true })
@@ -90,6 +90,15 @@ export default function OrdinandDashboard() {
   const daysUntilDue = cohort?.assignment_due_date
     ? Math.ceil((new Date(cohort.assignment_due_date + 'T12:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null
+
+  function renderMarkdown(text: string): string {
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    return escaped
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0077C8;text-decoration:underline;">$1</a>')
+      .replace(/\n/g, '<br/>')
+  }
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
@@ -277,7 +286,23 @@ export default function OrdinandDashboard() {
                     {/* Expanded detail panel */}
                     {isExpanded && (
                       <div className="px-5 pb-4 pt-1 border-t border-blue-100">
-                        <p className="text-sm font-bold text-slate-700 mb-2">{dateStr}</p>
+                        <p className="text-sm font-bold text-slate-700 mb-3">{dateStr}</p>
+                        {ev.requirement_templates && (() => {
+                          const linkedReq = requirements.find(r => r.requirement_templates?.id === ev.requirement_templates.id)
+                          const typeIcon = ev.requirement_templates.type === 'book_report' ? '📚' : ev.requirement_templates.type === 'sermon' ? '🎤' : '📝'
+                          return (
+                            <div className="flex items-start gap-2 mb-3 bg-purple-50 rounded-xl px-3 py-2 border border-purple-100">
+                              <span className="text-xs mt-0.5">{typeIcon}</span>
+                              <div>
+                                <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-0.5">Discussing</p>
+                                {linkedReq
+                                  ? <Link href={`/dashboard/ordinand/requirements/${linkedReq.id}`} className="text-sm font-bold text-purple-700 hover:underline">{ev.requirement_templates.title} →</Link>
+                                  : <span className="text-sm font-bold text-purple-700">{ev.requirement_templates.title}</span>
+                                }
+                              </div>
+                            </div>
+                          )
+                        })()}
                         {ev.location && (
                           <div className="flex items-start gap-2 mb-2">
                             <span className="text-slate-400 text-xs mt-0.5">📍</span>
@@ -287,10 +312,10 @@ export default function OrdinandDashboard() {
                         {ev.notes && (
                           <div className="flex items-start gap-2">
                             <span className="text-slate-400 text-xs mt-0.5">📋</span>
-                            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{ev.notes}</p>
+                            <p className="text-sm text-slate-600 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMarkdown(ev.notes) }} />
                           </div>
                         )}
-                        {!ev.location && !ev.notes && (
+                        {!ev.location && !ev.notes && !ev.requirement_templates && (
                           <p className="text-xs text-slate-400 italic">No additional details provided.</p>
                         )}
                       </div>

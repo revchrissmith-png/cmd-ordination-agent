@@ -1,7 +1,7 @@
 // Iteration: v2.2 - Alliance Blue design system
 // Tabs: Council Members | Cohorts | Candidates
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../../utils/supabase/client'
 import Link from 'next/link'
 
@@ -56,6 +56,11 @@ export default function AdminPage() {
   const [newEventLocation, setNewEventLocation] = useState('')
   const [newEventNotes, setNewEventNotes] = useState('')
   const [isAddingEvent, setIsAddingEvent] = useState(false)
+  const [newEventTemplate, setNewEventTemplate] = useState('')
+  const [editingEvent, setEditingEvent] = useState<any>(null)
+
+  const [templates, setTemplates] = useState<any[]>([])
+  const notesRef = useRef<HTMLTextAreaElement>(null)
 
   const [candidates, setCandidates] = useState<any[]>([])
   const [candidatesLoading, setCandidatesLoading] = useState(true)
@@ -98,10 +103,18 @@ export default function AdminPage() {
     setEventsLoading(true)
     const { data, error } = await supabase
       .from('cohort_events')
-      .select('*, cohorts(name)')
+      .select('*, cohorts(name), requirement_templates!linked_template_id(id, title, type)')
       .order('event_date', { ascending: true })
     if (!error) setEvents(data || [])
     setEventsLoading(false)
+  }
+
+  async function fetchTemplates() {
+    const { data } = await supabase
+      .from('requirement_templates')
+      .select('id, type, topic, book_category, title')
+      .order('display_order', { ascending: true })
+    setTemplates(data || [])
   }
 
   async function fetchCandidates() {
@@ -131,6 +144,7 @@ export default function AdminPage() {
     fetchCohorts()
     fetchCandidates()
     fetchEvents()
+    fetchTemplates()
   }, [])
 
   async function handleAddCouncil(e: React.FormEvent) {
@@ -229,21 +243,74 @@ export default function AdminPage() {
     setIsAddingCandidate(false)
   }
 
+  function insertMd(prefix: string, suffix: string, placeholder: string) {
+    const ta = notesRef.current
+    if (!ta) return
+    const start = ta.selectionStart, end = ta.selectionEnd
+    const sel = ta.value.substring(start, end) || placeholder
+    setNewEventNotes(ta.value.substring(0, start) + prefix + sel + suffix + ta.value.substring(end))
+    requestAnimationFrame(() => {
+      ta.focus()
+      ta.setSelectionRange(start + prefix.length, start + prefix.length + sel.length)
+    })
+  }
+
+  function insertLink() {
+    const ta = notesRef.current
+    if (!ta) return
+    const start = ta.selectionStart, end = ta.selectionEnd
+    const sel = ta.value.substring(start, end) || 'Link Text'
+    const insert = `[${sel}](https://)`
+    setNewEventNotes(ta.value.substring(0, start) + insert + ta.value.substring(end))
+    requestAnimationFrame(() => {
+      ta.focus()
+      const urlStart = start + 1 + sel.length + 2
+      ta.setSelectionRange(urlStart, urlStart + 8)
+    })
+  }
+
+  function startEditEvent(ev: any) {
+    setEditingEvent(ev)
+    setNewEventCohort(ev.cohort_id ?? '')
+    setNewEventTitle(ev.title)
+    setNewEventDate(ev.event_date)
+    setNewEventType(ev.event_type)
+    setNewEventLocation(ev.location ?? '')
+    setNewEventNotes(ev.notes ?? '')
+    setNewEventTemplate(ev.linked_template_id ?? '')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function cancelEdit() {
+    setEditingEvent(null)
+    setNewEventTitle(''); setNewEventDate(''); setNewEventLocation(''); setNewEventNotes(''); setNewEventTemplate('')
+  }
+
   async function handleAddEvent(e: React.FormEvent) {
     e.preventDefault()
     setIsAddingEvent(true)
-    const { error } = await supabase.from('cohort_events').insert([{
+    const payload = {
       cohort_id: newEventCohort || null,
       title: newEventTitle.trim(),
       event_date: newEventDate,
       event_type: newEventType,
       location: newEventLocation.trim() || null,
       notes: newEventNotes.trim() || null,
-    }])
+      linked_template_id: newEventTemplate || null,
+    }
+    let error: any
+    if (editingEvent) {
+      const res = await supabase.from('cohort_events').update(payload).eq('id', editingEvent.id)
+      error = res.error
+    } else {
+      const res = await supabase.from('cohort_events').insert([payload])
+      error = res.error
+    }
     if (error) { flash('Error: ' + error.message, 'error') }
     else {
-      flash('Event added to calendar.', 'success')
-      setNewEventTitle(''); setNewEventDate(''); setNewEventLocation(''); setNewEventNotes('')
+      flash(editingEvent ? 'Event updated.' : 'Event added to calendar.', 'success')
+      setNewEventTitle(''); setNewEventDate(''); setNewEventLocation(''); setNewEventNotes(''); setNewEventTemplate('')
+      setEditingEvent(null)
       fetchEvents()
     }
     setIsAddingEvent(false)
@@ -509,16 +576,18 @@ export default function AdminPage() {
 
         {activeTab === 'calendar' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-              <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Add Gathering</h2>
-              <p className="text-xs text-slate-400 font-medium mb-5">Events appear on the ordinand's dashboard for their cohort. The four annual gatherings are: September (online), November (online), February (online), June (in-person).</p>
-              {cohorts.length === 0 ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-amber-700 text-sm font-medium">
-                  You need to create at least one cohort before adding events.{' '}
-                  <button onClick={() => setActiveTab('cohorts')} className="font-black underline">Create a cohort →</button>
-                </div>
-              ) : (
-                <form onSubmit={handleAddEvent} className="space-y-4">
+            <div className={`bg-white rounded-3xl border shadow-sm p-8 ${editingEvent ? 'border-blue-300' : 'border-slate-200'}`}>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: editingEvent ? C.allianceBlue : C.allianceBlue }}>
+                  {editingEvent ? '✏️  Edit Gathering' : 'Add Gathering'}
+                </h2>
+                {editingEvent && (
+                  <button onClick={cancelEdit} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">✕ Cancel Edit</button>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 font-medium mb-5">Events appear on the ordinand's dashboard. The four annual gatherings are: September (online), November (online), February (online), June (in-person).</p>
+              <form onSubmit={handleAddEvent} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>Cohort</label>
                     <select className={inputClass} value={newEventCohort} onChange={e => setNewEventCohort(e.target.value)}>
@@ -526,36 +595,70 @@ export default function AdminPage() {
                       {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Event Title</label>
-                      <input className={inputClass} value={newEventTitle} onChange={e => setNewEventTitle(e.target.value)} placeholder="Fall Gathering" required />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Date</label>
-                      <input className={inputClass} type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} required />
-                    </div>
+                  <div>
+                    <label className={labelClass}>Linked Assignment <span className="normal-case font-medium text-slate-400">(optional)</span></label>
+                    <select className={inputClass} value={newEventTemplate} onChange={e => setNewEventTemplate(e.target.value)}>
+                      <option value="">No linked assignment</option>
+                      <optgroup label="📚 Book Reports">
+                        {templates.filter(t => t.type === 'book_report').map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                      </optgroup>
+                      <optgroup label="📝 Papers">
+                        {templates.filter(t => t.type === 'paper').map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                      </optgroup>
+                      <optgroup label="🎤 Sermons">
+                        {templates.filter(t => t.type === 'sermon').map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                      </optgroup>
+                    </select>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Format</label>
-                      <select className={inputClass} value={newEventType} onChange={e => setNewEventType(e.target.value as 'online' | 'in_person')}>
-                        <option value="online">Online</option>
-                        <option value="in_person">In Person</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Location <span className="normal-case font-medium text-slate-400">(optional)</span></label>
-                      <input className={inputClass} value={newEventLocation} onChange={e => setNewEventLocation(e.target.value)} placeholder="Zoom link, address, etc." />
-                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Event Title</label>
+                    <input className={inputClass} value={newEventTitle} onChange={e => setNewEventTitle(e.target.value)} placeholder="Fall Gathering" required />
                   </div>
                   <div>
-                    <label className={labelClass}>Notes <span className="normal-case font-medium text-slate-400">(optional)</span></label>
-                    <textarea className={inputClass} value={newEventNotes} onChange={e => setNewEventNotes(e.target.value)} rows={2} placeholder="Any additional details ordinands should know..." />
+                    <label className={labelClass}>Date</label>
+                    <input className={inputClass} type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} required />
                   </div>
-                  <button type="submit" disabled={isAddingEvent} style={{ backgroundColor: isAddingEvent ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingEvent ? 'Adding...' : 'Add to Calendar'}</button>
-                </form>
-              )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Format</label>
+                    <select className={inputClass} value={newEventType} onChange={e => setNewEventType(e.target.value as 'online' | 'in_person')}>
+                      <option value="online">Online</option>
+                      <option value="in_person">In Person</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Location / Link <span className="normal-case font-medium text-slate-400">(optional)</span></label>
+                    <input className={inputClass} value={newEventLocation} onChange={e => setNewEventLocation(e.target.value)} placeholder="Zoom link, church address, etc." />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className={labelClass + ' mb-0'}>Notes <span className="normal-case font-medium text-slate-400">(optional — supports formatting)</span></label>
+                    <div className="flex items-center gap-1">
+                      <button type="button" title="Bold" onClick={() => insertMd('**', '**', 'bold text')}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-600 font-black text-xs transition-colors">B</button>
+                      <button type="button" title="Italic" onClick={() => insertMd('*', '*', 'italic text')}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-500 italic text-xs transition-colors">I</button>
+                      <button type="button" title="Insert link" onClick={insertLink}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-600 text-xs transition-colors">🔗</button>
+                    </div>
+                  </div>
+                  <textarea ref={notesRef} className={inputClass} value={newEventNotes} onChange={e => setNewEventNotes(e.target.value)} rows={4}
+                    placeholder={'Any additional details ordinands should know...\n\nUse **bold**, *italic*, or [Link Text](https://url) for formatting.'} />
+                  <p className="text-xs text-slate-400 mt-1 font-medium">Use **bold**, *italic*, and [Link Text](https://url) for formatting. Line breaks are preserved.</p>
+                </div>
+                <div className="flex gap-3">
+                  <button type="submit" disabled={isAddingEvent} style={{ backgroundColor: isAddingEvent ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>
+                    {isAddingEvent ? (editingEvent ? 'Saving...' : 'Adding...') : (editingEvent ? 'Save Changes' : 'Add to Calendar')}
+                  </button>
+                  {editingEvent && (
+                    <button type="button" onClick={cancelEdit} style={{ backgroundColor: 'white', color: '#64748b', padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: '0.9rem' }}>Cancel</button>
+                  )}
+                </div>
+              </form>
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -587,11 +690,15 @@ export default function AdminPage() {
                             </div>
                             <p className="text-sm text-slate-500 font-medium mt-0.5">{dateStr}</p>
                             <p className="text-xs text-blue-600 font-bold mt-1">📅 {ev.cohorts?.name ?? 'All Cohorts'}</p>
+                            {ev.requirement_templates && <p className="text-xs text-purple-600 font-bold mt-0.5">📋 {ev.requirement_templates.title}</p>}
                             {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5">📍 {ev.location}</p>}
-                            {ev.notes && <p className="text-xs text-slate-400 font-medium mt-0.5 italic">{ev.notes}</p>}
+                            {ev.notes && <p className="text-xs text-slate-400 font-medium mt-0.5 italic line-clamp-2">{ev.notes}</p>}
                           </div>
                         </div>
-                        <button onClick={() => handleDeleteEvent(ev.id, ev.title)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap flex-shrink-0">Remove</button>
+                        <div className="flex gap-3 flex-shrink-0">
+                          <button onClick={() => startEditEvent(ev)} className="text-blue-400 hover:text-blue-600 font-bold text-sm transition-colors whitespace-nowrap">Edit</button>
+                          <button onClick={() => handleDeleteEvent(ev.id, ev.title)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap">Remove</button>
+                        </div>
                       </div>
                     )
                   })}
