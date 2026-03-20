@@ -8,61 +8,43 @@ const serviceClient = createClient(
 )
 
 export async function POST(req: NextRequest) {
-  const diag: Record<string, any> = {}
-
   const body = await req.json().catch(() => ({}))
   const { requirementId } = body
-  diag.requirementId = requirementId ?? null
 
   if (!requirementId) {
-    return NextResponse.json({ sent: false, reason: 'Missing requirementId', diag })
+    return NextResponse.json({ sent: false, reason: 'Missing requirementId' })
   }
 
   // 1. Requirement
-  const { data: reqRow, error: reqErr } = await serviceClient
+  const { data: reqRow } = await serviceClient
     .from('ordinand_requirements')
     .select('id, ordinand_id, template_id')
     .eq('id', requirementId)
     .single()
-  diag.requirement = reqRow ? 'found' : `not found (${reqErr?.message})`
-  if (!reqRow) return NextResponse.json({ sent: false, reason: 'Requirement not found', diag })
+  if (!reqRow) return NextResponse.json({ sent: false, reason: 'Requirement not found' })
 
   // 2. Template title
   const { data: template } = await serviceClient
     .from('requirement_templates').select('title').eq('id', reqRow.template_id).single()
-  diag.template = template?.title ?? 'not found'
 
   // 3. Ordinand name
   const { data: ordinandProfile } = await serviceClient
     .from('profiles').select('first_name, last_name').eq('id', reqRow.ordinand_id).single()
-  diag.ordinand = ordinandProfile ? `${ordinandProfile.first_name} ${ordinandProfile.last_name}` : 'not found'
 
   // 4. Grading assignment
-  const { data: assignment, error: assignErr } = await serviceClient
+  const { data: assignment } = await serviceClient
     .from('grading_assignments').select('id, council_member_id')
     .eq('ordinand_requirement_id', requirementId).maybeSingle()
-  diag.assignment = assignment ? `found (id: ${assignment.id})` : `none (${assignErr?.message ?? 'no row'})`
-  if (!assignment) {
-    console.log('[notify-grader] no assignment', JSON.stringify(diag))
-    return NextResponse.json({ sent: false, reason: 'No grader assigned', diag })
-  }
+  if (!assignment) return NextResponse.json({ sent: false, reason: 'No grader assigned' })
 
   // 5. Grader email
-  const { data: graderProfile, error: graderErr } = await serviceClient
+  const { data: graderProfile } = await serviceClient
     .from('profiles').select('first_name, email').eq('id', assignment.council_member_id).single()
-  diag.grader = graderProfile?.email ? `${graderProfile.first_name} <${graderProfile.email}>` : `no email (${graderErr?.message})`
-  if (!graderProfile?.email) {
-    console.log('[notify-grader] no grader email', JSON.stringify(diag))
-    return NextResponse.json({ sent: false, reason: 'Grader email not found', diag })
-  }
+  if (!graderProfile?.email) return NextResponse.json({ sent: false, reason: 'Grader email not found' })
 
   // 6. Resend key
   const resendKey = process.env.RESEND_API_KEY
-  diag.resendKeyPresent = !!resendKey
-  if (!resendKey) {
-    console.log('[notify-grader] no RESEND_API_KEY', JSON.stringify(diag))
-    return NextResponse.json({ sent: false, reason: 'RESEND_API_KEY not set in Vercel env vars', diag })
-  }
+  if (!resendKey) return NextResponse.json({ sent: false, reason: 'RESEND_API_KEY not configured' })
 
   // 7. Send
   const ordinandName    = [ordinandProfile?.first_name, ordinandProfile?.last_name].filter(Boolean).join(' ') || 'An ordinand'
@@ -102,15 +84,10 @@ export async function POST(req: NextRequest) {
     }),
   })
 
-  const resendBody = await resendRes.text()
-  diag.resendStatus = resendRes.status
-  diag.resendResponse = resendBody
-
   if (!resendRes.ok) {
-    console.log('[notify-grader] FAILED', JSON.stringify(diag))
-    return NextResponse.json({ sent: false, reason: 'Resend API error', diag })
+    const body = await resendRes.text()
+    return NextResponse.json({ sent: false, reason: 'Resend API error', status: resendRes.status, detail: body })
   }
 
-  console.log('[notify-grader] SENT', JSON.stringify({ to: graderProfile.email, subject: `New submission ready to grade — ${ordinandName}` }))
-  return NextResponse.json({ sent: true, diag })
+  return NextResponse.json({ sent: true })
 }
