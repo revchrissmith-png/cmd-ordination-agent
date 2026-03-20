@@ -73,19 +73,19 @@ export default function DashboardHome() {
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
 
       {/* Header */}
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flexShrink: 0 }}>
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
           <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ color: '#90C8F0', fontSize: '0.78rem' }}>{user?.email}</span>
-          <span style={{ backgroundColor: C.allianceBlue, color: C.white, fontSize: '0.68rem', fontWeight: 'bold', padding: '0.2rem 0.7rem', borderRadius: '20px', letterSpacing: '0.06em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+          <span className="hidden sm:inline" style={{ color: '#90C8F0', fontSize: '0.78rem', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</span>
+          <span className="hidden sm:inline" style={{ backgroundColor: C.allianceBlue, color: C.white, fontSize: '0.68rem', fontWeight: 'bold', padding: '0.2rem 0.7rem', borderRadius: '20px', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
             {profile ? roleLabel : 'NO PROFILE'}
           </span>
           <button
             onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')}
-            style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.7)', padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}
+            style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.7)', padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}
           >
             Sign Out
           </button>

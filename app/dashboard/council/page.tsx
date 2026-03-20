@@ -68,7 +68,7 @@ export default function CouncilDashboard() {
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
 
       {/* Header */}
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
           <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
@@ -100,22 +100,22 @@ export default function CouncilDashboard() {
           <p className="text-slate-400 font-medium mt-1">{assignments.length} total assignments</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
+          <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-5 text-center">
             <p className="text-2xl font-black text-blue-600">{needsReview.length}</p>
             <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Needs Review</p>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
+          <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-5 text-center">
             <p className="text-2xl font-black text-amber-500">{allActive.length}</p>
             <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">In Progress</p>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
+          <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-5 text-center">
             <p className="text-2xl font-black text-green-600">{completed.length}</p>
             <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Complete</p>
           </div>
         </div>
 
-        <div className="flex gap-2 mb-5">
+        <div className="flex flex-wrap gap-2 mb-5">
           {TABS.map(tab => (
             <button key={tab.id} onClick={() => setFilter(tab.id)}
               className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${filter === tab.id ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300'}`}>
@@ -141,22 +141,25 @@ export default function CouncilDashboard() {
               const cohort = req.cohorts ? `${req.cohorts.season} ${req.cohorts.year}` : ''
               return (
                 <Link key={assign.id} href={`/dashboard/council/grade/${assign.id}`}
-                  className={`flex items-center justify-between bg-white border rounded-2xl px-6 py-5 hover:shadow-md hover:border-blue-200 transition-all group ${needsGrade ? 'border-blue-200' : 'border-slate-200'}`}>
+                  className={`flex items-start justify-between bg-white border rounded-2xl px-4 sm:px-6 py-4 sm:py-5 hover:shadow-md hover:border-blue-200 transition-all group ${needsGrade ? 'border-blue-200' : 'border-slate-200'}`}>
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${cfg.dot}`} />
                     <div className="min-w-0">
-                      <p className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors truncate">{req.requirement_templates?.title}</p>
+                      <p className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors leading-snug">{req.requirement_templates?.title}</p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <p className="text-sm text-slate-500 font-medium">{req.profiles?.full_name}</p>
                         {cohort && <><span className="text-slate-200 font-bold">·</span><p className="text-xs text-slate-400 font-medium">{cohort}</p></>}
                         {isPaper && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-bold text-purple-600">Paper</span></>}
                       </div>
+                      <div className="flex items-center gap-2 mt-2 sm:hidden">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${cfg.colour}`}>{cfg.label}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${cfg.colour}`}>{cfg.label}</span>
+                  <div className="flex flex-col items-end gap-2 shrink-0 ml-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold hidden sm:inline ${cfg.colour}`}>{cfg.label}</span>
                     {needsGrade
-                      ? <span className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-black shadow-sm">Grade →</span>
+                      ? <span className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-black shadow-sm whitespace-nowrap">Grade →</span>
                       : <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold">→</span>
                     }
                   </div>

@@ -332,7 +332,7 @@ export default function AdminPage() {
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
 
       {/* Brand header */}
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
           <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
@@ -542,14 +542,14 @@ export default function AdminPage() {
                 <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">
                   <thead className="bg-slate-50"><tr>
-                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Ordinand</th>
-                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:table-cell">Cohort</th>
-                    <th className="px-8 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
+                    <th className="px-4 sm:px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Ordinand</th>
+                    <th className="px-4 sm:px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:table-cell">Cohort</th>
+                    <th className="px-4 sm:px-8 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
                   </tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {candidates.map(person => (
                       <tr key={person.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-8 py-5">
+                        <td className="px-4 sm:px-8 py-4 sm:py-5">
                           <div className="font-bold text-slate-900">{person.first_name} {person.last_name}</div>
                           <div className="text-sm text-slate-400 font-medium">{person.email}</div>
                           <div className="mt-1 sm:hidden">
@@ -558,12 +558,12 @@ export default function AdminPage() {
                               : <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-xs font-bold">No cohort</span>}
                           </div>
                         </td>
-                        <td className="px-8 py-5 hidden sm:table-cell">
+                        <td className="px-4 sm:px-8 py-4 sm:py-5 hidden sm:table-cell">
                           {person.cohorts?.name
                             ? <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{person.cohorts.name}</span>
                             : <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-xs font-bold">No cohort</span>}
                         </td>
-                        <td className="px-8 py-5 text-right"><Link href={`/dashboard/admin/candidates/${person.id}`} style={{ color: C.allianceBlue }} className="font-black transition-colors text-sm whitespace-nowrap">Manage →</Link></td>
+                        <td className="px-4 sm:px-8 py-4 sm:py-5 text-right"><Link href={`/dashboard/admin/candidates/${person.id}`} style={{ color: C.allianceBlue }} className="font-black transition-colors text-sm whitespace-nowrap">Manage →</Link></td>
                       </tr>
                     ))}
                   </tbody>
