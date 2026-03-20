@@ -211,6 +211,16 @@ CMD Ordaining Council`
     flash('Grader assigned.', 'success')
     setReassigningId(null)
     fetchData()
+
+    // If the assignment already has a submission, notify the grader immediately
+    const req = requirements.find(r => r.id === reqId)
+    if (req && req.status !== 'not_started') {
+      fetch('/api/notify-grader', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requirementId: reqId, userId: id }),
+      }).then(r => r.json()).then(r => console.log('[notify-grader on assign]', r)).catch(() => {})
+    }
   }
 
   async function handleResetSubmission(reqId: string, mode: 'unsubmitted' | 'submitted') {
