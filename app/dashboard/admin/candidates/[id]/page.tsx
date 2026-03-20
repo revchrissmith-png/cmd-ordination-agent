@@ -66,7 +66,7 @@ export default function CandidateDetailPage() {
   const [comments, setComments] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [reassigningId, setReassigningId] = useState<string | null>(null)
-  const [confirmResetId, setConfirmResetId] = useState<string | null>(null)
+  const [confirmReset, setConfirmReset] = useState<{ id: string; mode: 'unsubmitted' | 'submitted' } | null>(null)
   const [isResetting, setIsResetting] = useState(false)
 
   function flash(text: string, type: 'success' | 'error') {
@@ -213,17 +213,23 @@ CMD Ordaining Council`
     fetchData()
   }
 
-  async function handleResetSubmission(reqId: string) {
+  async function handleResetSubmission(reqId: string, mode: 'unsubmitted' | 'submitted') {
     setIsResetting(true)
+    const targetStatus = mode === 'unsubmitted' ? 'not_started' : 'submitted'
     const { error } = await supabase
       .from('ordinand_requirements')
-      .update({ status: 'not_started' })
+      .update({ status: targetStatus })
       .eq('id', reqId)
     if (error) {
       flash('Error resetting submission: ' + error.message, 'error')
     } else {
-      flash('Submission reset. The ordinand can now resubmit.', 'success')
-      setConfirmResetId(null)
+      flash(
+        mode === 'unsubmitted'
+          ? 'Reverted to Unsubmitted. The ordinand will need to resubmit.'
+          : 'Reverted to Ungraded. The submission is back in the grading queue.',
+        'success'
+      )
+      setConfirmReset(null)
       fetchData()
     }
     setIsResetting(false)
@@ -266,7 +272,7 @@ CMD Ordaining Council`
   return (
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
 
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
           <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
@@ -481,30 +487,43 @@ CMD Ordaining Council`
                           )}
                           {/* Reset button — available for any submitted/graded status */}
                           {status !== 'not_started' && (
-                            confirmResetId === req.id ? (
-                              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-1.5">
-                                <span className="text-xs font-bold text-red-700">Reset to Not Started?</span>
-                                <button
-                                  onClick={() => handleResetSubmission(req.id)}
-                                  disabled={isResetting}
-                                  className="text-xs font-black text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
-                                >
-                                  {isResetting ? '…' : 'Yes'}
-                                </button>
-                                <button
-                                  onClick={() => setConfirmResetId(null)}
-                                  className="text-xs font-black text-slate-400 hover:text-slate-600 transition-colors"
-                                >
-                                  No
-                                </button>
+                            confirmReset?.id === req.id ? (
+                              <div className="flex flex-col gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                                <span className="text-xs font-black text-amber-800">Revert this submission?</span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleResetSubmission(req.id, 'submitted')}
+                                    disabled={isResetting}
+                                    className="text-xs font-black text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                    title="Keep the file but return to the grading queue"
+                                  >
+                                    {isResetting ? '…' : '↩ To Ungraded'}
+                                  </button>
+                                  <span className="text-slate-300 text-xs">|</span>
+                                  <button
+                                    onClick={() => handleResetSubmission(req.id, 'unsubmitted')}
+                                    disabled={isResetting}
+                                    className="text-xs font-black text-red-600 hover:text-red-800 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                    title="Clear submission — ordinand must resubmit"
+                                  >
+                                    {isResetting ? '…' : '✕ To Unsubmitted'}
+                                  </button>
+                                  <span className="text-slate-300 text-xs">|</span>
+                                  <button
+                                    onClick={() => setConfirmReset(null)}
+                                    className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
                               </div>
                             ) : (
                               <button
-                                onClick={() => setConfirmResetId(req.id)}
-                                className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold hover:bg-red-50 hover:text-red-600 transition-all"
-                                title="Reject submission and reset to Not Started"
+                                onClick={() => setConfirmReset({ id: req.id, mode: 'submitted' })}
+                                className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold hover:bg-amber-50 hover:text-amber-600 transition-all"
+                                title="Revert submission status"
                               >
-                                ↩ Reset
+                                ↩ Revert
                               </button>
                             )
                           )}

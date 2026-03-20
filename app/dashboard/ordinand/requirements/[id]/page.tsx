@@ -349,17 +349,11 @@ export default function OrdinandRequirementPage() {
           type: requirement?.requirement_templates?.type,
         })
         // Notify the assigned grader (fire-and-forget — don't block the UI on email success)
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.access_token) {
-          fetch('/api/notify-grader', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ requirementId: id }),
-          }).then(r => r.json()).then(r => console.log('[notify-grader]', r)).catch(e => console.error('[notify-grader error]', e))
-        }
+        fetch('/api/notify-grader', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requirementId: id, userId: user.id }),
+        }).then(r => r.json()).then(r => console.log('[notify-grader]', r)).catch(e => console.error('[notify-grader error]', e))
       }
       fetchData()
     } catch (err: any) {
@@ -391,7 +385,7 @@ export default function OrdinandRequirementPage() {
   return (
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
 
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
           <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>

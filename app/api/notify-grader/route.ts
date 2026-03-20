@@ -9,71 +9,50 @@ const serviceClient = createClient(
 )
 
 export async function POST(req: NextRequest) {
-  // 1. Verify the caller is authenticated
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    console.log('[notify-grader] No auth header')
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  const token = authHeader.slice(7)
-  const { data: { user: caller }, error: authErr } = await serviceClient.auth.getUser(token)
-  if (authErr || !caller) {
-    console.log('[notify-grader] Auth failed:', authErr?.message)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  console.log('[notify-grader] Caller:', caller.id)
-
-  // 2. Parse body
+  // 1. Parse body — expects { requirementId, userId }
   const body = await req.json().catch(() => ({}))
-  const { requirementId } = body
-  if (!requirementId) {
-    console.log('[notify-grader] Missing requirementId')
-    return NextResponse.json({ error: 'requirementId is required' }, { status: 400 })
+  const { requirementId, userId } = body
+  if (!requirementId || !userId) {
+    console.log('[notify-grader] Missing requirementId or userId')
+    return NextResponse.json({ sent: false, reason: 'Missing fields' })
   }
-  console.log('[notify-grader] requirementId:', requirementId)
+  console.log('[notify-grader] requirementId:', requirementId, 'userId:', userId)
 
-  // 3. Look up the ordinand requirement
+  // 2. Look up the ordinand requirement — verify it belongs to userId
   const { data: reqRow, error: reqErr } = await serviceClient
     .from('ordinand_requirements')
     .select('id, ordinand_id, template_id')
     .eq('id', requirementId)
+    .eq('ordinand_id', userId)   // ownership check via service role
     .single()
 
   if (reqErr || !reqRow) {
-    console.log('[notify-grader] Requirement lookup failed:', reqErr?.message)
+    console.log('[notify-grader] Requirement not found or ownership mismatch:', reqErr?.message)
     return NextResponse.json({ sent: false, reason: 'Requirement not found' })
   }
 
-  // Verify the caller owns this requirement
-  if (reqRow.ordinand_id !== caller.id) {
-    console.log('[notify-grader] Caller does not own requirement')
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  // 4. Get the assignment template title
+  // 3. Get the assignment template title
   const { data: template } = await serviceClient
     .from('requirement_templates')
     .select('title')
     .eq('id', reqRow.template_id)
     .single()
 
-  // 5. Get the ordinand's name
+  // 4. Get the ordinand's name
   const { data: ordinandProfile } = await serviceClient
     .from('profiles')
     .select('first_name, last_name')
     .eq('id', reqRow.ordinand_id)
     .single()
 
-  // 6. Look up the grading assignment
+  // 5. Look up the grading assignment
   const { data: assignment, error: assignErr } = await serviceClient
     .from('grading_assignments')
     .select('id, council_member_id')
     .eq('ordinand_requirement_id', requirementId)
     .maybeSingle()
 
-  if (assignErr) {
-    console.log('[notify-grader] Assignment lookup error:', assignErr.message)
-  }
+  if (assignErr) console.log('[notify-grader] Assignment lookup error:', assignErr.message)
 
   if (!assignment) {
     console.log('[notify-grader] No grader assigned for requirement', requirementId)
@@ -81,7 +60,7 @@ export async function POST(req: NextRequest) {
   }
   console.log('[notify-grader] Assignment found:', assignment.id, 'grader:', assignment.council_member_id)
 
-  // 7. Get the grader's email
+  // 6. Get the grader's email
   const { data: graderProfile, error: graderErr } = await serviceClient
     .from('profiles')
     .select('first_name, email')
@@ -94,7 +73,7 @@ export async function POST(req: NextRequest) {
   }
   console.log('[notify-grader] Sending to:', graderProfile.email)
 
-  // 8. Send via Resend REST API
+  // 7. Send via Resend REST API
   const resendKey = process.env.RESEND_API_KEY
   if (!resendKey) {
     console.error('[notify-grader] RESEND_API_KEY not set')
@@ -148,6 +127,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sent: false, reason: 'Email delivery failed', detail: resendBody })
   }
 
-  console.log('[notify-grader] Email sent successfully:', resendBody)
+  console.log('[notify-grader] Email sent successfully')
   return NextResponse.json({ sent: true })
 }
