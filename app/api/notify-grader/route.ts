@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'CMD Ordination Portal <onboarding@resend.dev>',
+      from: 'CMD Ordination Portal <noreply@send.canadianmidwest.ca>',
       to: [graderProfile.email],
       subject: `New submission ready to grade — ${ordinandName}`,
       html: `
