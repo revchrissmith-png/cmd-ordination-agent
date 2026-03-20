@@ -306,7 +306,10 @@ export default function OrdinandDashboard() {
                         {ev.location && (
                           <div className="flex items-start gap-2 mb-2">
                             <span className="text-slate-400 text-xs mt-0.5">📍</span>
-                            <p className="text-sm text-slate-600 font-medium">{ev.location}</p>
+                            {/^https?:\/\//i.test(ev.location)
+                              ? <a href={ev.location} target="_blank" rel="noopener noreferrer" className="text-sm font-medium" style={{ color: '#0077C8', textDecoration: 'underline' }}>{ev.location}</a>
+                              : <p className="text-sm text-slate-600 font-medium">{ev.location}</p>
+                            }
                           </div>
                         )}
                         {ev.notes && (
