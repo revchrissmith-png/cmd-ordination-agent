@@ -22,6 +22,7 @@ export default function OrdinandDashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
   const [events, setEvents] = useState<any[]>([])
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [cohortMembers, setCohortMembers] = useState<any[]>([])
   const [showCohortPopover, setShowCohortPopover] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -44,14 +45,15 @@ export default function OrdinandDashboard() {
       setRequirements(reqs || [])
 
       if (prof?.cohort_id) {
-        // Upcoming events
+        // Upcoming events — cohort-specific + all-cohorts (null cohort_id)
+        const today = new Date().toISOString().slice(0, 10)
         const { data: evts } = await supabase
           .from('cohort_events')
           .select('id, title, event_date, event_type, location, notes')
-          .eq('cohort_id', prof.cohort_id)
-          .gte('event_date', new Date().toISOString().slice(0, 10))
+          .or(`cohort_id.eq.${prof.cohort_id},cohort_id.is.null`)
+          .gte('event_date', today)
           .order('event_date', { ascending: true })
-          .limit(4)
+          .limit(6)
         setEvents(evts || [])
 
         // Other ordinands in the same cohort
@@ -99,7 +101,7 @@ export default function OrdinandDashboard() {
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
 
       {/* Header */}
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
           <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
@@ -241,29 +243,58 @@ export default function OrdinandDashboard() {
         {events.length > 0 && (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-8">
             <p className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: C.allianceBlue }}>Upcoming Gatherings</p>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {events.map(ev => {
                 const d = new Date(ev.event_date + 'T12:00:00')
+                const monthStr = d.toLocaleDateString('en-CA', { month: 'short' })
                 const dateStr = d.toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
                 const daysUntil = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                const isExpanded = expandedEventId === ev.id
                 return (
-                  <div key={ev.id} className="flex items-start gap-4">
-                    <div className="text-center bg-slate-100 rounded-xl px-3 py-2 min-w-[52px] flex-shrink-0">
-                      <p className="text-xs font-black text-slate-500 uppercase">{d.toLocaleDateString('en-CA', { month: 'short' })}</p>
-                      <p className="text-xl font-black text-slate-800 leading-none">{d.getDate()}</p>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-900">{ev.title}</span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${ev.event_type === 'in_person' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {ev.event_type === 'in_person' ? '📍 In Person' : '💻 Online'}
-                        </span>
-                        {daysUntil <= 14 && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Coming up!</span>}
+                  <div key={ev.id} className={`rounded-2xl border transition-all ${isExpanded ? 'border-blue-200 bg-blue-50/40' : 'border-slate-100 hover:border-blue-100 hover:bg-slate-50/60'}`}>
+                    {/* Compact row — always visible, click to expand */}
+                    <button
+                      onClick={() => setExpandedEventId(isExpanded ? null : ev.id)}
+                      className="w-full text-left flex items-center gap-4 px-4 py-3"
+                    >
+                      <div className="text-center bg-slate-100 rounded-xl px-3 py-2 min-w-[52px] flex-shrink-0">
+                        <p className="text-xs font-black text-slate-500 uppercase">{monthStr}</p>
+                        <p className="text-xl font-black text-slate-800 leading-none">{d.getDate()}</p>
                       </div>
-                      <p className="text-sm text-slate-500 font-medium mt-0.5">{dateStr}</p>
-                      {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5">📍 {ev.location}</p>}
-                      {ev.notes && <p className="text-xs text-slate-400 italic mt-0.5">{ev.notes}</p>}
-                    </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-900">{ev.title}</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${ev.event_type === 'in_person' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {ev.event_type === 'in_person' ? '📍 In Person' : '💻 Online'}
+                          </span>
+                          {daysUntil <= 14 && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Coming up!</span>}
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">{d.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                      </div>
+                      <span className="text-slate-300 font-bold text-sm flex-shrink-0">{isExpanded ? '▲' : '▼'}</span>
+                    </button>
+
+                    {/* Expanded detail panel */}
+                    {isExpanded && (
+                      <div className="px-5 pb-4 pt-1 border-t border-blue-100">
+                        <p className="text-sm font-bold text-slate-700 mb-2">{dateStr}</p>
+                        {ev.location && (
+                          <div className="flex items-start gap-2 mb-2">
+                            <span className="text-slate-400 text-xs mt-0.5">📍</span>
+                            <p className="text-sm text-slate-600 font-medium">{ev.location}</p>
+                          </div>
+                        )}
+                        {ev.notes && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-slate-400 text-xs mt-0.5">📋</span>
+                            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{ev.notes}</p>
+                          </div>
+                        )}
+                        {!ev.location && !ev.notes && (
+                          <p className="text-xs text-slate-400 italic">No additional details provided.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })}

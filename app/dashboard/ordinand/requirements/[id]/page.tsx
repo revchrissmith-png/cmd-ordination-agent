@@ -279,7 +279,7 @@ export default function OrdinandRequirementPage() {
   async function handleSubmit() {
     if (!requirement) return
     if (isPaper && !allAnswered) { flash('Please complete all self-assessment sections before submitting.', 'error'); return }
-    if (isBook && !isFreeTextBook && !selectedBook) { flash('Please select the book you read before submitting.', 'error'); return }
+    if (isBook && !isFreeTextBook && !isRequiredBook && !selectedBook) { flash('Please select the book you read before submitting.', 'error'); return }
     if (isBook && isFreeTextBook && !selectedBook.trim()) { flash('Please enter the title of your book before submitting.', 'error'); return }
     if (!file && !submission?.file_url) { flash('Please upload your manuscript file before submitting.', 'error'); return }
     setIsSubmitting(true)

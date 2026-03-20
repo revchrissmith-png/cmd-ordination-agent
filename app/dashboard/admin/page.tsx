@@ -32,7 +32,7 @@ export default function AdminPage() {
   const [newCouncilEmail, setNewCouncilEmail] = useState('')
   const [newCouncilFirst, setNewCouncilFirst] = useState('')
   const [newCouncilLast, setNewCouncilLast] = useState('')
-  const [newCouncilIsAdmin, setNewCouncilIsAdmin] = useState(false)
+  const [newCouncilRoleMode, setNewCouncilRoleMode] = useState<'council' | 'council_admin' | 'admin_only'>('council')
   const [isAddingCouncil, setIsAddingCouncil] = useState(false)
 
   const [cohorts, setCohorts] = useState<any[]>([])
@@ -136,7 +136,9 @@ export default function AdminPage() {
   async function handleAddCouncil(e: React.FormEvent) {
     e.preventDefault()
     setIsAddingCouncil(true)
-    const roles = newCouncilIsAdmin ? ['council', 'admin'] : ['council']
+    const roles = newCouncilRoleMode === 'council_admin' ? ['council', 'admin']
+      : newCouncilRoleMode === 'admin_only' ? ['admin']
+      : ['council']
 
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { flash('Session expired — please refresh and try again.', 'error'); setIsAddingCouncil(false); return }
@@ -155,8 +157,9 @@ export default function AdminPage() {
 
     if (!res.ok) { flash('Error: ' + result.error, 'error') }
     else {
-      flash(`${newCouncilFirst} ${newCouncilLast} added as council${newCouncilIsAdmin ? ' + admin' : ''}.`, 'success')
-      setNewCouncilEmail(''); setNewCouncilFirst(''); setNewCouncilLast(''); setNewCouncilIsAdmin(false)
+      const roleDesc = newCouncilRoleMode === 'council_admin' ? 'council + admin' : newCouncilRoleMode === 'admin_only' ? 'admin only' : 'council'
+      flash(`${newCouncilFirst} ${newCouncilLast} added as ${roleDesc}.`, 'success')
+      setNewCouncilEmail(''); setNewCouncilFirst(''); setNewCouncilLast(''); setNewCouncilRoleMode('council')
       fetchCouncil()
     }
     setIsAddingCouncil(false)
@@ -228,10 +231,9 @@ export default function AdminPage() {
 
   async function handleAddEvent(e: React.FormEvent) {
     e.preventDefault()
-    if (!newEventCohort) { flash('Please select a cohort for this event.', 'error'); return }
     setIsAddingEvent(true)
     const { error } = await supabase.from('cohort_events').insert([{
-      cohort_id: newEventCohort,
+      cohort_id: newEventCohort || null,
       title: newEventTitle.trim(),
       event_date: newEventDate,
       event_type: newEventType,
@@ -312,16 +314,15 @@ export default function AdminPage() {
                   <div><label className={labelClass}>Last Name</label><input className={inputClass} value={newCouncilLast} onChange={e => setNewCouncilLast(e.target.value)} placeholder="Smith" required /></div>
                 </div>
                 <div><label className={labelClass}>Email Address</label><input className={inputClass} type="email" value={newCouncilEmail} onChange={e => setNewCouncilEmail(e.target.value)} placeholder="pastor@church.ca" required /></div>
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${newCouncilIsAdmin ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover:border-blue-400'}`}>
-                    {newCouncilIsAdmin && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                  </div>
-                  <input type="checkbox" className="sr-only" checked={newCouncilIsAdmin} onChange={e => setNewCouncilIsAdmin(e.target.checked)} />
-                  <div>
-                    <span className="font-bold text-slate-800 text-sm">Also grant Admin access</span>
-                    <p className="text-xs text-slate-400 font-medium">Allows this person to manage cohorts, candidates, and council members.</p>
-                  </div>
-                </label>
+                <div>
+                  <label className={labelClass}>Role</label>
+                  <select className={inputClass} value={newCouncilRoleMode} onChange={e => setNewCouncilRoleMode(e.target.value as any)}>
+                    <option value="council">Council Member only</option>
+                    <option value="council_admin">Council Member + Admin access</option>
+                    <option value="admin_only">Admin only (no council/grading access)</option>
+                  </select>
+                  <p className="text-xs text-slate-400 mt-1.5 font-medium">Admin access allows managing cohorts, candidates, and council members. Council access enables grading assignments.</p>
+                </div>
                 <button type="submit" disabled={isAddingCouncil} style={{ backgroundColor: isAddingCouncil ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCouncil ? 'Adding...' : 'Add Council Member'}</button>
               </form>
             </div>
@@ -520,8 +521,8 @@ export default function AdminPage() {
                 <form onSubmit={handleAddEvent} className="space-y-4">
                   <div>
                     <label className={labelClass}>Cohort</label>
-                    <select className={inputClass} value={newEventCohort} onChange={e => setNewEventCohort(e.target.value)} required>
-                      <option value="">Select a cohort...</option>
+                    <select className={inputClass} value={newEventCohort} onChange={e => setNewEventCohort(e.target.value)}>
+                      <option value="">All Cohorts (everyone sees this)</option>
                       {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
@@ -585,7 +586,7 @@ export default function AdminPage() {
                               {isPast && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-400">Past</span>}
                             </div>
                             <p className="text-sm text-slate-500 font-medium mt-0.5">{dateStr}</p>
-                            {ev.cohorts?.name && <p className="text-xs text-blue-600 font-bold mt-1">📅 {ev.cohorts.name}</p>}
+                            <p className="text-xs text-blue-600 font-bold mt-1">📅 {ev.cohorts?.name ?? 'All Cohorts'}</p>
                             {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5">📍 {ev.location}</p>}
                             {ev.notes && <p className="text-xs text-slate-400 font-medium mt-0.5 italic">{ev.notes}</p>}
                           </div>
