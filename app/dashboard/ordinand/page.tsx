@@ -112,25 +112,6 @@ export default function OrdinandDashboard() {
     })
   }
 
-  function buildMentorReportEmail(): string {
-    const name = profile?.full_name || 'Your Ordinand'
-    const mentor = profile?.mentor_name || 'Pastor'
-    const mentorEmail = profile?.mentor_email || ''
-    const now = new Date()
-    const monthYear = now.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })
-    const subject = encodeURIComponent(`Monthly Mentor Report — ${name} — ${monthYear}`)
-    const body = encodeURIComponent(
-      `Dear ${mentor},\n\nHere is my monthly report for ${monthYear}.\n\n` +
-      `1. SPIRITUAL LIFE\nHow has your spiritual life been this past month? What has God been teaching you?\n\n[Your response here]\n\n` +
-      `2. MINISTRY\nWhat ministry situations have stood out to you this month? How did you respond?\n\n[Your response here]\n\n` +
-      `3. PERSONAL FORMATION\nWhere have you seen growth, or faced challenges, in your personal formation?\n\n[Your response here]\n\n` +
-      `4. ORDINATION PROGRESS\nWhat have you been working on in your ordination assignments? Any reflections or questions?\n\n[Your response here]\n\n` +
-      `5. LOOKING AHEAD\nWhat are your goals or intentions for the coming month?\n\n[Your response here]\n\n` +
-      `6. PRAYER REQUESTS\nIs there anything specific you would like prayer for?\n\n[Your response here]\n\n` +
-      `In Christ,\n${name}`
-    )
-    return `mailto:${mentorEmail}?subject=${subject}&body=${body}`
-  }
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
@@ -271,15 +252,13 @@ export default function OrdinandDashboard() {
                   </div>
                 )}
               </div>
-              {profile?.mentor_email && (
-                <a
-                  href={buildMentorReportEmail()}
-                  className="inline-flex items-center gap-2 text-sm font-black px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap flex-shrink-0"
-                  style={{ backgroundColor: C.deepSea, color: C.white }}
-                >
-                  ✉ Send Monthly Report
-                </a>
-              )}
+              <Link
+                href="/dashboard/ordinand/mentor-report"
+                className="inline-flex items-center gap-2 text-sm font-black px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap flex-shrink-0"
+                style={{ backgroundColor: C.deepSea, color: C.white }}
+              >
+                ✉ Monthly Report
+              </Link>
             </div>
           ) : (
             <p className="text-sm text-slate-400 font-medium">No mentor assigned yet. Contact the District Office if you have questions about your mentorship.</p>
