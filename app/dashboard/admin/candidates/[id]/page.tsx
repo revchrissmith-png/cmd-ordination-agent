@@ -218,7 +218,7 @@ CMD Ordaining Council`
       fetch('/api/notify-grader', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requirementId: reqId, userId: id }),
+        body: JSON.stringify({ requirementId: reqId }),
       }).then(r => r.json()).then(r => console.log('[notify-grader on assign]', r)).catch(() => {})
     }
   }

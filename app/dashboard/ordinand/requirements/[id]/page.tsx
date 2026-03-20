@@ -342,19 +342,22 @@ export default function OrdinandRequirementPage() {
       if (statusError) { flash('Submission saved but status update failed: ' + statusError.message, 'error'); setIsSubmitting(false); return }
 
       flash('Submitted successfully!', 'success')
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        logActivity(user.id, 'submission', `/dashboard/ordinand/requirements/${id}`, {
+
+      // Notify the grader — always fires, independent of auth state
+      fetch('/api/notify-grader', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requirementId: id }),
+      }).then(r => r.json()).then(r => console.log('[notify-grader]', r)).catch(e => console.error('[notify-grader error]', e))
+
+      // Log activity if user is available (non-critical)
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) logActivity(user.id, 'submission', `/dashboard/ordinand/requirements/${id}`, {
           title: requirement?.requirement_templates?.title,
           type: requirement?.requirement_templates?.type,
         })
-        // Notify the assigned grader (fire-and-forget — don't block the UI on email success)
-        fetch('/api/notify-grader', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requirementId: id, userId: user.id }),
-        }).then(r => r.json()).then(r => console.log('[notify-grader]', r)).catch(e => console.error('[notify-grader error]', e))
-      }
+      })
+
       fetchData()
     } catch (err: any) {
       flash('Unexpected error: ' + err.message, 'error')
