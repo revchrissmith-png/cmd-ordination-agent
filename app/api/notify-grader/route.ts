@@ -42,18 +42,27 @@ export async function POST(req: NextRequest) {
     .from('grading_assignments').select('id, council_member_id')
     .eq('ordinand_requirement_id', requirementId).maybeSingle()
   diag.assignment = assignment ? `found (id: ${assignment.id})` : `none (${assignErr?.message ?? 'no row'})`
-  if (!assignment) return NextResponse.json({ sent: false, reason: 'No grader assigned', diag })
+  if (!assignment) {
+    console.log('[notify-grader] no assignment', JSON.stringify(diag))
+    return NextResponse.json({ sent: false, reason: 'No grader assigned', diag })
+  }
 
   // 5. Grader email
   const { data: graderProfile, error: graderErr } = await serviceClient
     .from('profiles').select('first_name, email').eq('id', assignment.council_member_id).single()
   diag.grader = graderProfile?.email ? `${graderProfile.first_name} <${graderProfile.email}>` : `no email (${graderErr?.message})`
-  if (!graderProfile?.email) return NextResponse.json({ sent: false, reason: 'Grader email not found', diag })
+  if (!graderProfile?.email) {
+    console.log('[notify-grader] no grader email', JSON.stringify(diag))
+    return NextResponse.json({ sent: false, reason: 'Grader email not found', diag })
+  }
 
   // 6. Resend key
   const resendKey = process.env.RESEND_API_KEY
   diag.resendKeyPresent = !!resendKey
-  if (!resendKey) return NextResponse.json({ sent: false, reason: 'RESEND_API_KEY not set in Vercel env vars', diag })
+  if (!resendKey) {
+    console.log('[notify-grader] no RESEND_API_KEY', JSON.stringify(diag))
+    return NextResponse.json({ sent: false, reason: 'RESEND_API_KEY not set in Vercel env vars', diag })
+  }
 
   // 7. Send
   const ordinandName    = [ordinandProfile?.first_name, ordinandProfile?.last_name].filter(Boolean).join(' ') || 'An ordinand'
@@ -98,8 +107,10 @@ export async function POST(req: NextRequest) {
   diag.resendResponse = resendBody
 
   if (!resendRes.ok) {
+    console.log('[notify-grader] FAILED', JSON.stringify(diag))
     return NextResponse.json({ sent: false, reason: 'Resend API error', diag })
   }
 
+  console.log('[notify-grader] SENT', JSON.stringify({ to: graderProfile.email, subject: `New submission ready to grade — ${ordinandName}` }))
   return NextResponse.json({ sent: true, diag })
 }
