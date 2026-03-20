@@ -200,7 +200,7 @@ CMD Ordaining Council`
 
   async function handleAssignGrader(reqId: string, councilMemberId: string) {
     const { data: currentUser } = await supabase.auth.getUser()
-    const { data: existing } = await supabase.from('grading_assignments').select('id').eq('ordinand_requirement_id', reqId).single()
+    const { data: existing } = await supabase.from('grading_assignments').select('id').eq('ordinand_requirement_id', reqId).maybeSingle()
     if (existing) {
       const { error } = await supabase.from('grading_assignments').update({ council_member_id: councilMemberId, reassigned_at: new Date().toISOString() }).eq('id', existing.id)
       if (error) { flash('Error reassigning: ' + error.message, 'error'); return }
