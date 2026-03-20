@@ -23,6 +23,7 @@ export default function OrdinandDashboard() {
   const [requirements, setRequirements] = useState<any[]>([])
   const [events, setEvents] = useState<any[]>([])
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['Book Reports', 'Theological Papers', 'Sermons']))
   const [cohortMembers, setCohortMembers] = useState<any[]>([])
   const [showCohortPopover, setShowCohortPopover] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -34,7 +35,7 @@ export default function OrdinandDashboard() {
       if (!user) return
       const { data: prof } = await supabase
         .from('profiles')
-        .select('full_name, email, cohort_id, cohorts(year, season, sermon_topic, assignment_due_date)')
+        .select('full_name, email, mentor_name, mentor_email, cohort_id, cohorts(year, season, sermon_topic, assignment_due_date)')
         .eq('id', user.id)
         .single()
       setProfile(prof)
@@ -77,11 +78,13 @@ export default function OrdinandDashboard() {
   const bookReports = requirements.filter(r => r.requirement_templates?.type === 'book_report').sort(byOrder)
   const papers      = requirements.filter(r => r.requirement_templates?.type === 'paper').sort(byOrder)
   const sermons     = requirements.filter(r => r.requirement_templates?.type === 'sermon').sort(byOrder)
-  const total    = requirements.length
-  const complete = requirements.filter(r => r.status === 'complete').length
-  const inProgress = requirements.filter(r => ['submitted','under_review','revision_required'].includes(r.status)).length
+  const total      = requirements.length
+  const complete   = requirements.filter(r => r.status === 'complete').length
+  const submitted  = requirements.filter(r => ['submitted','under_review','revision_required'].includes(r.status)).length
   const notStarted = requirements.filter(r => r.status === 'not_started').length
-  const pct = total > 0 ? Math.round((complete / total) * 100) : 0
+  const completePct  = total > 0 ? Math.round((complete / total) * 100) : 0
+  const submittedPct = total > 0 ? Math.round((submitted / total) * 100) : 0
+  const pct = completePct
 
   const cohort = profile?.cohorts
   const dueDate = cohort?.assignment_due_date
@@ -98,6 +101,35 @@ export default function OrdinandDashboard() {
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0077C8;text-decoration:underline;">$1</a>')
       .replace(/\n/g, '<br/>')
+  }
+
+  function toggleSection(label: string) {
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }
+
+  function buildMentorReportEmail(): string {
+    const name = profile?.full_name || 'Your Ordinand'
+    const mentor = profile?.mentor_name || 'Pastor'
+    const mentorEmail = profile?.mentor_email || ''
+    const now = new Date()
+    const monthYear = now.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })
+    const subject = encodeURIComponent(`Monthly Mentor Report — ${name} — ${monthYear}`)
+    const body = encodeURIComponent(
+      `Dear ${mentor},\n\nHere is my monthly report for ${monthYear}.\n\n` +
+      `1. SPIRITUAL LIFE\nHow has your spiritual life been this past month? What has God been teaching you?\n\n[Your response here]\n\n` +
+      `2. MINISTRY\nWhat ministry situations have stood out to you this month? How did you respond?\n\n[Your response here]\n\n` +
+      `3. PERSONAL FORMATION\nWhere have you seen growth, or faced challenges, in your personal formation?\n\n[Your response here]\n\n` +
+      `4. ORDINATION PROGRESS\nWhat have you been working on in your ordination assignments? Any reflections or questions?\n\n[Your response here]\n\n` +
+      `5. LOOKING AHEAD\nWhat are your goals or intentions for the coming month?\n\n[Your response here]\n\n` +
+      `6. PRAYER REQUESTS\nIs there anything specific you would like prayer for?\n\n[Your response here]\n\n` +
+      `In Christ,\n${name}`
+    )
+    return `mailto:${mentorEmail}?subject=${subject}&body=${body}`
   }
 
   if (loading) return (
@@ -190,14 +222,19 @@ export default function OrdinandDashboard() {
             </div>
             <div className="flex gap-6 text-sm">
               <div className="text-center"><p className="font-black text-green-600 text-xl">{complete}</p><p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Complete</p></div>
-              <div className="text-center"><p className="font-black text-amber-500 text-xl">{inProgress}</p><p className="text-slate-400 font-bold text-xs uppercase tracking-widest">In Progress</p></div>
+              <div className="text-center"><p className="font-black text-yellow-500 text-xl">{submitted}</p><p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Submitted</p></div>
               <div className="text-center"><p className="font-black text-slate-400 text-xl">{notStarted}</p><p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Not Started</p></div>
             </div>
           </div>
-          <div className="w-full bg-slate-100 rounded-full h-3">
-            <div className="bg-blue-600 h-3 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+          <div className="w-full bg-slate-100 rounded-full h-3 relative overflow-hidden">
+            <div className="absolute left-0 top-0 h-full bg-yellow-400 rounded-full transition-all duration-500" style={{ width: `${submittedPct + completePct}%` }} />
+            <div className="absolute left-0 top-0 h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${completePct}%` }} />
           </div>
-          <div className="flex justify-between text-xs text-slate-400 font-bold mt-2"><span>0</span><span>{total} requirements</span></div>
+          <div className="flex items-center gap-4 text-xs text-slate-400 font-bold mt-2">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Complete</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />Submitted</span>
+            <span className="ml-auto">{total} requirements</span>
+          </div>
 
           {/* Due date */}
           {dueDate && (
@@ -214,6 +251,38 @@ export default function OrdinandDashboard() {
                 <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-400">Deadline passed</span>
               )}
             </div>
+          )}
+        </div>
+
+        {/* Mentor block */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm px-8 py-6 mb-8">
+          <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: C.allianceBlue }}>My Mentor</p>
+          {profile?.mentor_name ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row gap-6">
+                <div>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Name</p>
+                  <p className="font-bold text-slate-800">{profile.mentor_name}</p>
+                </div>
+                {profile?.mentor_email && (
+                  <div>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5">Email</p>
+                    <a href={`mailto:${profile.mentor_email}`} className="font-bold text-blue-600 hover:text-blue-800 transition-colors">{profile.mentor_email}</a>
+                  </div>
+                )}
+              </div>
+              {profile?.mentor_email && (
+                <a
+                  href={buildMentorReportEmail()}
+                  className="inline-flex items-center gap-2 text-sm font-black px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap flex-shrink-0"
+                  style={{ backgroundColor: C.deepSea, color: C.white }}
+                >
+                  ✉ Send Monthly Report
+                </a>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 font-medium">No mentor assigned yet. Contact the District Office if you have questions about your mentorship.</p>
           )}
         </div>
 
@@ -349,35 +418,51 @@ export default function OrdinandDashboard() {
           { label: 'Theological Papers', items: papers, icon: '📝', count: papers.length },
           { label: 'Sermons', items: sermons, icon: '🎤', count: sermons.length },
         ].map(({ label, items, icon, count }) => count > 0 && (
-          <div key={label} className="mb-6">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-xl">{icon}</span>
-              <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">{label}</h2>
-              <span className="text-xs font-bold text-slate-400">({count})</span>
-            </div>
-            <div className="space-y-2">
-              {items.map(req => {
-                const status: Status = req.status ?? 'not_started'
-                const cfg = STATUS_CONFIG[status]
-                const isRevision = status === 'revision_required'
-                return (
-                  <Link key={req.id} href={`/dashboard/ordinand/requirements/${req.id}`}
-                    className={`flex items-center justify-between bg-white border rounded-2xl px-6 py-4 hover:shadow-md hover:border-blue-200 transition-all group ${isRevision ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`}>
-                    <div className="flex items-center gap-3">
-                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
-                      <span className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors">{req.requirement_templates?.title}</span>
-                      {isRevision && <span className="text-xs font-black text-red-600">⚠ Action Required</span>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${cfg.colour}`}>{cfg.label}</span>
-                      <span className="text-xs font-bold text-slate-300 group-hover:text-blue-500 transition-colors whitespace-nowrap">
-                        {status === 'not_started' ? 'Submit →' : 'View →'}
-                      </span>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+          <div key={label} className="mb-4">
+            {/* Section header — click to collapse/expand */}
+            <button
+              onClick={() => toggleSection(label)}
+              className="w-full flex items-center justify-between gap-3 mb-3 group px-1 py-0.5 rounded-lg hover:bg-slate-200/40 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">{icon}</span>
+                <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">{label}</h2>
+                <span className="text-xs font-bold text-slate-400">({count})</span>
+                {/* Show count of non-started items as a hint when collapsed */}
+                {!openSections.has(label) && items.filter(r => r.status === 'complete').length > 0 && (
+                  <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                    {items.filter(r => r.status === 'complete').length} done
+                  </span>
+                )}
+              </div>
+              <span className="text-slate-400 text-sm font-bold flex-shrink-0">{openSections.has(label) ? '▲' : '▼'}</span>
+            </button>
+
+            {openSections.has(label) && (
+              <div className="space-y-2">
+                {items.map(req => {
+                  const status: Status = req.status ?? 'not_started'
+                  const cfg = STATUS_CONFIG[status]
+                  const isRevision = status === 'revision_required'
+                  return (
+                    <Link key={req.id} href={`/dashboard/ordinand/requirements/${req.id}`}
+                      className={`flex items-center justify-between bg-white border rounded-2xl px-6 py-4 hover:shadow-md hover:border-blue-200 transition-all group ${isRevision ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
+                        <span className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors leading-snug">{req.requirement_templates?.title}</span>
+                        {isRevision && <span className="text-xs font-black text-red-600 whitespace-nowrap">⚠ Action Required</span>}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 ml-3">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold hidden sm:inline ${cfg.colour}`}>{cfg.label}</span>
+                        <span className="text-xs font-bold text-slate-300 group-hover:text-blue-500 transition-colors whitespace-nowrap">
+                          {status === 'not_started' ? 'Submit →' : 'View →'}
+                        </span>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
           </div>
         ))}
 

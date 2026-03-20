@@ -49,6 +49,7 @@ export default function OrdinandProcessPage() {
   const [profile, setProfile] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
   const [cohortEvents, setCohortEvents] = useState<any[]>([])
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -70,11 +71,11 @@ export default function OrdinandProcessPage() {
         const today = new Date().toISOString().split('T')[0]
         const { data: evts } = await supabase
           .from('cohort_events')
-          .select('id, title, event_date, event_type, location, notes')
-          .eq('cohort_id', prof.cohort_id)
+          .select('id, title, event_date, event_type, location, notes, requirement_templates!linked_template_id(id, title, type)')
+          .or(`cohort_id.eq.${prof.cohort_id},cohort_id.is.null`)
           .gte('event_date', today)
           .order('event_date', { ascending: true })
-          .limit(4)
+          .limit(6)
         setCohortEvents(evts || [])
       }
       setLoading(false)
@@ -95,6 +96,15 @@ export default function OrdinandProcessPage() {
     if (tmpl.type === 'sermon') sermonReqs.push(r)
   })
   sermonReqs.sort((a, b) => (a.requirement_templates?.display_order ?? 0) - (b.requirement_templates?.display_order ?? 0))
+
+  function renderMarkdown(text: string): string {
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    return escaped
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0077C8;text-decoration:underline;">$1</a>')
+      .replace(/\n/g, '<br/>')
+  }
 
   const cohort = profile?.cohorts
   const sermonTopic = cohort?.sermon_topic
@@ -177,29 +187,79 @@ export default function OrdinandProcessPage() {
               You are placed in a cohort — spring or fall — based on your anticipated interview season. Cohort gatherings provide peer learning, shared accountability, and group formation led by members of the Ordaining Council.
             </p>
             {cohortEvents.length > 0 ? (
-              <div className="space-y-0">
+              <div className="space-y-2">
                 {cohortEvents.map(ev => {
                   const d = new Date(ev.event_date + 'T12:00:00')
-                  const monthLabel = d.toLocaleDateString('en-CA', { month: 'long' })
-                  const dayLabel = d.toLocaleDateString('en-CA', { weekday: 'long', day: 'numeric' })
-                  const yearLabel = d.getFullYear()
-                  const isInPerson = ev.event_type === 'in_person'
+                  const monthStr = d.toLocaleDateString('en-CA', { month: 'short' })
+                  const dateStr = d.toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+                  const daysUntil = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                  const isExpanded = expandedEventId === ev.id
+                  const linkedReq = ev.requirement_templates
+                    ? requirements.find((r: any) => r.requirement_templates?.id === ev.requirement_templates.id)
+                    : null
                   return (
-                    <div key={ev.id} className="flex items-start gap-4 py-3.5 border-b border-slate-100 last:border-0">
-                      <div className="w-28 flex-shrink-0">
-                        <p className="text-sm font-black" style={{ color: C.deepSea }}>{monthLabel}</p>
-                        <p className="text-xs text-slate-400 font-medium">{dayLabel}, {yearLabel}</p>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${isInPerson ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                            {isInPerson ? 'In Person' : 'Online'}
-                          </span>
-                          <span className="text-sm text-slate-800 font-bold">{ev.title}</span>
+                    <div key={ev.id} className={`rounded-2xl border transition-all ${isExpanded ? 'border-blue-200 bg-blue-50/40' : 'border-slate-100 hover:border-blue-100 hover:bg-slate-50/60'}`}>
+                      <button
+                        onClick={() => setExpandedEventId(isExpanded ? null : ev.id)}
+                        className="w-full text-left flex items-center gap-4 px-4 py-3"
+                      >
+                        <div className="text-center bg-slate-100 rounded-xl px-3 py-2 min-w-[52px] flex-shrink-0">
+                          <p className="text-xs font-black text-slate-500 uppercase">{monthStr}</p>
+                          <p className="text-xl font-black text-slate-800 leading-none">{d.getDate()}</p>
                         </div>
-                        {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5">📍 {ev.location}</p>}
-                        {ev.notes && <p className="text-xs text-slate-500 font-medium mt-0.5 italic">{ev.notes}</p>}
-                      </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-slate-900">{ev.title}</span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${ev.event_type === 'in_person' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {ev.event_type === 'in_person' ? '📍 In Person' : '💻 Online'}
+                            </span>
+                            {daysUntil <= 14 && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Coming up!</span>}
+                          </div>
+                          <p className="text-xs text-slate-400 font-medium mt-0.5">{d.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                        </div>
+                        <span className="text-slate-300 font-bold text-sm flex-shrink-0">{isExpanded ? '▲' : '▼'}</span>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-5 pb-4 pt-1 border-t border-blue-100">
+                          <p className="text-sm font-bold text-slate-700 mb-3">{dateStr}</p>
+                          {linkedReq && (() => {
+                            const typeIcon = ev.requirement_templates.type === 'book_report' ? '📚' : ev.requirement_templates.type === 'sermon' ? '🎤' : '📝'
+                            return (
+                              <div className="flex items-start gap-2 mb-3 bg-purple-50 rounded-xl px-3 py-2 border border-purple-100">
+                                <span className="text-xs mt-0.5">{typeIcon}</span>
+                                <div>
+                                  <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-0.5">Discussing</p>
+                                  <Link href={`/dashboard/ordinand/requirements/${linkedReq.id}`} className="text-sm font-bold text-purple-700 hover:underline">{ev.requirement_templates.title} →</Link>
+                                </div>
+                              </div>
+                            )
+                          })()}
+                          {ev.location && (
+                            <div className="flex items-start gap-2 mb-2">
+                              <span className="text-slate-400 text-xs mt-0.5">📍</span>
+                              {/^https?:\/\//i.test(ev.location)
+                                ? <a href={ev.location} target="_blank" rel="noopener noreferrer" className="text-sm font-bold" style={{ color: '#0077C8', textDecoration: 'underline' }}>
+                                    {/zoom\.us/i.test(ev.location) ? '📹 Join Zoom Meeting'
+                                      : /teams\.microsoft|teams\.live/i.test(ev.location) ? '💬 Join Teams Meeting'
+                                      : /meet\.google/i.test(ev.location) ? '📹 Join Google Meet'
+                                      : /webex/i.test(ev.location) ? '📹 Join Webex Meeting'
+                                      : '🔗 Click here to join meeting'}
+                                  </a>
+                                : <p className="text-sm text-slate-600 font-medium">{ev.location}</p>
+                              }
+                            </div>
+                          )}
+                          {ev.notes && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-slate-400 text-xs mt-0.5">📋</span>
+                              <p className="text-sm text-slate-600 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMarkdown(ev.notes) }} />
+                            </div>
+                          )}
+                          {!ev.location && !ev.notes && !linkedReq && (
+                            <p className="text-xs text-slate-400 italic">No additional details provided.</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
