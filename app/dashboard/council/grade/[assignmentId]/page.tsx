@@ -183,6 +183,16 @@ export default function CouncilGradePage() {
         rating,
         outcome: newStatus,
       })
+      // Notify ordinand by email — fire and forget
+      fetch('/api/notify-ordinand-graded', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requirementId: requirement.id,
+          graderId: assignment.council_member_id,
+          outcome: newStatus,
+        }),
+      }).catch(() => {})
       fetchData()
     } catch (err: any) { flash('Error saving grade: ' + err.message, 'error') }
     setIsSaving(false)

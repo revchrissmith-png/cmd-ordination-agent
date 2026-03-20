@@ -38,7 +38,8 @@ export default function CouncilDashboard() {
             id, status,
             requirement_templates(id, type, topic, title),
             profiles!ordinand_id(full_name, email),
-            cohorts(year, season)
+            cohorts(year, season),
+            submissions(submitted_at)
           )`)
         .eq('council_member_id', user.id)
       setAssignments(assigns || [])
@@ -51,6 +52,17 @@ export default function CouncilDashboard() {
   const allActive   = assignments.filter(a => a.ordinand_requirements?.status !== 'complete')
   const completed   = assignments.filter(a => a.ordinand_requirements?.status === 'complete')
   const filtered    = filter === 'needs_review' ? needsReview : filter === 'complete' ? completed : assignments
+
+  function daysSinceSubmission(assign: any): number | null {
+    const subs: any[] = assign.ordinand_requirements?.submissions ?? []
+    if (subs.length === 0) return null
+    const latest = subs.reduce((a: any, b: any) => new Date(a.submitted_at) > new Date(b.submitted_at) ? a : b)
+    if (!latest?.submitted_at) return null
+    return Math.floor((Date.now() - new Date(latest.submitted_at).getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  const overdueAssignments  = needsReview.filter(a => { const d = daysSinceSubmission(a); return d !== null && d > 30 })
+  const criticalAssignments = needsReview.filter(a => { const d = daysSinceSubmission(a); return d !== null && d > 60 })
 
   const TABS: { id: FilterTab; label: string; count: number }[] = [
     { id: 'needs_review', label: 'Needs Review', count: needsReview.length },
@@ -115,6 +127,34 @@ export default function CouncilDashboard() {
           </div>
         </div>
 
+        {/* Overdue alert banner */}
+        {criticalAssignments.length > 0 && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 mb-5 flex items-start gap-3">
+            <span className="text-lg shrink-0 mt-0.5">🚨</span>
+            <div>
+              <p className="font-black text-red-800 text-sm">
+                {criticalAssignments.length} assignment{criticalAssignments.length !== 1 ? 's are' : ' is'} critically late (60+ days)
+              </p>
+              <p className="text-red-600 text-xs font-medium mt-0.5">
+                {overdueAssignments.length} assignment{overdueAssignments.length !== 1 ? 's are' : ' is'} overdue in total (30+ days). Please prioritise grading these submissions.
+              </p>
+            </div>
+          </div>
+        )}
+        {criticalAssignments.length === 0 && overdueAssignments.length > 0 && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 mb-5 flex items-start gap-3">
+            <span className="text-lg shrink-0 mt-0.5">⚠️</span>
+            <div>
+              <p className="font-black text-amber-800 text-sm">
+                {overdueAssignments.length} assignment{overdueAssignments.length !== 1 ? 's are' : ' is'} overdue (30+ days)
+              </p>
+              <p className="text-amber-700 text-xs font-medium mt-0.5">
+                Standard turnaround is 30 days. Please grade these submissions as soon as possible.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2 mb-5">
           {TABS.map(tab => (
             <button key={tab.id} onClick={() => setFilter(tab.id)}
@@ -139,9 +179,12 @@ export default function CouncilDashboard() {
               const isPaper = req.requirement_templates?.type === 'paper'
               const needsGrade = status === 'submitted' || status === 'under_review'
               const cohort = req.cohorts ? `${req.cohorts.season} ${req.cohorts.year}` : ''
+              const days = needsGrade ? daysSinceSubmission(assign) : null
+              const isCritical = days !== null && days > 60
+              const isOverdue  = days !== null && days > 30
               return (
                 <Link key={assign.id} href={`/dashboard/council/grade/${assign.id}`}
-                  className={`flex items-start justify-between bg-white border rounded-2xl px-4 sm:px-6 py-4 sm:py-5 hover:shadow-md hover:border-blue-200 transition-all group ${needsGrade ? 'border-blue-200' : 'border-slate-200'}`}>
+                  className={`flex items-start justify-between bg-white border rounded-2xl px-4 sm:px-6 py-4 sm:py-5 hover:shadow-md hover:border-blue-200 transition-all group ${isCritical ? 'border-red-200' : isOverdue ? 'border-amber-200' : needsGrade ? 'border-blue-200' : 'border-slate-200'}`}>
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${cfg.dot}`} />
                     <div className="min-w-0">
@@ -150,6 +193,8 @@ export default function CouncilDashboard() {
                         <p className="text-sm text-slate-500 font-medium">{req.profiles?.full_name}</p>
                         {cohort && <><span className="text-slate-200 font-bold">·</span><p className="text-xs text-slate-400 font-medium">{cohort}</p></>}
                         {isPaper && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-bold text-purple-600">Paper</span></>}
+                        {isCritical && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-black text-red-600">🔴 {days}d — critically late</span></>}
+                        {!isCritical && isOverdue && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-black text-amber-600">⚠ {days}d — overdue</span></>}
                       </div>
                       <div className="flex items-center gap-2 mt-2 sm:hidden">
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${cfg.colour}`}>{cfg.label}</span>
