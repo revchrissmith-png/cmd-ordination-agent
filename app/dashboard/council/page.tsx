@@ -182,9 +182,16 @@ export default function CouncilDashboard() {
               const days = needsGrade ? daysSinceSubmission(assign) : null
               const isCritical = days !== null && days > 60
               const isOverdue  = days !== null && days > 30
+              const cardClass = isCritical
+                ? 'bg-red-50 border-red-300 hover:border-red-400 hover:shadow-md'
+                : isOverdue
+                ? 'bg-amber-50 border-amber-300 hover:border-amber-400 hover:shadow-md'
+                : needsGrade
+                ? 'bg-white border-blue-200 hover:border-blue-300 hover:shadow-md'
+                : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
               return (
                 <Link key={assign.id} href={`/dashboard/council/grade/${assign.id}`}
-                  className={`flex items-start justify-between bg-white border rounded-2xl px-4 sm:px-6 py-4 sm:py-5 hover:shadow-md hover:border-blue-200 transition-all group ${isCritical ? 'border-red-200' : isOverdue ? 'border-amber-200' : needsGrade ? 'border-blue-200' : 'border-slate-200'}`}>
+                  className={`flex items-start justify-between border rounded-2xl px-4 sm:px-6 py-4 sm:py-5 transition-all group ${cardClass}`}>
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${cfg.dot}`} />
                     <div className="min-w-0">
@@ -193,8 +200,8 @@ export default function CouncilDashboard() {
                         <p className="text-sm text-slate-500 font-medium">{req.profiles?.full_name}</p>
                         {cohort && <><span className="text-slate-200 font-bold">·</span><p className="text-xs text-slate-400 font-medium">{cohort}</p></>}
                         {isPaper && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-bold text-purple-600">Paper</span></>}
-                        {isCritical && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-black text-red-600">🔴 {days}d — critically late</span></>}
-                        {!isCritical && isOverdue && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-black text-amber-600">⚠ {days}d — overdue</span></>}
+                        {isCritical && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-black text-red-600">{days}d since submission</span></>}
+                        {!isCritical && isOverdue && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-black text-amber-700">{days}d since submission</span></>}
                       </div>
                       <div className="flex items-center gap-2 mt-2 sm:hidden">
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${cfg.colour}`}>{cfg.label}</span>
@@ -204,7 +211,7 @@ export default function CouncilDashboard() {
                   <div className="flex flex-col items-end gap-2 shrink-0 ml-3">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold hidden sm:inline ${cfg.colour}`}>{cfg.label}</span>
                     {needsGrade
-                      ? <span className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-black shadow-sm whitespace-nowrap">Grade →</span>
+                      ? <span className={`px-3 py-1.5 rounded-xl text-xs font-black shadow-sm whitespace-nowrap ${isCritical ? 'bg-red-600 text-white' : isOverdue ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'}`}>Grade →</span>
                       : <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold">→</span>
                     }
                   </div>
