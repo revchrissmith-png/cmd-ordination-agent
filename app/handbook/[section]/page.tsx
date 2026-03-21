@@ -60,7 +60,7 @@ export default function HandbookSection() {
   const [activeSubId, setActiveSubId] = useState<string | null>(null)
   const router = useRouter()
   const params = useParams()
-  const slug = typeof params.section === 'string' ? params.section : ''
+  const slug = params && typeof params.section === 'string' ? params.section : ''
 
   const section = getSectionBySlug(slug)
   const { prev, next } = getAdjacentSections(slug)
