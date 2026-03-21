@@ -419,7 +419,12 @@ export default function AdminPage() {
                         <td className="px-8 py-5"><div className="flex flex-wrap gap-1.5">{(m.roles || []).map((r: string) => (
                           <span key={r} className={`px-2.5 py-1 rounded-full text-xs font-bold ${ROLE_BADGE[r] ?? 'bg-slate-100 text-slate-600'}`}>{r}</span>
                         ))}</div></td>
-                        <td className="px-8 py-5 text-right"><button onClick={() => handleRemoveCouncil(m)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap">Remove from Council</button></td>
+                        <td className="px-8 py-5 text-right">
+                          <div className="flex items-center justify-end gap-4">
+                            <Link href={`/dashboard/admin/council/${m.id}`} className="text-blue-500 hover:text-blue-700 font-bold text-sm transition-colors whitespace-nowrap">Manage →</Link>
+                            <button onClick={() => handleRemoveCouncil(m)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap">Remove</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

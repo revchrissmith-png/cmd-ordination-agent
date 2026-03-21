@@ -55,7 +55,9 @@ export default function CouncilGradePage() {
   const [rating, setRating]           = useState<Rating | ''>('')
   const [comments, setComments]       = useState('')
   const [rubricScores, setRubricScores] = useState<SermonRubricScores>({})
+  const [sectionComments, setSectionComments] = useState<Record<string, string>>({})
   const [paperFeedback, setPaperFeedback] = useState<Record<string, string>>({})
+  const [paperSectionRatings, setPaperSectionRatings] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving]       = useState(false)
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null)
 
@@ -102,8 +104,10 @@ export default function CouncilGradePage() {
         setExistingGrade(g)
         setRating(g.overall_rating)
         setComments(g.overall_comments || '')
-        if (g.sermon_rubric)      setRubricScores(g.sermon_rubric)
-        if (g.paper_assessment?.sections) setPaperFeedback(g.paper_assessment.sections)
+        if (g.sermon_rubric)                    setRubricScores(g.sermon_rubric)
+        if (g.sermon_section_comments)          setSectionComments(g.sermon_section_comments)
+        if (g.paper_assessment?.sections)       setPaperFeedback(g.paper_assessment.sections)
+        if (g.paper_assessment?.section_ratings) setPaperSectionRatings(g.paper_assessment.section_ratings)
       }
     }
     if (req) {
@@ -158,9 +162,16 @@ export default function CouncilGradePage() {
         overall_comments: comments,
         graded_at:        new Date().toISOString(),
       }
-      if (isSermon) gradeData.sermon_rubric = rubricScores
+      if (isSermon) {
+        gradeData.sermon_rubric = rubricScores
+        gradeData.sermon_section_comments = sectionComments
+      }
       if (isPaper && isNewFormatSA) {
-        gradeData.paper_assessment = { version: 2, sections: { ...paperFeedback } }
+        gradeData.paper_assessment = {
+          version: 2,
+          sections: { ...paperFeedback },
+          section_ratings: { ...paperSectionRatings },
+        }
       }
 
       if (existingGrade) {
@@ -313,6 +324,19 @@ export default function CouncilGradePage() {
                               )
                             })}
                           </div>
+                          {/* Optional section-level comment */}
+                          <div className="mt-4 pt-4 border-t border-slate-100">
+                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                              Section Notes <span className="normal-case font-normal text-slate-300">(optional)</span>
+                            </label>
+                            <textarea
+                              className={`${inputClass} resize-none`}
+                              rows={2}
+                              value={sectionComments[section.id] || ''}
+                              onChange={e => setSectionComments(prev => ({ ...prev, [section.id]: e.target.value }))}
+                              placeholder="Any specific feedback for this section…"
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -405,6 +429,24 @@ export default function CouncilGradePage() {
                             </div>
                           )}
 
+                          {/* Council section rating */}
+                          <div className="mb-3">
+                            <label className="block text-xs font-black text-blue-600 uppercase tracking-widest mb-1.5">
+                              Your Rating <span className="normal-case font-normal text-slate-400">(optional)</span>
+                            </label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {RATINGS.map(r => (
+                                <button key={r} onClick={() => setPaperSectionRatings(prev => ({ ...prev, completeness: r }))}
+                                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${paperSectionRatings['completeness'] === r ? RATING_CONFIG[r].colour + ' border-current' : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'}`}>
+                                  {RATING_CONFIG[r].label}
+                                </button>
+                              ))}
+                              {paperSectionRatings['completeness'] && (
+                                <button onClick={() => setPaperSectionRatings(prev => { const n = { ...prev }; delete n['completeness']; return n })}
+                                  className="px-2 py-1 text-xs text-slate-300 hover:text-slate-500 font-medium transition-colors">Clear</button>
+                              )}
+                            </div>
+                          </div>
                           {/* Council feedback field */}
                           <div>
                             <label className="block text-xs font-black text-blue-600 uppercase tracking-widest mb-1.5">Your Response</label>
@@ -450,6 +492,24 @@ export default function CouncilGradePage() {
                                 )}
                               </div>
 
+                              {/* Council section rating */}
+                              <div className="mb-3">
+                                <label className="block text-xs font-black text-blue-600 uppercase tracking-widest mb-1.5">
+                                  Your Rating <span className="normal-case font-normal text-slate-400">(optional)</span>
+                                </label>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {RATINGS.map(r => (
+                                    <button key={r} onClick={() => setPaperSectionRatings(prev => ({ ...prev, [section.id]: r }))}
+                                      className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${paperSectionRatings[section.id] === r ? RATING_CONFIG[r].colour + ' border-current' : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'}`}>
+                                      {RATING_CONFIG[r].label}
+                                    </button>
+                                  ))}
+                                  {paperSectionRatings[section.id] && (
+                                    <button onClick={() => setPaperSectionRatings(prev => { const n = { ...prev }; delete n[section.id]; return n })}
+                                      className="px-2 py-1 text-xs text-slate-300 hover:text-slate-500 font-medium transition-colors">Clear</button>
+                                  )}
+                                </div>
+                              </div>
                               {/* Council feedback field */}
                               <div>
                                 <label className="block text-xs font-black text-blue-600 uppercase tracking-widest mb-1.5">Your Response</label>
