@@ -69,6 +69,10 @@ export default function CandidateDetailPage() {
   const [confirmReset, setConfirmReset] = useState<{ id: string; mode: 'unsubmitted' | 'submitted' } | null>(null)
   const [isResetting, setIsResetting] = useState(false)
 
+  // Admin upload state
+  const [uploadingReqId, setUploadingReqId] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
@@ -243,6 +247,42 @@ CMD Ordaining Council`
       fetchData()
     }
     setIsResetting(false)
+  }
+
+  async function handleAdminUpload(req: any, file: File) {
+    setIsUploading(true)
+    const ext = file.name.split('.').pop()
+    const path = `submissions/${id}/${req.id}-${Date.now()}.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('submissions')
+      .upload(path, file, { upsert: true })
+    if (uploadError) {
+      flash('Upload failed: ' + uploadError.message, 'error')
+      setIsUploading(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('submissions').getPublicUrl(path)
+
+    const existingSubmission = Array.isArray(req.submissions) ? req.submissions[0] : req.submissions
+    if (existingSubmission) {
+      await supabase.from('submissions').update({ file_url: publicUrl, submitted_at: new Date().toISOString() }).eq('id', existingSubmission.id)
+    } else {
+      await supabase.from('submissions').insert({
+        ordinand_id: id,
+        ordinand_requirement_id: req.id,
+        file_url: publicUrl,
+        submitted_at: new Date().toISOString(),
+      })
+    }
+
+    await supabase.from('ordinand_requirements').update({ status: 'submitted' }).eq('id', req.id)
+
+    flash('File uploaded. You can now grade this assignment.', 'success')
+    setUploadingReqId(null)
+    setIsUploading(false)
+    fetchData()
   }
 
   async function handleSaveGrade() {
@@ -479,6 +519,37 @@ CMD Ordaining Council`
                               )}
                             </div>
                           </div>
+                          {/* Admin upload on behalf */}
+                          {status !== 'complete' && (
+                            uploadingReqId === req.id ? (
+                              <div className="flex items-center gap-2">
+                                <label className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${isUploading ? 'bg-slate-200 text-slate-400' : 'bg-teal-600 text-white hover:bg-teal-700'}`}>
+                                  {isUploading ? 'Uploading…' : '↑ Choose File'}
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx"
+                                    className="hidden"
+                                    disabled={isUploading}
+                                    onChange={e => {
+                                      const file = e.target.files?.[0]
+                                      if (file) handleAdminUpload(req, file)
+                                    }}
+                                  />
+                                </label>
+                                {!isUploading && (
+                                  <button onClick={() => setUploadingReqId(null)} className="text-xs text-slate-400 hover:text-slate-600 font-bold">Cancel</button>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => { setUploadingReqId(req.id); setReassigningId(null); setConfirmReset(null) }}
+                                className="px-4 py-2 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl text-xs font-bold hover:bg-teal-100 transition-all"
+                                title="Upload a file on behalf of this ordinand"
+                              >
+                                ↑ Upload
+                              </button>
+                            )
+                          )}
                           {(status === 'submitted' || status === 'under_review') && (
                             <button
                               onClick={() => { setSelectedReq(req); setRating(grade?.overall_rating ?? ''); setComments(grade?.overall_comments ?? '') }}
