@@ -46,12 +46,12 @@ export default function OrdinandDashboard() {
       setRequirements(reqs || [])
 
       if (prof?.cohort_id) {
-        // Upcoming events — cohort-specific + all-cohorts (null cohort_id)
+        // Upcoming events — cohort-specific (array contains) + all-cohorts (null cohort_ids)
         const today = new Date().toISOString().slice(0, 10)
         const { data: evts } = await supabase
           .from('cohort_events')
           .select('id, title, event_date, event_type, location, notes, requirement_templates!linked_template_id(id, title, type)')
-          .or(`cohort_id.eq.${prof.cohort_id},cohort_id.is.null`)
+          .or(`cohort_ids.cs.{"${prof.cohort_id}"},cohort_ids.is.null`)
           .gte('event_date', today)
           .order('event_date', { ascending: true })
           .limit(6)

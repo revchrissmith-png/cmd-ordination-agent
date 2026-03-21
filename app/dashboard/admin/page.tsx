@@ -49,7 +49,8 @@ export default function AdminPage() {
 
   const [events, setEvents] = useState<any[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
-  const [newEventCohort, setNewEventCohort] = useState('')
+  const [newEventAllCohorts, setNewEventAllCohorts] = useState(true)
+  const [newEventCohorts, setNewEventCohorts] = useState<string[]>([])
   const [newEventTitle, setNewEventTitle] = useState('')
   const [newEventDate, setNewEventDate] = useState('')
   const [newEventType, setNewEventType] = useState<'online' | 'in_person'>('online')
@@ -103,7 +104,7 @@ export default function AdminPage() {
     setEventsLoading(true)
     const { data, error } = await supabase
       .from('cohort_events')
-      .select('*, cohorts(name), requirement_templates!linked_template_id(id, title, type)')
+      .select('*, cohort_ids, requirement_templates!linked_template_id(id, title, type)')
       .order('event_date', { ascending: true })
     if (!error) setEvents(data || [])
     setEventsLoading(false)
@@ -269,9 +270,19 @@ export default function AdminPage() {
     })
   }
 
+  function toggleEventCohort(id: string) {
+    setNewEventCohorts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
   function startEditEvent(ev: any) {
     setEditingEvent(ev)
-    setNewEventCohort(ev.cohort_id ?? '')
+    if (ev.cohort_ids && ev.cohort_ids.length > 0) {
+      setNewEventAllCohorts(false)
+      setNewEventCohorts(ev.cohort_ids)
+    } else {
+      setNewEventAllCohorts(true)
+      setNewEventCohorts([])
+    }
     setNewEventTitle(ev.title)
     setNewEventDate(ev.event_date)
     setNewEventType(ev.event_type)
@@ -283,14 +294,16 @@ export default function AdminPage() {
 
   function cancelEdit() {
     setEditingEvent(null)
+    setNewEventAllCohorts(true); setNewEventCohorts([])
     setNewEventTitle(''); setNewEventDate(''); setNewEventLocation(''); setNewEventNotes(''); setNewEventTemplate('')
   }
 
   async function handleAddEvent(e: React.FormEvent) {
     e.preventDefault()
     setIsAddingEvent(true)
+    const selectedCohortIds = newEventAllCohorts ? null : (newEventCohorts.length > 0 ? newEventCohorts : null)
     const payload = {
-      cohort_id: newEventCohort || null,
+      cohort_ids: selectedCohortIds,
       title: newEventTitle.trim(),
       event_date: newEventDate,
       event_type: newEventType,
@@ -309,6 +322,7 @@ export default function AdminPage() {
     if (error) { flash('Error: ' + error.message, 'error') }
     else {
       flash(editingEvent ? 'Event updated.' : 'Event added to calendar.', 'success')
+      setNewEventAllCohorts(true); setNewEventCohorts([])
       setNewEventTitle(''); setNewEventDate(''); setNewEventLocation(''); setNewEventNotes(''); setNewEventTemplate('')
       setEditingEvent(null)
       fetchEvents()
@@ -595,10 +609,27 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>Cohort</label>
-                    <select className={inputClass} value={newEventCohort} onChange={e => setNewEventCohort(e.target.value)}>
-                      <option value="">All Cohorts (everyone sees this)</option>
-                      {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setNewEventAllCohorts(true); setNewEventCohorts([]) }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${newEventAllCohorts ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-300 hover:border-blue-400'}`}
+                      >All Cohorts</button>
+                      {cohorts.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setNewEventAllCohorts(false)
+                            toggleEventCohort(c.id)
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${!newEventAllCohorts && newEventCohorts.includes(c.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-300 hover:border-blue-400'}`}
+                        >{c.name}</button>
+                      ))}
+                    </div>
+                    {!newEventAllCohorts && newEventCohorts.length === 0 && (
+                      <p className="text-xs text-amber-600 font-bold mt-1.5">Select at least one cohort, or choose All Cohorts.</p>
+                    )}
                   </div>
                   <div>
                     <label className={labelClass}>Linked Assignment <span className="normal-case font-medium text-slate-400">(optional)</span></label>
@@ -678,6 +709,9 @@ export default function AdminPage() {
                     const d = new Date(ev.event_date + 'T12:00:00')
                     const isPast = d < new Date()
                     const dateStr = d.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                    const cohortLabel = !ev.cohort_ids || ev.cohort_ids.length === 0
+                      ? 'All Cohorts'
+                      : ev.cohort_ids.map((cid: string) => cohorts.find(c => c.id === cid)?.name ?? cid).join(', ')
                     return (
                       <div key={ev.id} className={`px-8 py-5 hover:bg-slate-50 transition-colors flex items-start justify-between gap-4 ${isPast ? 'opacity-50' : ''}`}>
                         <div className="flex items-start gap-4">
@@ -694,7 +728,7 @@ export default function AdminPage() {
                               {isPast && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-400">Past</span>}
                             </div>
                             <p className="text-sm text-slate-500 font-medium mt-0.5">{dateStr}</p>
-                            <p className="text-xs text-blue-600 font-bold mt-1">📅 {ev.cohorts?.name ?? 'All Cohorts'}</p>
+                            <p className="text-xs text-blue-600 font-bold mt-1">📅 {cohortLabel}</p>
                             {ev.requirement_templates && <p className="text-xs text-purple-600 font-bold mt-0.5">📋 {ev.requirement_templates.title}</p>}
                             {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5">📍 {ev.location}</p>}
                             {ev.notes && <p className="text-xs text-slate-400 font-medium mt-0.5 italic line-clamp-2">{ev.notes}</p>}
