@@ -12,7 +12,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - **Admins** manage users, cohorts, grader assignments, and send progress updates
 - **Everyone** can access **Pardington** — the AI-powered theological study assistant (named character, not just a generic chatbot)
 
-**Live site:** https://cmd-ordination-agent.vercel.app
+**Live site:** https://ordination.canadianmidwest.ca (custom subdomain; Vercel deployment at cmd-ordination-agent.vercel.app is the underlying host)
 **GitHub repo:** github.com/revchrissmith-png/cmd-ordination-agent
 **Supabase project ID:** `gdjodcqlydmtlccjuurw` (AWS ca-central-1)
 
