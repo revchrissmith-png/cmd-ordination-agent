@@ -285,16 +285,17 @@ CMD Ordaining Council`
 
     await supabase.from('ordinand_requirements').update({ status: 'submitted' }).eq('id', req.id)
 
-    setUploadingReqId(null)
-    setIsUploading(false)
-    fetchData(true) // silent — don't show loading screen while modal is opening
-
-    // Automatically open the grade modal
+    // Optimistically update local state — no fetchData needed, avoids concurrent batch races
     const updatedReq = {
       ...req,
       status: 'submitted',
       submissions: [{ id: submissionId, file_url: publicUrl, grades: [] }],
     }
+    setRequirements(prev => prev.map(r => r.id === req.id ? updatedReq : r))
+    setUploadingReqId(null)
+    setIsUploading(false)
+
+    // Open the grade modal immediately
     setSelectedReq(updatedReq)
     setRating('')
     setComments('')
@@ -664,7 +665,7 @@ CMD Ordaining Council`
                     <p className="text-sm text-slate-400 font-medium mt-1">{candidate.first_name} {candidate.last_name}</p>
                   </div>
                   <button
-                    onClick={() => { setSelectedReq(null); setRating(''); setComments(''); setModalGraderId('') }}
+                    onClick={() => { setSelectedReq(null); setRating(''); setComments(''); setModalGraderId(''); fetchData() }}
                     className="text-slate-400 hover:text-slate-700 font-black text-xl transition-colors"
                   >✕</button>
                 </div>
@@ -713,7 +714,7 @@ CMD Ordaining Council`
                     {isSaving ? 'Saving…' : 'Save Grade'}
                   </button>
                   <button
-                    onClick={() => { setSelectedReq(null); setRating(''); setComments(''); setModalGraderId('') }}
+                    onClick={() => { setSelectedReq(null); setRating(''); setComments(''); setModalGraderId(''); fetchData() }}
                     className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:text-slate-800 transition-colors"
                   >
                     Cancel
