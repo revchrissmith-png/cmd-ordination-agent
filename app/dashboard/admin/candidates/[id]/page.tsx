@@ -81,8 +81,8 @@ export default function CandidateDetailPage() {
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
   }
 
-  async function fetchData() {
-    setLoading(true)
+  async function fetchData(silent = false) {
+    if (!silent) setLoading(true)
     const { data: profile } = await supabase
       .from('profiles')
       .select('*, cohorts(id, name, year, season, sermon_topic)')
@@ -110,7 +110,7 @@ export default function CandidateDetailPage() {
       .order('year', { ascending: false })
     setCohorts(cohortList || [])
 
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
 
   useEffect(() => { fetchData() }, [id])
@@ -287,7 +287,7 @@ CMD Ordaining Council`
 
     setUploadingReqId(null)
     setIsUploading(false)
-    fetchData()
+    fetchData(true) // silent — don't show loading screen while modal is opening
 
     // Automatically open the grade modal
     const updatedReq = {
