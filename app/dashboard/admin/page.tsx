@@ -71,6 +71,12 @@ export default function AdminPage() {
   const [newCandidateCohort, setNewCandidateCohort] = useState('')
   const [isAddingCandidate, setIsAddingCandidate] = useState(false)
 
+  const [archiveTarget, setArchiveTarget] = useState<any>(null)
+  const [archiveStep, setArchiveStep] = useState<'action' | 'report' | null>(null)
+  const [archiveMode, setArchiveMode] = useState<'delete' | 'complete' | null>(null)
+  const [isArchiving, setIsArchiving] = useState(false)
+  const [reportComingSoon, setReportComingSoon] = useState(false)
+
   const [activityLogs, setActivityLogs]     = useState<any[]>([])
   const [activityLoading, setActivityLoading] = useState(false)
 
@@ -124,6 +130,7 @@ export default function AdminPage() {
       .from('profiles')
       .select('*, cohorts(name)')
       .contains('roles', ['ordinand'])
+      .neq('status', 'deleted')
       .order('last_name', { ascending: true })
     if (!error) setCandidates(data || [])
     setCandidatesLoading(false)
@@ -242,6 +249,20 @@ export default function AdminPage() {
       fetchCandidates()
     }
     setIsAddingCandidate(false)
+  }
+
+  async function handleArchiveAction() {
+    if (!archiveTarget || !archiveMode) return
+    setIsArchiving(true)
+    const { error } = await supabase.from('profiles')
+      .update({ status: archiveMode === 'delete' ? 'deleted' : 'completed', status_changed_at: new Date().toISOString() })
+      .eq('id', archiveTarget.id)
+    setIsArchiving(false)
+    if (error) { flash('Error: ' + error.message, 'error'); return }
+    const name = `${archiveTarget.first_name} ${archiveTarget.last_name}`
+    flash(archiveMode === 'delete' ? `${name} has been removed from the system.` : `${name} has been marked as complete.`, 'success')
+    setArchiveTarget(null); setArchiveStep(null); setArchiveMode(null); setReportComingSoon(false)
+    fetchCandidates()
   }
 
   function insertMd(prefix: string, suffix: string, placeholder: string) {
@@ -566,7 +587,7 @@ export default function AdminPage() {
                     <th className="px-4 sm:px-8 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
                   </tr></thead>
                   <tbody className="divide-y divide-slate-100">
-                    {candidates.map(person => (
+                    {candidates.filter(p => !p.status || p.status === 'active').map(person => (
                       <tr key={person.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 sm:px-8 py-4 sm:py-5">
                           <div className="font-bold text-slate-900">{person.first_name} {person.last_name}</div>
@@ -582,14 +603,140 @@ export default function AdminPage() {
                             ? <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">{person.cohorts.name}</span>
                             : <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-xs font-bold">No cohort</span>}
                         </td>
-                        <td className="px-4 sm:px-8 py-4 sm:py-5 text-right"><Link href={`/dashboard/admin/candidates/${person.id}`} style={{ color: C.allianceBlue }} className="font-black transition-colors text-sm whitespace-nowrap">Manage →</Link></td>
+                        <td className="px-4 sm:px-8 py-4 sm:py-5 text-right">
+                          <div className="flex items-center justify-end gap-4">
+                            <Link href={`/dashboard/admin/candidates/${person.id}`} style={{ color: C.allianceBlue }} className="font-black transition-colors text-sm whitespace-nowrap">Manage →</Link>
+                            <button
+                              onClick={() => { setArchiveTarget(person); setArchiveStep('action'); setArchiveMode(null); setReportComingSoon(false) }}
+                              className="text-slate-300 hover:text-red-400 transition-colors text-base font-black leading-none"
+                              title="Remove or complete this ordinand"
+                            >✕</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 </div>
               )}
+
+              {/* Completed ordinands — archived but records preserved */}
+              {candidates.filter(p => p.status === 'completed').length > 0 && (
+                <div className="border-t border-slate-100 mt-2">
+                  <div className="px-8 py-3 bg-slate-50">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Completed / Archived ({candidates.filter(p => p.status === 'completed').length})</p>
+                  </div>
+                  <div className="overflow-x-auto opacity-60">
+                  <table className="min-w-full divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100">
+                      {candidates.filter(p => p.status === 'completed').map(person => (
+                        <tr key={person.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 sm:px-8 py-4 sm:py-5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-600">{person.first_name} {person.last_name}</span>
+                              <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">Completed</span>
+                            </div>
+                            <div className="text-sm text-slate-400 font-medium">{person.email}</div>
+                          </td>
+                          <td className="px-4 sm:px-8 py-4 sm:py-5 hidden sm:table-cell">
+                            {person.cohorts?.name
+                              ? <span className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-full text-xs font-bold">{person.cohorts.name}</span>
+                              : <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-xs font-bold">No cohort</span>}
+                          </td>
+                          <td className="px-4 sm:px-8 py-4 sm:py-5 text-right">
+                            <Link href={`/dashboard/admin/candidates/${person.id}`} className="font-black transition-colors text-sm whitespace-nowrap text-slate-400 hover:text-slate-600">View →</Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Archive / Remove modal */}
+            {archiveStep && archiveTarget && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl">
+
+                  {archiveStep === 'action' && (
+                    <>
+                      <h2 className="text-lg font-black text-slate-900 mb-1">Remove {archiveTarget.first_name} {archiveTarget.last_name}?</h2>
+                      <p className="text-sm text-slate-500 font-medium mb-6">Choose how you'd like to remove this ordinand from the active roster.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <button
+                          onClick={() => setArchiveMode(archiveMode === 'delete' ? null : 'delete')}
+                          className={`text-left p-5 rounded-2xl border-2 transition-all ${archiveMode === 'delete' ? 'border-red-400 bg-red-50' : 'border-slate-200 hover:border-red-200 bg-white'}`}
+                        >
+                          <div className="text-2xl mb-2">🗑️</div>
+                          <div className="font-black text-slate-900 mb-1">Delete</div>
+                          <div className="text-xs text-slate-500 font-medium leading-relaxed">Remove this profile from the system entirely. Use for test accounts and fake migration profiles. Records will not be preserved.</div>
+                        </button>
+                        <button
+                          onClick={() => setArchiveMode(archiveMode === 'complete' ? null : 'complete')}
+                          className={`text-left p-5 rounded-2xl border-2 transition-all ${archiveMode === 'complete' ? 'border-green-400 bg-green-50' : 'border-slate-200 hover:border-green-200 bg-white'}`}
+                        >
+                          <div className="text-2xl mb-2">✅</div>
+                          <div className="font-black text-slate-900 mb-1">Mark Complete</div>
+                          <div className="text-xs text-slate-500 font-medium leading-relaxed">Remove from the active roster but preserve all submissions, grades, and records for future data analysis.</div>
+                        </button>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => { if (archiveMode) setArchiveStep('report') }}
+                          disabled={!archiveMode}
+                          className="px-6 py-2.5 rounded-xl font-black text-sm text-white transition-all"
+                          style={{ backgroundColor: !archiveMode ? '#aaa' : archiveMode === 'delete' ? '#ef4444' : '#16a34a', cursor: !archiveMode ? 'not-allowed' : 'pointer' }}
+                        >
+                          Continue →
+                        </button>
+                        <button onClick={() => { setArchiveTarget(null); setArchiveStep(null); setArchiveMode(null) }} className="px-6 py-2.5 rounded-xl font-bold text-sm text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all">Cancel</button>
+                      </div>
+                    </>
+                  )}
+
+                  {archiveStep === 'report' && (
+                    <>
+                      <h2 className="text-lg font-black text-slate-900 mb-1">Generate Archive Report?</h2>
+                      <p className="text-sm text-slate-500 font-medium mb-5">
+                        Before {archiveMode === 'delete' ? 'deleting' : 'completing'} {archiveTarget.first_name}'s profile, would you like to generate an archive report for your records?
+                      </p>
+                      <div className="bg-slate-50 rounded-2xl p-5 mb-5 space-y-2">
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Report would include</p>
+                        <div className="flex items-start gap-2 text-sm text-slate-700 font-medium"><span className="text-green-500 font-black mt-0.5">✓</span><span>Assignment completion summary (which of 17 were completed)</span></div>
+                        <div className="flex items-start gap-2 text-sm text-slate-400 font-medium"><span className="mt-0.5">○</span><span>AI-generated executive summary of all grades &amp; feedback <span className="text-xs bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full ml-1">Coming soon</span></span></div>
+                        <div className="flex items-start gap-2 text-sm text-slate-400 font-medium"><span className="mt-0.5">○</span><span>Oral interview report, grade &amp; action items <span className="text-xs bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full ml-1">Coming soon</span></span></div>
+                        <div className="flex items-start gap-2 text-sm text-slate-400 font-medium"><span className="mt-0.5">○</span><span>Ordination service date &amp; officiant <span className="text-xs bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full ml-1">Coming soon</span></span></div>
+                      </div>
+
+                      {reportComingSoon && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
+                          <p className="text-sm font-black text-amber-800 mb-1">🚧 Full report generation is coming soon</p>
+                          <p className="text-xs text-amber-700 font-medium">This feature is on the development roadmap. You can review {archiveTarget.first_name}'s current progress on their profile page before proceeding.</p>
+                          <Link href={`/dashboard/admin/candidates/${archiveTarget.id}`} className="inline-block mt-2 text-xs font-black text-blue-600 hover:underline">View {archiveTarget.first_name}'s profile →</Link>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={() => setReportComingSoon(true)}
+                          className="px-5 py-2.5 rounded-xl font-black text-sm text-white transition-all"
+                          style={{ backgroundColor: C.deepSea }}
+                        >📄 Generate Report</button>
+                        <button
+                          onClick={handleArchiveAction}
+                          disabled={isArchiving}
+                          className="px-5 py-2.5 rounded-xl font-black text-sm transition-all"
+                          style={{ backgroundColor: isArchiving ? '#aaa' : archiveMode === 'delete' ? '#fef2f2' : '#f0fdf4', color: isArchiving ? '#fff' : archiveMode === 'delete' ? '#b91c1c' : '#15803d', cursor: isArchiving ? 'not-allowed' : 'pointer' }}
+                        >{isArchiving ? 'Processing…' : `Skip & ${archiveMode === 'delete' ? 'Delete' : 'Complete'}`}</button>
+                        <button onClick={() => { setArchiveStep('action'); setReportComingSoon(false) }} className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all">← Back</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
