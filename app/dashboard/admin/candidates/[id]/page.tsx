@@ -72,6 +72,7 @@ export default function CandidateDetailPage() {
   // Admin upload state
   const [uploadingReqId, setUploadingReqId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadDate, setUploadDate] = useState<string>(() => new Date().toISOString().split('T')[0])
 
   // Grader selector inside grade modal
   const [modalGraderId, setModalGraderId] = useState<string>('')
@@ -252,8 +253,9 @@ CMD Ordaining Council`
     setIsResetting(false)
   }
 
-  async function handleAdminUpload(req: any, file: File) {
+  async function handleAdminUpload(req: any, file: File, dateStr: string) {
     setIsUploading(true)
+    const submittedAt = new Date(dateStr).toISOString()
     const ext = file.name.split('.').pop()
     const path = `submissions/${id}/${req.id}-${Date.now()}.${ext}`
 
@@ -271,7 +273,7 @@ CMD Ordaining Council`
     const existingSubmission = Array.isArray(req.submissions) ? req.submissions[0] : req.submissions
     let submissionId: string
     if (existingSubmission) {
-      await supabase.from('submissions').update({ file_url: publicUrl, submitted_at: new Date().toISOString() }).eq('id', existingSubmission.id)
+      await supabase.from('submissions').update({ file_url: publicUrl, submitted_at: submittedAt }).eq('id', existingSubmission.id)
       submissionId = existingSubmission.id
     } else {
       const { data: newSub, error: subError } = await supabase.from('submissions').insert({
@@ -280,7 +282,7 @@ CMD Ordaining Council`
         file_url: publicUrl,
         file_name: file.name,
         version: 1,
-        submitted_at: new Date().toISOString(),
+        submitted_at: submittedAt,
       }).select('id').single()
       if (subError) {
         flash('Upload succeeded but could not create submission record: ' + subError.message, 'error')
@@ -565,27 +567,45 @@ CMD Ordaining Council`
                           {/* Admin upload on behalf */}
                           {status !== 'complete' && (
                             uploadingReqId === req.id ? (
-                              <div className="flex items-center gap-2">
-                                <label className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${isUploading ? 'bg-slate-200 text-slate-400' : 'bg-teal-600 text-white hover:bg-teal-700'}`}>
-                                  {isUploading ? 'Uploading…' : '↑ Choose File'}
+                              <div className="flex flex-col gap-2 bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <label className="text-xs font-black text-teal-700 whitespace-nowrap">Submission Date:</label>
                                   <input
-                                    type="file"
-                                    accept=".pdf,.doc,.docx"
-                                    className="hidden"
+                                    type="date"
+                                    value={uploadDate}
+                                    max={new Date().toISOString().split('T')[0]}
+                                    onChange={e => setUploadDate(e.target.value)}
                                     disabled={isUploading}
-                                    onChange={e => {
-                                      const file = e.target.files?.[0]
-                                      if (file) handleAdminUpload(req, file)
-                                    }}
+                                    className="text-xs px-2.5 py-1.5 bg-white border border-teal-300 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-teal-200 outline-none"
                                   />
-                                </label>
-                                {!isUploading && (
-                                  <button onClick={() => setUploadingReqId(null)} className="text-xs text-slate-400 hover:text-slate-600 font-bold">Cancel</button>
-                                )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <label className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${isUploading ? 'bg-slate-200 text-slate-400' : 'bg-teal-600 text-white hover:bg-teal-700'}`}>
+                                    {isUploading ? 'Uploading…' : '↑ Choose File'}
+                                    <input
+                                      type="file"
+                                      accept=".pdf,.doc,.docx"
+                                      className="hidden"
+                                      disabled={isUploading}
+                                      onChange={e => {
+                                        const file = e.target.files?.[0]
+                                        if (file) handleAdminUpload(req, file, uploadDate)
+                                      }}
+                                    />
+                                  </label>
+                                  {!isUploading && (
+                                    <button onClick={() => setUploadingReqId(null)} className="text-xs text-slate-400 hover:text-slate-600 font-bold">Cancel</button>
+                                  )}
+                                </div>
                               </div>
                             ) : (
                               <button
-                                onClick={() => { setUploadingReqId(req.id); setReassigningId(null); setConfirmReset(null) }}
+                                onClick={() => {
+                                  setUploadingReqId(req.id)
+                                  setUploadDate(new Date().toISOString().split('T')[0])
+                                  setReassigningId(null)
+                                  setConfirmReset(null)
+                                }}
                                 className="px-4 py-2 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl text-xs font-bold hover:bg-teal-100 transition-all"
                                 title="Upload a file on behalf of this ordinand"
                               >
