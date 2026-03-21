@@ -74,7 +74,6 @@ export default function OrdinandProcessPage() {
   }
 
   const cohort = profile?.cohorts
-  const sermonTopic = cohort?.sermon_topic
   const dueDate = cohort?.assignment_due_date
     ? new Date(cohort.assignment_due_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
     : null
