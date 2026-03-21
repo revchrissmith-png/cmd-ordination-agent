@@ -86,7 +86,10 @@ export default function CouncilDashboard() {
           <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Dashboard</Link>
+          <Link href="/dashboard/study" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: C.white, padding: '0.3rem 0.75rem', borderRadius: '4px', fontSize: '0.78rem', fontWeight: 'bold', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            <img src="/pardington-avatar.png" alt="" style={{ height: '16px' }} />
+            Pardington
+          </Link>
           <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')}
             style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.7)', padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}>
             Sign Out

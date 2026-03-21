@@ -45,10 +45,14 @@ export default function DashboardHome() {
       if (prof) {
         setProfile(prof)
         logActivity(authUser.id, 'login', '/dashboard', { roles: prof.roles })
-        // Auto-redirect ordinands directly to their dashboard
+        // Auto-redirect non-admin users directly to their dashboard
         const roles: string[] = prof?.roles ?? []
         if (roles.includes('ordinand') && !roles.includes('admin') && !roles.includes('council')) {
           router.replace('/dashboard/ordinand')
+          return
+        }
+        if (roles.includes('council') && !roles.includes('admin')) {
+          router.replace('/dashboard/council')
           return
         }
       }

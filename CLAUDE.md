@@ -10,7 +10,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - **Ordinands** submit written work and track their progress
 - **Council members** review and grade submissions
 - **Admins** manage users, cohorts, grader assignments, and send progress updates
-- **Everyone** can access an AI-powered theological study assistant
+- **Everyone** can access **Pardington** — the AI-powered theological study assistant (named character, not just a generic chatbot)
 
 **Live site:** https://cmd-ordination-agent.vercel.app
 **GitHub repo:** github.com/revchrissmith-png/cmd-ordination-agent
@@ -94,7 +94,8 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Submit button → sets status to `submitted`, saves file URL + self-assessment data
 - Shows council feedback when graded
 
-### ✅ AI Study Agent (`/dashboard/study`)
+### ✅ Pardington — AI Study Agent (`/dashboard/study`)
+- Named AI character; always refer to as "Pardington" in code comments, UI copy, and conversation
 - Chat UI with suggested theological questions
 - "Help me prepare for my oral interview" button walks through Appendix A.5 questions
 - Backend at `/api/study-agent/route.ts` — streaming Anthropic API (claude-haiku-4-5-20251001)
