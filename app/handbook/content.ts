@@ -19,6 +19,7 @@ export type WikiSection = {
   icon: string
   tagline: string
   audience: string[]   // 'all' | 'ordinand' | 'mentor' | 'council' | 'church'
+  isPublic: boolean    // true = visible without portal login
   subsections: SubSection[]
 }
 
@@ -29,6 +30,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
     icon: '🏛️',
     tagline: 'Purpose, values, and alignment with The Alliance Canada policy',
     audience: ['all'],
+    isPublic: true,
     subsections: [
       {
         id: '1-1',
@@ -112,6 +114,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
     icon: '👥',
     tagline: 'Roles and responsibilities of everyone involved in the ordination process',
     audience: ['all'],
+    isPublic: true,
     subsections: [
       {
         id: '2-1',
@@ -188,6 +191,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
     icon: '🗺️',
     tagline: 'Cohorts, the Portal, Pardington, and the three-year arc of the process',
     audience: ['ordinand', 'all'],
+    isPublic: true,
     subsections: [
       {
         id: '3-1',
@@ -282,6 +286,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
     icon: '📋',
     tagline: 'Book reports, theological papers, and sermons — what is required and how to submit',
     audience: ['ordinand'],
+    isPublic: true,
     subsections: [
       {
         id: '4-1',
@@ -353,6 +358,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
     icon: '🧭',
     tagline: 'The mentorship relationship — expectations, rhythm, and the monthly report',
     audience: ['ordinand', 'mentor'],
+    isPublic: true,
     subsections: [
       {
         id: '5-1',
@@ -432,6 +438,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
     icon: '🎓',
     tagline: 'Eligibility, format, the four possible outcomes, and the ordination service',
     audience: ['ordinand'],
+    isPublic: true,
     subsections: [
       {
         id: '6-1',
@@ -512,6 +519,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
     icon: '⚖️',
     tagline: 'Mandate, composition, time commitments, and discernment process',
     audience: ['council'],
+    isPublic: false,
     subsections: [
       {
         id: '7-1',
@@ -586,6 +594,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
     icon: '📎',
     tagline: 'Checklists, templates, rubrics, and links to all supporting documents',
     audience: ['all'],
+    isPublic: false,
     subsections: [
       {
         id: 'A-1',
