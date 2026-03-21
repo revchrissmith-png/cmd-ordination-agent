@@ -109,11 +109,11 @@ export default function OrdinandProcessPage() {
             <p className="text-sm text-slate-700 font-medium leading-relaxed mb-5">
               The CMD ordination process unfolds over approximately three years, beginning shortly after you receive a portable licence. It is designed to foster spiritual depth, theological reflection, pastoral skill, and missional imagination. The goal is not simply to complete requirements but to flourish in your calling.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
               {[
-                { icon: '📚', number: '10', label: 'Book Reports', sub: '~2 pages each' },
-                { icon: '📝', number: '4', label: 'Theological Papers', sub: '10–12 pages each' },
-                { icon: '🎤', number: '3', label: 'Sermons', sub: 'Full manuscript + recording link' },
+                { icon: '📚', number: '10', label: 'Book Reports', sub: '~2 pages each, one per reading category' },
+                { icon: '📝', number: '4', label: 'Theological Papers', sub: '10–12 pages, with built-in self-assessment' },
+                { icon: '🎤', number: '3', label: 'Sermons', sub: 'Full manuscript + recording on your assigned topic' },
               ].map(item => (
                 <div key={item.label} className="bg-slate-50 rounded-2xl p-5 text-center border border-slate-100">
                   <div className="text-2xl mb-2">{item.icon}</div>
@@ -123,6 +123,14 @@ export default function OrdinandProcessPage() {
                 </div>
               ))}
             </div>
+            <Link href="/dashboard/ordinand"
+              className="flex items-center justify-between px-5 py-4 bg-blue-50 border border-blue-100 rounded-2xl hover:border-blue-200 hover:bg-blue-100/60 transition-all group">
+              <div>
+                <p className="text-sm font-black text-blue-800">View your assignment checklist</p>
+                <p className="text-xs text-blue-600 font-medium mt-0.5">Track status, submit work, and view feedback for all 17 requirements</p>
+              </div>
+              <span className="text-blue-400 font-bold text-lg group-hover:text-blue-600 transition-colors flex-shrink-0 ml-4">→</span>
+            </Link>
           </Section>
 
           {/* Cohort calendar */}
@@ -216,32 +224,6 @@ export default function OrdinandProcessPage() {
             <div className="mt-5 bg-amber-50 border border-amber-100 rounded-2xl px-5 py-4">
               <p className="text-xs font-bold text-amber-700 leading-relaxed">Attendance at all quarterly gatherings is expected. If you must miss one, notify the Chair of the Ordaining Council in advance and complete any required catch-up work.</p>
             </div>
-          </Section>
-
-          {/* Assignments — summary card only; full list lives on the dashboard */}
-          <Section title="Your 17 Assignments">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              {[
-                { icon: '📚', number: '10', label: 'Book Reports', sub: '~2 pages each, one per reading category' },
-                { icon: '📝', number: '4', label: 'Theological Papers', sub: '10–12 pages, with built-in self-assessment' },
-                { icon: '🎤', number: '3', label: 'Sermons', sub: 'Full manuscript + recording on your assigned topic' },
-              ].map(item => (
-                <div key={item.label} className="bg-slate-50 rounded-2xl p-5 text-center border border-slate-100">
-                  <div className="text-2xl mb-2">{item.icon}</div>
-                  <p className="text-3xl font-black" style={{ color: C.deepSea }}>{item.number}</p>
-                  <p className="text-xs font-black text-slate-600 uppercase tracking-widest mt-1">{item.label}</p>
-                  <p className="text-xs text-slate-400 font-medium mt-0.5">{item.sub}</p>
-                </div>
-              ))}
-            </div>
-            <Link href="/dashboard/ordinand"
-              className="flex items-center justify-between px-5 py-4 bg-blue-50 border border-blue-100 rounded-2xl hover:border-blue-200 hover:bg-blue-100/60 transition-all group">
-              <div>
-                <p className="text-sm font-black text-blue-800">View your assignment checklist</p>
-                <p className="text-xs text-blue-600 font-medium mt-0.5">Track status, submit work, and view feedback for all 17 requirements</p>
-              </div>
-              <span className="text-blue-400 font-bold text-lg group-hover:text-blue-600 transition-colors flex-shrink-0 ml-4">→</span>
-            </Link>
           </Section>
 
           {/* Mentorship */}
