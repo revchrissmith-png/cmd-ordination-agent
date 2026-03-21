@@ -246,7 +246,7 @@ export default function CouncilMemberManagePage() {
 
           ${section('⚠️ Critical — Response Urgently Needed (60+ days)', '#dc2626', critical, 'These submissions have been waiting more than 60 days for your review. Please action these as a priority.')}
           ${section('⏰ Overdue (30–60 days)', '#d97706', overdue, 'These submissions are overdue. Please aim to complete your review soon.')}
-          ${section('📋 Pending (less than 14 days)', '#2563eb', pending)}
+          ${section('📋 Pending (less than 30 days)', '#2563eb', pending)}
 
           ${noOutstanding ? '' : `
           <div style="margin:28px 0 0 0;text-align:center;">
