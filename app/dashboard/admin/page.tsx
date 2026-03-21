@@ -405,7 +405,7 @@ export default function AdminPage() {
       </div>
       {/* ── END ALPHA BANNER ── */}
 
-    <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
+    <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20 overflow-x-hidden">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
           <h1 className="text-2xl font-black mt-1" style={{ color: C.deepSea }}>Admin Console</h1>
@@ -429,7 +429,7 @@ export default function AdminPage() {
 
         {activeTab === 'council' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
               <h2 className="text-xs font-black uppercase tracking-widest mb-5" style={{ color: C.allianceBlue }}>Add Council Member</h2>
               <form onSubmit={handleAddCouncil} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -450,35 +450,35 @@ export default function AdminPage() {
               </form>
             </div>
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-8 py-5 border-b border-slate-100">
+              <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Current Council ({councilMembers.length})</h2>
               </div>
-              {councilLoading ? <p className="px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
+              {councilLoading ? <p className="px-5 sm:px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
               : councilMembers.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No council members added yet.</p>
               : (
                 <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">
                   <thead className="bg-slate-50"><tr>
-                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
-                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest hidden md:table-cell">Email</th>
-                    <th className="px-8 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Roles</th>
-                    <th className="px-8 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
+                    <th className="px-4 sm:px-8 py-3 sm:py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Name</th>
+                    <th className="px-4 sm:px-8 py-3 sm:py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest hidden md:table-cell">Email</th>
+                    <th className="px-4 sm:px-8 py-3 sm:py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">Roles</th>
+                    <th className="px-4 sm:px-8 py-3 sm:py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
                   </tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {councilMembers.map(m => (
                       <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-8 py-5">
+                        <td className="px-4 sm:px-8 py-3 sm:py-5">
                           <div className="font-bold text-slate-900">{m.first_name} {m.last_name}</div>
                           <div className="text-sm text-slate-400 font-medium md:hidden">{m.email}</div>
                         </td>
-                        <td className="px-8 py-5 text-slate-500 font-medium hidden md:table-cell">{m.email}</td>
-                        <td className="px-8 py-5"><div className="flex flex-wrap gap-1.5">{(m.roles || []).map((r: string) => (
+                        <td className="px-4 sm:px-8 py-3 sm:py-5 text-slate-500 font-medium hidden md:table-cell">{m.email}</td>
+                        <td className="px-4 sm:px-8 py-3 sm:py-5"><div className="flex flex-wrap gap-1.5">{(m.roles || []).map((r: string) => (
                           <span key={r} className={`px-2.5 py-1 rounded-full text-xs font-bold ${ROLE_BADGE[r] ?? 'bg-slate-100 text-slate-600'}`}>{r}</span>
                         ))}</div></td>
-                        <td className="px-8 py-5 text-right">
-                          <div className="flex items-center justify-end gap-4">
+                        <td className="px-4 sm:px-8 py-3 sm:py-5 text-right">
+                          <div className="flex items-center justify-end gap-2 sm:gap-4">
                             <Link href={`/dashboard/admin/council/${m.id}`} className="text-blue-500 hover:text-blue-700 font-bold text-sm transition-colors whitespace-nowrap">Manage →</Link>
-                            <button onClick={() => handleRemoveCouncil(m)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap">Remove</button>
+                            <button onClick={() => handleRemoveCouncil(m)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap hidden sm:block">Remove</button>
                           </div>
                         </td>
                       </tr>
@@ -494,7 +494,7 @@ export default function AdminPage() {
 
         {activeTab === 'cohorts' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
               <h2 className="text-xs font-black uppercase tracking-widest mb-5" style={{ color: C.allianceBlue }}>Create New Cohort</h2>
               <form onSubmit={handleAddCohort} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -524,15 +524,15 @@ export default function AdminPage() {
               </form>
             </div>
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-8 py-5 border-b border-slate-100">
+              <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">All Cohorts ({cohorts.length})</h2>
               </div>
-              {cohortsLoading ? <p className="px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
+              {cohortsLoading ? <p className="px-5 sm:px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
               : cohorts.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No cohorts created yet.</p>
               : (
                 <div className="divide-y divide-slate-100">
                   {cohorts.map(c => (
-                    <div key={c.id} className="px-8 py-6 hover:bg-slate-50 transition-colors">
+                    <div key={c.id} className="px-5 sm:px-8 py-5 sm:py-6 hover:bg-slate-50 transition-colors">
                       <div className="flex flex-wrap items-center gap-3 mb-4">
                         <span className="font-bold text-slate-900 text-lg">{c.name}</span>
                         {c.assignment_due_date && (
@@ -567,7 +567,7 @@ export default function AdminPage() {
 
         {activeTab === 'candidates' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
               <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Register New Ordinand</h2>
               <p className="text-xs text-slate-400 font-medium mb-5">Adding an ordinand automatically generates their 17 requirements based on their cohort. They will claim this profile when they first log in via Magic Link.</p>
               {cohorts.length === 0 ? (
@@ -594,10 +594,10 @@ export default function AdminPage() {
               )}
             </div>
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-8 py-5 border-b border-slate-100">
+              <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Registered Ordinands ({candidates.length})</h2>
               </div>
-              {candidatesLoading ? <p className="px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
+              {candidatesLoading ? <p className="px-5 sm:px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
               : candidates.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No ordinands registered yet.</p>
               : (
                 <div className="overflow-x-auto">
@@ -763,7 +763,7 @@ export default function AdminPage() {
 
         {activeTab === 'calendar' && (
           <div className="space-y-6">
-            <div className={`bg-white rounded-3xl border shadow-sm p-8 ${editingEvent ? 'border-blue-300' : 'border-slate-200'}`}>
+            <div className={`bg-white rounded-3xl border shadow-sm p-5 sm:p-8 ${editingEvent ? 'border-blue-300' : 'border-slate-200'}`}>
               <div className="flex items-center justify-between mb-1">
                 <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: editingEvent ? C.allianceBlue : C.allianceBlue }}>
                   {editingEvent ? '✏️  Edit Gathering' : 'Add Gathering'}
@@ -875,7 +875,7 @@ export default function AdminPage() {
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-8 py-5 border-b border-slate-100">
+              <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">All Scheduled Events ({events.length})</h2>
               </div>
               {eventsLoading ? <p className="px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
@@ -890,7 +890,7 @@ export default function AdminPage() {
                       ? 'All Cohorts'
                       : ev.cohort_ids.map((cid: string) => cohorts.find(c => c.id === cid)?.name ?? cid).join(', ')
                     return (
-                      <div key={ev.id} className={`px-8 py-5 hover:bg-slate-50 transition-colors flex items-start justify-between gap-4 ${isPast ? 'opacity-50' : ''}`}>
+                      <div key={ev.id} className={`px-4 sm:px-8 py-4 sm:py-5 hover:bg-slate-50 transition-colors flex items-start justify-between gap-3 sm:gap-4 ${isPast ? 'opacity-50' : ''}`}>
                         <div className="flex items-start gap-4">
                           <div className="text-center bg-slate-100 rounded-xl px-3 py-2 min-w-[52px] flex-shrink-0">
                             <p className="text-xs font-black text-slate-500 uppercase">{d.toLocaleDateString('en-CA', { month: 'short' })}</p>
@@ -907,8 +907,8 @@ export default function AdminPage() {
                             <p className="text-sm text-slate-500 font-medium mt-0.5">{dateStr}</p>
                             <p className="text-xs text-blue-600 font-bold mt-1">📅 {cohortLabel}</p>
                             {ev.requirement_templates && <p className="text-xs text-purple-600 font-bold mt-0.5">📋 {ev.requirement_templates.title}</p>}
-                            {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5">📍 {ev.location}</p>}
-                            {ev.notes && <p className="text-xs text-slate-400 font-medium mt-0.5 italic line-clamp-2">{ev.notes}</p>}
+                            {ev.location && <p className="text-xs text-slate-400 font-medium mt-0.5 line-clamp-1 break-all">📍 {ev.location}</p>}
+                            {ev.notes && <p className="text-xs text-slate-400 font-medium mt-0.5 italic line-clamp-2 break-all">{ev.notes.replace(/<[^>]*>/g, '')}</p>}
                           </div>
                         </div>
                         <div className="flex gap-3 flex-shrink-0">

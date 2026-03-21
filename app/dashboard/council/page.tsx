@@ -85,14 +85,14 @@ export default function CouncilDashboard() {
           <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
           <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/handbook" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none', whiteSpace: 'nowrap' }}>📖 Handbook</Link>
-          <Link href="/dashboard/study" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: C.white, padding: '0.3rem 0.75rem', borderRadius: '4px', fontSize: '0.78rem', fontWeight: 'bold', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <Link href="/handbook" className="hidden sm:block" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none', whiteSpace: 'nowrap' }}>📖 Handbook</Link>
+          <Link href="/dashboard/study" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: C.white, padding: '0.3rem 0.6rem', borderRadius: '4px', fontSize: '0.78rem', fontWeight: 'bold', textDecoration: 'none' }}>
             <img src="/pardington-avatar.png" alt="" style={{ height: '16px' }} />
-            Pardington
+            <span className="hidden sm:inline">Pardington</span>
           </Link>
           <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')}
-            style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.7)', padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}>
+            style={{ backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.7)', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
             Sign Out
           </button>
         </div>
