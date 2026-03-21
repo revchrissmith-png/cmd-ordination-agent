@@ -1,5 +1,5 @@
 # CLAUDE.md — CMD Ordination Agent
-*Project briefing for Claude Code. Last updated: March 21, 2026.*
+*Project briefing for Claude Code. Last updated: March 21, 2026 · v0.3.0*
 
 ---
 
@@ -27,6 +27,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 | Database & auth | Supabase (Postgres + Supabase Auth + Storage) |
 | Deployment | Vercel (auto-deploys on push to `main`) |
 | AI | Anthropic API — model: `claude-haiku-4-5-20251001` |
+| Email | Resend — sending domain `send.canadianmidwest.ca`, from address `noreply@send.canadianmidwest.ca` |
 
 **Key config files that must exist:**
 - `tailwind.config.js` — content paths for CSS class scanning
@@ -47,14 +48,21 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 ### ✅ Dashboard router (`/dashboard/page.tsx`)
 - Reads user role from `profiles.roles` array
 - Admins → `/dashboard/admin`
-- Council (non-admin) → `/dashboard/council`
-- Ordinands (non-admin, non-council) → auto-redirected to `/dashboard/ordinand`
+- Council (non-admin) → `/dashboard/council` (direct redirect, bypasses hub)
+- Ordinands (non-admin, non-council) → `/dashboard/ordinand` (direct redirect)
 - Admin Console card hidden from non-admins
 
 ### ✅ Admin Console (`/dashboard/admin`)
-- **Ordinands tab** — register new ordinands; auto-generates 17 requirements on registration
-- **Council Members tab** — add/remove council members, grant admin
+- **Ordinands tab** — register new ordinands; auto-generates 17 requirements on registration; archive/complete flow (see below)
+- **Council Members tab** — add/remove council members, grant admin; "Manage →" link per member to council manage page
 - **Cohorts tab** — create cohorts (year + season + sermon topic)
+- **Calendar tab** — create/edit/delete cohort gathering events with rich notes editor (bold, italic, links, bullet lists); multi-cohort assignment (select one, several, or all cohorts per event); linked assignment picker
+
+### ✅ Ordinand Archive/Complete Flow (admin)
+- Delete button on each ordinand row opens a two-step modal
+- Step 1: choose **Delete** (soft-remove, `status='deleted'`, hidden from all views) or **Mark Complete** (`status='completed'`, preserved for records)
+- Step 2: optional archive report — assignment completion summary is functional; AI summary, interview report, and ordination service sections show "Coming Soon" badge (pathway in place for a future build)
+- Completed ordinands appear in a collapsible greyed-out section below the active list
 
 ### ✅ Ordinand Detail Page — Admin view (`/dashboard/admin/candidates/[id]`)
 - Edit profile: first name, last name, email, cohort reassignment
@@ -63,17 +71,26 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Assign/reassign council grader per requirement
 - Grade modal: 5-level rating + feedback text + "Graded By" selector → saves grade + updates status
 - **"↑ Upload" button** on each incomplete requirement — admin uploads a file on behalf of an ordinand (migration tool + admin-assist for technical difficulties)
+  - Includes a **submission date picker** (defaults to today, capped at today) so historical Moodle dates can be recorded accurately
   - Uploads file to Supabase Storage under the ordinand's folder path
-  - Creates or updates a `submissions` record with `file_name` and `version`
+  - Creates or updates a `submissions` record with `file_name`, `version`, and `submitted_at`
   - Sets requirement status to `submitted`
   - Auto-opens the grade modal immediately after upload
 - **"Graded By" dropdown** in grade modal — allows admin to attribute a grade to a specific council member (critical for Moodle migration: historical grades must be attributed correctly)
-- **"Send Progress Email"** button generates a pre-filled `mailto:` link
+- **"Send Progress Email"** button opens a modal with a pre-composed HTML email; primary action sends via Resend API; "Copy HTML" fallback also available
+
+### ✅ Council Member Manage Page (`/dashboard/admin/council/[id]`)
+- Editable profile (name, email)
+- Last sign-in timestamp (fetched via service-role API)
+- Grading stats: critical (60+ days), overdue (30–60 days), pending, complete counts
+- Full assignment table showing all assigned ordinands and statuses
+- HTML report email — preview in-page, send via Resend, or copy to clipboard
 
 ### ✅ Ordinand Dashboard (`/dashboard/ordinand`)
 - Shows all 17 requirements grouped and sorted by handbook order
 - Overall progress bar (%, complete, in-progress, not-started)
-- Quick cards: Process Guide, Study Agent, My Profile
+- Quick cards: Process Guide, Study Agent, My Profile, **Handbook** (4-column grid)
+- Cohort calendar: upcoming gatherings filtered to the ordinand's cohort with rich notes rendered as formatted HTML (bold, italic, links, bullet lists)
 - Blue banner explaining how to submit assignments
 - Each requirement shows status badge + "Submit →" or "View →"
 
@@ -82,9 +99,10 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Edit own name (admin contact note for email/cohort changes)
 
 ### ✅ Ordination Process Guide (`/dashboard/ordinand/process`)
-- Static handbook reference: overview, cohort calendar, 17 assignments breakdown
+- Live cohort calendar filtered to the ordinand's cohort (uses `cohort_ids.cs.{}` array containment)
+- Overview stats: complete / in-progress / not-started
 - Mentorship details, oral interview info (eligibility, format, 4 outcomes)
-- Link to Study Agent
+- Link to Study Agent; link back to dashboard for requirements
 
 ### ✅ Requirement Submission Page (`/dashboard/ordinand/requirements/[id]`)
 - Shows handbook instructions per type (book report / sermon / paper)
@@ -96,6 +114,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 
 ### ✅ Pardington — AI Study Agent (`/dashboard/study`)
 - Named AI character; always refer to as "Pardington" in code comments, UI copy, and conversation
+- Named in honour of George Palmer Pardington (1858–1925), Alliance theologian and close colleague of A.B. Simpson
 - Chat UI with suggested theological questions
 - "Help me prepare for my oral interview" button walks through Appendix A.5 questions
 - Backend at `/api/study-agent/route.ts` — streaming Anthropic API (claude-haiku-4-5-20251001)
@@ -104,20 +123,37 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Requires `ANTHROPIC_API_KEY` in Vercel environment variables
 
 ### ✅ Council Dashboard (`/dashboard/council`)
-- Lists grading assignments for the logged-in council member
-- Links to grading pages
+- Council-only users auto-redirect here on login (bypass the hub entirely)
+- Lists all grading assignments for the logged-in council member
+- Tabs: Needs Review / All Assigned / Complete with counts
+- Overdue (30+ days) and critical (60+ days) urgency alerts and card highlighting
+- Header includes Handbook link and Pardington link
 
 ### ✅ Council Grading Page (`/dashboard/council/grade/[assignmentId]`)
 - Shows the submitted file and self-assessment (for papers)
+- Paper grading: optional per-section rating (5-level scale) above each feedback textarea; saved in `paper_assessment.section_ratings`
+- Sermon grading: optional comment field at end of each of 6 rubric sections; saved in `grades.sermon_section_comments`
 - Grade modal: rating + feedback → saves to `grades` table, updates requirement status
+
+### ✅ Handbook Wiki (`/handbook`)
+- Full multi-page wiki accessible to all authenticated users
+- Landing page (`/handbook`): role-based entry grid (Ordinand, Mentor, Church Leader, Council Member) with pill links to relevant sections; full section index below
+- Section pages (`/handbook/[section]`): persistent left sidebar on desktop; mobile "☰ All Sections" overlay; in-section anchor navigation pills; Prev/Next section navigation
+- 8 sections: Introduction, Key Stakeholders, The Ordinand's Journey, Assignment Requirements, Mentorship, Interview & Ordination, Council Responsibilities, Appendices & Resources
+- Content stored in `app/handbook/content.ts` as a typed data structure (`ContentBlock` union: `p | ul | callout | outcomes`)
+- Linked from: ordinand dashboard quick cards, council header, process guide
 
 ---
 
 ## 4. Database Schema Quick Reference
 
-**Profiles columns:** `id, full_name, first_name, last_name, email, cohort_id, roles (text[]), role (enum), cohort_year, mentor_name, created_at, updated_at`
+**Profiles columns:** `id, full_name, first_name, last_name, email, cohort_id, roles (text[]), role (enum), cohort_year, mentor_name, status, status_changed_at, created_at, updated_at`
+⚠️ `status` column: `null` = active, `'deleted'` = soft-deleted, `'completed'` = archived. Filter active ordinands with `.is('status', null)`.
 
 **Cohorts columns:** `id, name, year, season, sermon_topic (enum), created_at, updated_at`
+
+**Cohort events columns:** `id, title, event_date, event_type, location, notes, cohort_ids (uuid[]), linked_template_id, created_at, updated_at`
+⚠️ `cohort_ids` is a UUID array. Use `cohort_ids.cs.{"<uuid>"}` (contains) not `cohort_id.eq.<uuid>` (equality) when filtering for a specific cohort. A null `cohort_ids` means the event applies to all cohorts.
 
 **Requirement templates columns:** `id, type (enum), topic (enum), book_category (enum), title, description, sermon_question_index, display_order, created_at`
 ⚠️ The column is `book_category` — NOT `category`. Using `category` in a Supabase query will silently return null.
@@ -131,7 +167,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 **Grading assignments columns:** `id, ordinand_requirement_id, council_member_id, assigned_by, assigned_at, reassigned_at, notes`
 ⚠️ `ordinand_requirement_id` has a UNIQUE constraint — only one grading assignment per requirement. Always check for an existing one before inserting.
 
-**Grades columns:** `id, submission_id, grading_assignment_id, overall_rating, overall_comments, graded_by, graded_at, paper_assessment (jsonb)`
+**Grades columns:** `id, submission_id, grading_assignment_id, overall_rating, overall_comments, graded_by, graded_at, paper_assessment (jsonb), sermon_section_comments (jsonb)`
 ⚠️ Grades have NO direct FK to `ordinand_requirements`. The chain is:
 `ordinand_requirements → submissions → grades`
 In Supabase queries, nest grades inside submissions: `submissions(id, file_url, grades(...))`
@@ -166,28 +202,39 @@ app/
 
   api/
     study-agent/route.ts            ✅ Streaming Anthropic API backend
-    admin/register-user/route.ts    ✅ Supabase Admin user creation + requirement generation
+    admin/
+      register-user/route.ts        ✅ Supabase Admin user creation + requirement generation
+      send-council-report/route.ts  ✅ Resend API — sends council member report email
 
   dashboard/
-    page.tsx                        ✅ Role-based router (auto-redirects ordinands)
+    page.tsx                        ✅ Role-based router (auto-redirects council + ordinands)
 
     admin/
-      page.tsx                      ✅ Admin console (3 tabs)
+      page.tsx                      ✅ Admin console (Ordinands / Council / Cohorts / Calendar tabs)
       candidates/[id]/page.tsx      ✅ Ordinand detail: edit profile, graders, grade, email,
-                                       admin upload + grade attribution
+                                       admin upload (with date picker) + grade attribution,
+                                       archive/complete flow
+      council/[id]/page.tsx         ✅ Council member manage: profile, stats, full assignment
+                                       table, report email via Resend
 
     council/
-      page.tsx                      ✅ Council grading queue
-      grade/[assignmentId]/page.tsx ✅ Council grading detail page
+      page.tsx                      ✅ Council grading queue (auto-redirect on login)
+      grade/[assignmentId]/page.tsx ✅ Council grading detail: paper section ratings,
+                                       sermon section comments
 
     ordinand/
-      page.tsx                      ✅ Ordinand dashboard (requirements list)
+      page.tsx                      ✅ Ordinand dashboard (requirements + calendar + 4 quick cards)
       profile/page.tsx              ✅ Ordinand profile view/edit
-      process/page.tsx              ✅ Static ordination process guide
+      process/page.tsx              ✅ Ordination process guide (live calendar, interview info)
       requirements/[id]/page.tsx    ✅ Requirement detail + submission form
 
     study/
-      page.tsx                      ✅ AI study agent chat UI
+      page.tsx                      ✅ Pardington AI study agent chat UI
+
+  handbook/
+    page.tsx                        ✅ Handbook wiki landing page (role-based entry + section index)
+    content.ts                      ✅ All wiki content as typed data (8 sections, 42+ subsections)
+    [section]/page.tsx              ✅ Dynamic section viewer (sidebar, anchors, prev/next)
 
 utils/
   supabase/client.ts                ✅ Supabase browser client
@@ -206,17 +253,17 @@ The portal is in active beta migration from Moodle (the previous LMS used during
 
 - **21 ordinands** are being migrated to the portal now (Spring 2026 and Fall 2026 cohorts)
 - **9 ordinands** remain in Moodle until their Moodle subscription renews (Spring 2027 / Fall 2027 cohorts) — running dual systems temporarily is unavoidable given the 3-year ordination process
-- **Admin upload** is the primary migration tool: admin uploads each ordinand's existing files from Moodle, then uses the "Graded By" selector to attribute grades to the correct council member
+- **Admin upload** is the primary migration tool: admin uploads each ordinand's existing files from Moodle, sets the original submission date, then uses the "Graded By" selector to attribute grades to the correct council member
 - **Joanna Smith** (joanna@rosewoodpark.ca) was the first live beta migration — completed March 21, 2026; 5/17 requirements complete from real Moodle data
 
 ---
 
 ## 7. What Is NOT Built Yet
 
-- **Cohort calendar** — a table (`cohort_events`) for upcoming gathering dates; admin UI to add/edit events; ordinand-facing view on their dashboard
-- **Council dashboard improvements** — currently basic; no bulk assignment view
-- **Paper grading UI** — council can grade papers but can't see the self-assessment data displayed alongside the submission during grading (data is saved in `submissions.self_assessment` jsonb, just not rendered on the grading page yet)
+- **Paper grading UI improvement** — council can grade papers but the self-assessment data is not displayed alongside the submission during grading (data is saved in `submissions.self_assessment` jsonb, just not rendered on the grading page yet)
 - **File viewer in admin** — admin can see that a submission was made and can upload new files, but can't view/preview the actual file from the admin page
+- **Archive report — AI/interview/ordination components** — the assignment summary section of the archive report works; the AI summary, oral interview report, and ordination service sections show "Coming Soon" and are scaffolded for a future build
+- **Mentor report submission** — mentors are referenced throughout the system but have no dedicated portal login or report submission flow yet
 
 ---
 
@@ -236,7 +283,7 @@ The portal is in active beta migration from Moodle (the previous LMS used during
 
 7. **Single-file components** — No separate CSS or JS files. Keep everything in one file per page.
 
-8. **Admin pages use inline styles; ordinand/council pages use Tailwind** — Be consistent within each file.
+8. **Admin pages use inline styles; ordinand/council/handbook pages use Tailwind** — Be consistent within each file.
 
 9. **`submissions` NOT NULL columns** — `file_name` and `version` are NOT NULL. Any INSERT to `submissions` must include both. Missing either causes a silent failure (Supabase client returns null for the inserted row) that cascades into a null `submission_id` on the grade upsert.
 
@@ -245,6 +292,12 @@ The portal is in active beta migration from Moodle (the previous LMS used during
 11. **Storage RLS has separate INSERT and UPDATE policies** — The `storage.objects` table requires separate policies for INSERT and UPDATE. The default ordinand policy only covers their own folder path. Admin upload required adding two explicit admin policies to `storage.objects` (not just the `submissions` table).
 
 12. **React state batching with modals** — After `setSelectedReq(updatedReq)`, do NOT immediately call `fetchData()` (even with a `silent` flag). The async state updates race and can prevent the modal from rendering. Use optimistic local state updates (`setRequirements(prev => prev.map(...))`) instead of re-fetching when opening a modal immediately after an operation.
+
+13. **`cohort_ids` is an array column** — The `cohort_events` table stores cohort assignments as a `uuid[]` array. Use Supabase PostgREST array containment syntax: `.or('cohort_ids.cs.{"<uuid>"},cohort_ids.is.null')` — not `.eq('cohort_id', uuid)`. The latter silently returns no results.
+
+14. **Unused variables cause build failures in production** — TypeScript strict mode treats unused `const` declarations as compile errors (not just warnings). This kills the CSS as well as the JS — the page renders unstyled. Always remove variables that are declared but no longer referenced after refactoring.
+
+15. **`useParams()` can return null in Next.js 14** — The TypeScript type for `useParams()` includes `null`. Always null-check before accessing properties: `params && typeof params.section === 'string' ? params.section : ''`. Skipping this causes a production build failure.
 
 ---
 
