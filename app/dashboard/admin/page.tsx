@@ -313,10 +313,6 @@ export default function AdminPage() {
     }
   }
 
-  function toggleEventCohort(id: string) {
-    setNewEventCohorts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  }
-
   function startEditEvent(ev: any) {
     setEditingEvent(ev)
     if (ev.cohort_ids && ev.cohort_ids.length > 0) {
@@ -777,7 +773,7 @@ export default function AdminPage() {
               <form onSubmit={handleAddEvent} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className={labelClass}>Cohort</label>
+                    <label className={labelClass}>Cohorts <span className="normal-case font-medium text-slate-400">— select one, multiple, or all</span></label>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -789,15 +785,22 @@ export default function AdminPage() {
                           key={c.id}
                           type="button"
                           onClick={() => {
-                            setNewEventAllCohorts(false)
-                            toggleEventCohort(c.id)
+                            const isSelected = newEventCohorts.includes(c.id)
+                            const next = isSelected ? newEventCohorts.filter(x => x !== c.id) : [...newEventCohorts, c.id]
+                            if (next.length === 0) {
+                              setNewEventAllCohorts(true)
+                              setNewEventCohorts([])
+                            } else {
+                              setNewEventAllCohorts(false)
+                              setNewEventCohorts(next)
+                            }
                           }}
                           className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${!newEventAllCohorts && newEventCohorts.includes(c.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-300 hover:border-blue-400'}`}
                         >{c.name}</button>
                       ))}
                     </div>
-                    {!newEventAllCohorts && newEventCohorts.length === 0 && (
-                      <p className="text-xs text-amber-600 font-bold mt-1.5">Select at least one cohort, or choose All Cohorts.</p>
+                    {!newEventAllCohorts && newEventCohorts.length > 1 && (
+                      <p className="text-xs text-blue-600 font-bold mt-1.5">{newEventCohorts.length} cohorts selected</p>
                     )}
                   </div>
                   <div>
