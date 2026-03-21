@@ -1,5 +1,5 @@
 # CLAUDE.md — CMD Ordination Agent
-*Project briefing for Claude Code. Last updated: March 14, 2026.*
+*Project briefing for Claude Code. Last updated: March 21, 2026.*
 
 ---
 
@@ -61,7 +61,13 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Progress bar with complete/in-progress/revision counts
 - Requirements list grouped by type (Book Reports, Papers, Sermons) sorted by `display_order`
 - Assign/reassign council grader per requirement
-- Grade modal: 5-level rating + feedback text → saves grade + updates status
+- Grade modal: 5-level rating + feedback text + "Graded By" selector → saves grade + updates status
+- **"↑ Upload" button** on each incomplete requirement — admin uploads a file on behalf of an ordinand (migration tool + admin-assist for technical difficulties)
+  - Uploads file to Supabase Storage under the ordinand's folder path
+  - Creates or updates a `submissions` record with `file_name` and `version`
+  - Sets requirement status to `submitted`
+  - Auto-opens the grade modal immediately after upload
+- **"Graded By" dropdown** in grade modal — allows admin to attribute a grade to a specific council member (critical for Moodle migration: historical grades must be attributed correctly)
 - **"Send Progress Email"** button generates a pre-filled `mailto:` link
 
 ### ✅ Ordinand Dashboard (`/dashboard/ordinand`)
@@ -118,19 +124,26 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 **Ordinand requirements columns:** `id, ordinand_id, template_id, cohort_id, status (enum), created_at, updated_at`
 ⚠️ The FK column to `requirement_templates` is `template_id`. PostgREST join syntax: `requirement_templates(...)`.
 
-**Submissions columns:** `id, ordinand_id, ordinand_requirement_id, file_url, self_assessment (jsonb), submitted_at`
+**Submissions columns:** `id, ordinand_id, ordinand_requirement_id, file_url, file_name, version, self_assessment (jsonb), submitted_at`
+⚠️ `file_name` and `version` are NOT NULL. Always include both in any INSERT to `submissions` or it will fail.
+
+**Grading assignments columns:** `id, ordinand_requirement_id, council_member_id, assigned_by, assigned_at, reassigned_at, notes`
+⚠️ `ordinand_requirement_id` has a UNIQUE constraint — only one grading assignment per requirement. Always check for an existing one before inserting.
 
 **Grades columns:** `id, submission_id, grading_assignment_id, overall_rating, overall_comments, graded_by, graded_at, paper_assessment (jsonb)`
 ⚠️ Grades have NO direct FK to `ordinand_requirements`. The chain is:
 `ordinand_requirements → submissions → grades`
 In Supabase queries, nest grades inside submissions: `submissions(id, file_url, grades(...))`
 Do NOT put grades at the same level as submissions — the query will fail silently.
+⚠️ `grading_assignment_id` is NOT NULL — always ensure a `grading_assignments` record exists before upserting a grade.
+⚠️ `submission_id` has a UNIQUE constraint — upsert grades using `onConflict: 'submission_id'`.
 
 **Rating scale:** `insufficient` → `adequate` → `good` → `excellent` → `exceptional`
 **Status flow:** `not_started` → `submitted` → `under_review` → `revision_required` or `complete`
 
 **Supabase Storage:** Bucket `submissions` (public, 20MB max, PDF/DOCX/DOC only)
 File path pattern: `submissions/{ordinand_user_id}/{requirement_id}-{timestamp}.{ext}`
+Admin upload RLS: Two extra storage policies exist — "Admins upload any submission" (INSERT) and "Admins update any submission" (UPDATE) — checking `profiles.roles @> ARRAY['admin']`. Ordinand policy only allows uploads to their own folder path.
 
 **The 5 theological topics:** `christ_centred`, `spirit_empowered`, `mission_focused`, `scripture`, `divine_healing`
 
@@ -159,7 +172,8 @@ app/
 
     admin/
       page.tsx                      ✅ Admin console (3 tabs)
-      candidates/[id]/page.tsx      ✅ Ordinand detail: edit profile, graders, grade, email
+      candidates/[id]/page.tsx      ✅ Ordinand detail: edit profile, graders, grade, email,
+                                       admin upload + grade attribution
 
     council/
       page.tsx                      ✅ Council grading queue
@@ -185,16 +199,27 @@ package.json                        ✅ Dependencies (tailwindcss, autoprefixer,
 
 ---
 
-## 6. What Is NOT Built Yet
+## 6. Migration Context (as of March 21, 2026)
 
-- **Cohort calendar** — a table (`cohort_events`) for upcoming gathering dates; admin UI to add/edit events; ordinand-facing view on their dashboard
-- **Council dashboard improvements** — currently basic; no bulk assignment view
-- **Paper grading** — council can grade papers but can't see the self-assessment alongside the submission yet (the data is saved but the UI for displaying it during grading is not built)
-- **File viewer in admin** — admin can see that a submission was made but can't view the file from the admin page
+The portal is in active beta migration from Moodle (the previous LMS used during alpha).
+
+- **21 ordinands** are being migrated to the portal now (Spring 2026 and Fall 2026 cohorts)
+- **9 ordinands** remain in Moodle until their Moodle subscription renews (Spring 2027 / Fall 2027 cohorts) — running dual systems temporarily is unavoidable given the 3-year ordination process
+- **Admin upload** is the primary migration tool: admin uploads each ordinand's existing files from Moodle, then uses the "Graded By" selector to attribute grades to the correct council member
+- **Joanna Smith** (joanna@rosewoodpark.ca) was the first live beta migration — completed March 21, 2026; 5/17 requirements complete from real Moodle data
 
 ---
 
-## 7. Known Gotchas & Hard-Won Lessons
+## 7. What Is NOT Built Yet
+
+- **Cohort calendar** — a table (`cohort_events`) for upcoming gathering dates; admin UI to add/edit events; ordinand-facing view on their dashboard
+- **Council dashboard improvements** — currently basic; no bulk assignment view
+- **Paper grading UI** — council can grade papers but can't see the self-assessment data displayed alongside the submission during grading (data is saved in `submissions.self_assessment` jsonb, just not rendered on the grading page yet)
+- **File viewer in admin** — admin can see that a submission was made and can upload new files, but can't view/preview the actual file from the admin page
+
+---
+
+## 8. Known Gotchas & Hard-Won Lessons
 
 1. **`category` vs `book_category`** — The column on `requirement_templates` is `book_category`. Using `category` in a Supabase select returns null silently and breaks the entire query.
 
@@ -212,9 +237,17 @@ package.json                        ✅ Dependencies (tailwindcss, autoprefixer,
 
 8. **Admin pages use inline styles; ordinand/council pages use Tailwind** — Be consistent within each file.
 
+9. **`submissions` NOT NULL columns** — `file_name` and `version` are NOT NULL. Any INSERT to `submissions` must include both. Missing either causes a silent failure (Supabase client returns null for the inserted row) that cascades into a null `submission_id` on the grade upsert.
+
+10. **`grading_assignment_id` is NOT NULL in `grades`** — Before upserting a grade, always ensure a `grading_assignments` record exists for the requirement. If none exists, INSERT one first. Check for an existing assignment before inserting (UNIQUE constraint on `ordinand_requirement_id` will reject duplicates).
+
+11. **Storage RLS has separate INSERT and UPDATE policies** — The `storage.objects` table requires separate policies for INSERT and UPDATE. The default ordinand policy only covers their own folder path. Admin upload required adding two explicit admin policies to `storage.objects` (not just the `submissions` table).
+
+12. **React state batching with modals** — After `setSelectedReq(updatedReq)`, do NOT immediately call `fetchData()` (even with a `silent` flag). The async state updates race and can prevent the modal from rendering. Use optimistic local state updates (`setRequirements(prev => prev.map(...))`) instead of re-fetching when opening a modal immediately after an operation.
+
 ---
 
-## 8. Working Style
+## 9. Working Style
 
 - Git is available directly — commits and pushes happen from Claude Code, not from the GitHub web editor
 - One logical change per commit
