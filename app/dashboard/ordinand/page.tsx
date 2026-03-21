@@ -280,7 +280,7 @@ export default function OrdinandDashboard() {
         </div>
 
         {/* Quick-access cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Link href="/dashboard/ordinand/process"
             className="bg-white rounded-2xl border border-slate-200 px-6 py-5 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
             <div>
@@ -307,6 +307,13 @@ export default function OrdinandDashboard() {
               <p className="text-xs text-slate-400 font-medium mt-0.5">Name, email, cohort information</p>
             </div>
             <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-4">→</span>
+          </Link>
+          <Link href="/handbook" className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-200 hover:shadow-sm transition-all group">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-xl">📖</span>
+              <span className="text-xs font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-600 transition-colors">Handbook</span>
+            </div>
+            <p className="text-xs text-slate-400 font-medium leading-relaxed">Full process guide, roles, and resources</p>
           </Link>
         </div>
 
