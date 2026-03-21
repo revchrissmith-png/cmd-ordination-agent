@@ -31,12 +31,15 @@ function daysSince(dateStr: string | null): number | null {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24))
 }
 
+const CRITICAL_DAYS = 60
+const OVERDUE_DAYS  = 30
+
 function computeUrgency(submittedAt: string | null, gradedAt: string | null, reqStatus: string): Urgency {
   if (gradedAt || reqStatus === 'complete' || reqStatus === 'revision_required') return 'graded'
   if (!submittedAt) return 'awaiting'
   const days = daysSince(submittedAt) ?? 0
-  if (days >= 30) return 'critical'
-  if (days >= 14) return 'overdue'
+  if (days >= CRITICAL_DAYS) return 'critical'
+  if (days >= OVERDUE_DAYS)  return 'overdue'
   return 'pending'
 }
 
@@ -74,6 +77,8 @@ export default function CouncilMemberManagePage() {
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailHtml, setEmailHtml] = useState('')
   const [copied, setCopied] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailSendStatus, setEmailSendStatus] = useState<'idle' | 'sent' | 'error'>('idle')
 
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
@@ -239,8 +244,8 @@ export default function CouncilMemberManagePage() {
             }
           </p>
 
-          ${section('⚠️ Critical — Response Urgently Needed (30+ days)', '#dc2626', critical, 'These submissions have been waiting more than 30 days for your review.')}
-          ${section('⏰ Overdue (14–30 days)', '#d97706', overdue, 'These submissions are overdue. Please prioritize them soon.')}
+          ${section('⚠️ Critical — Response Urgently Needed (60+ days)', '#dc2626', critical, 'These submissions have been waiting more than 60 days for your review. Please action these as a priority.')}
+          ${section('⏰ Overdue (30–60 days)', '#d97706', overdue, 'These submissions are overdue. Please aim to complete your review soon.')}
           ${section('📋 Pending (less than 14 days)', '#2563eb', pending)}
 
           ${noOutstanding ? '' : `
@@ -271,6 +276,7 @@ export default function CouncilMemberManagePage() {
     setEmailHtml(generateEmailHtml())
     setShowEmailModal(true)
     setCopied(false)
+    setEmailSendStatus('idle')
   }
 
   async function handleCopyHtml() {
@@ -281,6 +287,40 @@ export default function CouncilMemberManagePage() {
     } catch {
       flash('Could not copy to clipboard — please select and copy manually.', 'error')
     }
+  }
+
+  async function handleSendEmail() {
+    if (!member?.email || !emailHtml) return
+    setSendingEmail(true)
+    setEmailSendStatus('idle')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const today = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })
+      const res = await fetch('/api/admin/send-council-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          to: member.email,
+          toName: `${member.first_name} ${member.last_name}`,
+          subject: `CMD Ordination Portal — Grading Assignment Update (${today})`,
+          html: emailHtml,
+        }),
+      })
+      const result = await res.json()
+      if (result.sent) {
+        setEmailSendStatus('sent')
+      } else {
+        setEmailSendStatus('error')
+        flash('Failed to send email: ' + (result.reason || 'Unknown error'), 'error')
+      }
+    } catch {
+      setEmailSendStatus('error')
+      flash('Failed to send email. Please try again.', 'error')
+    }
+    setSendingEmail(false)
   }
 
   // Stats
@@ -425,9 +465,9 @@ export default function CouncilMemberManagePage() {
                 {[
                   { label: 'Total Assignments', value: stats.total, colour: '#1e293b' },
                   { label: '✅ Graded', value: stats.graded, colour: '#15803d' },
-                  { label: '⚠️ Critical (30+ days)', value: stats.critical, colour: '#dc2626' },
-                  { label: '⏰ Overdue (14–30 days)', value: stats.overdue, colour: '#d97706' },
-                  { label: '📋 Pending (<14 days)', value: stats.pending, colour: '#2563eb' },
+                  { label: '⚠️ Critical (60+ days)', value: stats.critical, colour: '#dc2626' },
+                  { label: '⏰ Overdue (30–60 days)', value: stats.overdue, colour: '#d97706' },
+                  { label: '📋 Pending (<30 days)', value: stats.pending, colour: '#2563eb' },
                   { label: '⏳ Awaiting Submission', value: stats.awaiting, colour: '#94a3b8' },
                 ].map(({ label, value, colour }) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid #f1f5f9' }}>
@@ -519,9 +559,21 @@ export default function CouncilMemberManagePage() {
                 <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8' }}>Generated Report Email</p>
                 <p style={{ margin: '2px 0 0', fontWeight: 800, fontSize: '1.05rem', color: '#1e293b' }}>For: {member.first_name} {member.last_name}</p>
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                <button onClick={handleCopyHtml} style={{ padding: '0.5rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: 'none', backgroundColor: copied ? '#166534' : C.deepSea, color: C.white, cursor: 'pointer', transition: 'background 0.2s' }}>
-                  {copied ? '✓ Copied!' : 'Copy HTML'}
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {emailSendStatus === 'sent' ? (
+                  <span style={{ padding: '0.5rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' }}>
+                    ✓ Email Sent!
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={sendingEmail}
+                    style={{ padding: '0.5rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: 'none', backgroundColor: sendingEmail ? '#94a3b8' : C.deepSea, color: C.white, cursor: sendingEmail ? 'default' : 'pointer', transition: 'background 0.2s' }}>
+                    {sendingEmail ? 'Sending…' : '📧 Send Email'}
+                  </button>
+                )}
+                <button onClick={handleCopyHtml} style={{ padding: '0.5rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: '1px solid #e2e8f0', backgroundColor: copied ? '#f0fdf4' : C.white, color: copied ? '#166534' : '#64748b', cursor: 'pointer', transition: 'all 0.2s' }}>
+                  {copied ? '✓ Copied' : 'Copy HTML'}
                 </button>
                 <button onClick={() => setShowEmailModal(false)} style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: '1px solid #e2e8f0', backgroundColor: C.white, color: '#64748b', cursor: 'pointer' }}>✕</button>
               </div>
