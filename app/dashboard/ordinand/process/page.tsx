@@ -7,25 +7,6 @@ import { supabase } from '../../../../utils/supabase/client'
 
 const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
 
-const TOPIC_LABELS: Record<string, string> = {
-  christ_centred:   'Christ-Centred Life and Ministry',
-  spirit_empowered: 'Spirit-Empowered Life and Ministry',
-  mission_focused:  'Mission-Focused Life and Ministry',
-  scripture:        'The Scriptures',
-  divine_healing:   'Divine Healing',
-}
-
-// Static notes about book categories — shown alongside the requirement link
-const BOOK_CATEGORY_NOTES: Record<string, string> = {
-  history:                'Choose 1 of 2 titles',
-  theology:               'Choose from approved titles',
-  deeper_life:            'Choose 1 of 2 titles',
-  missions:               'Choose 1 of 3 options',
-  holy_scripture:         'Choose 1 of 2 titles',
-  anthropology:           'Choose from approved titles',
-  disciple_making:        '1 required title',
-  specific_ministry_focus:'Choose 1 book relevant to your field',
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -72,7 +53,7 @@ export default function OrdinandProcessPage() {
         const { data: evts } = await supabase
           .from('cohort_events')
           .select('id, title, event_date, event_type, location, notes, requirement_templates!linked_template_id(id, title, type)')
-          .or(`cohort_id.eq.${prof.cohort_id},cohort_id.is.null`)
+          .or(`cohort_ids.cs.{"${prof.cohort_id}"},cohort_ids.is.null`)
           .gte('event_date', today)
           .order('event_date', { ascending: true })
           .limit(6)
@@ -82,20 +63,6 @@ export default function OrdinandProcessPage() {
     }
     fetchData()
   }, [])
-
-  // Build lookup maps from fetched requirements
-  const bookReqByOrder: Record<number, any> = {}
-  const paperReqByTopic: Record<string, any> = {}
-  const sermonReqs: any[] = []
-
-  requirements.forEach(r => {
-    const tmpl = r.requirement_templates
-    if (!tmpl) return
-    if (tmpl.type === 'book_report') bookReqByOrder[tmpl.display_order] = r
-    if (tmpl.type === 'paper') paperReqByTopic[tmpl.topic] = r
-    if (tmpl.type === 'sermon') sermonReqs.push(r)
-  })
-  sermonReqs.sort((a, b) => (a.requirement_templates?.display_order ?? 0) - (b.requirement_templates?.display_order ?? 0))
 
   function renderMarkdown(text: string): string {
     const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -111,28 +78,6 @@ export default function OrdinandProcessPage() {
   const dueDate = cohort?.assignment_due_date
     ? new Date(cohort.assignment_due_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
     : null
-
-  // Book report items: display_order → { label, note }
-  const bookItems = [
-    { order: 10, label: 'History' },
-    { order: 20, label: 'Theology (1 of 2)' },
-    { order: 21, label: 'Theology (2 of 2)' },
-    { order: 30, label: 'Deeper Life' },
-    { order: 40, label: 'Missions' },
-    { order: 50, label: 'Holy Scripture' },
-    { order: 60, label: 'Anthropology (1 of 2)' },
-    { order: 61, label: 'Anthropology (2 of 2)' },
-    { order: 70, label: 'Disciple-Making' },
-    { order: 80, label: 'Specific Ministry Focus' },
-  ]
-
-  const STATUS_DOT: Record<string, string> = {
-    not_started: 'bg-slate-300',
-    submitted: 'bg-blue-400',
-    under_review: 'bg-amber-400',
-    revision_required: 'bg-red-400',
-    complete: 'bg-green-400',
-  }
 
   return (
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
@@ -274,124 +219,30 @@ export default function OrdinandProcessPage() {
             </div>
           </Section>
 
-          {/* Assignments — dynamically linked */}
+          {/* Assignments — summary card only; full list lives on the dashboard */}
           <Section title="Your 17 Assignments">
-            <p className="text-sm text-slate-600 font-medium leading-relaxed mb-6">Every ordinand completes exactly 17 assignments: 10 book reports, 4 theological papers, and 3 sermons. Click any assignment below to open its submission page.</p>
-
-            {loading ? (
-              <p className="text-sm text-slate-400 font-medium text-center py-6">Loading your assignments…</p>
-            ) : (
-            <div className="space-y-6">
-
-              {/* Book Reports */}
-              <div>
-                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">📚 Book Reports (10)</h3>
-                <p className="text-sm text-slate-600 font-medium mb-3 leading-relaxed">One book per category, approximately two pages each, single-spaced. Focus on personal application, theological engagement, and connection to your current ministry context.</p>
-                <div className="space-y-1.5">
-                  {bookItems.map(item => {
-                    const req = bookReqByOrder[item.order]
-                    const note = BOOK_CATEGORY_NOTES[requirements.find(r => r.id === req?.id)?.requirement_templates?.book_category ?? ''] ?? ''
-                    const status = req?.status ?? 'not_started'
-                    if (req) {
-                      return (
-                        <Link key={item.order} href={`/dashboard/ordinand/requirements/${req.id}`}
-                          className="flex items-center justify-between py-2.5 px-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all group">
-                          <div className="flex items-center gap-2.5">
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[status] ?? 'bg-slate-300'}`} />
-                            <span className="text-sm font-bold text-slate-800 group-hover:text-blue-700 transition-colors">{item.label}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {note && <span className="text-xs text-slate-400 font-medium hidden sm:block">{note}</span>}
-                            <span className="text-xs font-bold text-slate-300 group-hover:text-blue-500 transition-colors">Open →</span>
-                          </div>
-                        </Link>
-                      )
-                    }
-                    // Not yet generated (shouldn't happen, but graceful fallback)
-                    return (
-                      <div key={item.order} className="flex items-center justify-between py-2 px-4 bg-slate-50 rounded-xl border border-slate-100">
-                        <span className="text-sm font-bold text-slate-800">{item.label}</span>
-                        {note && <span className="text-xs text-slate-400 font-medium">{note}</span>}
-                      </div>
-                    )
-                  })}
-                  {/* Read-only items (no submission required) */}
-                  {[
-                    { label: 'C&MA Manual', note: 'Read only — no report required' },
-                    { label: 'Bible (new translation)', note: 'Read only — no report required' },
-                  ].map(item => (
-                    <div key={item.label} className="flex items-center justify-between py-2 px-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 opacity-60">
-                      <span className="text-sm font-medium text-slate-600">{item.label}</span>
-                      <span className="text-xs text-slate-400 font-medium">{item.note}</span>
-                    </div>
-                  ))}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              {[
+                { icon: '📚', number: '10', label: 'Book Reports', sub: '~2 pages each, one per reading category' },
+                { icon: '📝', number: '4', label: 'Theological Papers', sub: '10–12 pages, with built-in self-assessment' },
+                { icon: '🎤', number: '3', label: 'Sermons', sub: 'Full manuscript + recording on your assigned topic' },
+              ].map(item => (
+                <div key={item.label} className="bg-slate-50 rounded-2xl p-5 text-center border border-slate-100">
+                  <div className="text-2xl mb-2">{item.icon}</div>
+                  <p className="text-3xl font-black" style={{ color: C.deepSea }}>{item.number}</p>
+                  <p className="text-xs font-black text-slate-600 uppercase tracking-widest mt-1">{item.label}</p>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">{item.sub}</p>
                 </div>
-              </div>
-
-              {/* Theological Papers */}
-              <div>
-                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">📝 Theological Papers (4)</h3>
-                <p className="text-sm text-slate-600 font-medium mb-3 leading-relaxed">10–12 pages each, written in response to specific questions for each topic. Each paper requires a self-assessment form submitted alongside it. Writing in first person is acceptable and encouraged.</p>
-                {sermonTopic ? (
-                  <div className="space-y-1.5">
-                    {Object.keys(TOPIC_LABELS).filter(t => t !== sermonTopic).map(topic => {
-                      const req = paperReqByTopic[topic]
-                      const status = req?.status ?? 'not_started'
-                      if (req) {
-                        return (
-                          <Link key={topic} href={`/dashboard/ordinand/requirements/${req.id}`}
-                            className="flex items-center justify-between py-2.5 px-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all group">
-                            <div className="flex items-center gap-2.5">
-                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[status] ?? 'bg-slate-300'}`} />
-                              <span className="text-sm font-bold text-slate-800 group-hover:text-blue-700 transition-colors">{TOPIC_LABELS[topic]}</span>
-                            </div>
-                            <span className="text-xs font-bold text-slate-300 group-hover:text-blue-500 transition-colors">Open →</span>
-                          </Link>
-                        )
-                      }
-                      return (
-                        <div key={topic} className="flex items-center justify-between py-2 px-4 bg-slate-50 rounded-xl border border-slate-100">
-                          <span className="text-sm font-bold text-slate-800">{TOPIC_LABELS[topic]}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="bg-slate-50 rounded-2xl border border-slate-100 px-5 py-4">
-                    <p className="text-xs font-bold text-slate-500 leading-relaxed">You will write papers on four of the five theological topics. Your cohort's designated sermon topic is excluded from papers. The five topics are: <span style={{ color: C.deepSea }}>Christ-Centred Life and Ministry, Spirit-Empowered Life and Ministry, Mission-Focused Life and Ministry, The Scriptures,</span> and <span style={{ color: C.deepSea }}>Divine Healing.</span></p>
-                  </div>
-                )}
-              </div>
-
-              {/* Sermons */}
-              <div>
-                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">🎤 Sermons (3)</h3>
-                <p className="text-sm text-slate-600 font-medium mb-3 leading-relaxed">Three sermons on your cohort's designated sermon topic. Each sermon must address one of the specific questions assigned to it. Submit a full manuscript — not just an outline — and paste a link to your recording if available.</p>
-                {sermonReqs.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {sermonReqs.map(req => {
-                      const status = req.status ?? 'not_started'
-                      return (
-                        <Link key={req.id} href={`/dashboard/ordinand/requirements/${req.id}`}
-                          className="flex items-center justify-between py-2.5 px-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all group">
-                          <div className="flex items-center gap-2.5">
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[status] ?? 'bg-slate-300'}`} />
-                            <span className="text-sm font-bold text-slate-800 group-hover:text-blue-700 transition-colors">{req.requirement_templates?.title}</span>
-                          </div>
-                          <span className="text-xs font-bold text-slate-300 group-hover:text-blue-500 transition-colors">Open →</span>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="space-y-2 text-sm text-slate-600 font-medium">
-                    <p className="bg-slate-50 rounded-xl border border-slate-100 px-4 py-3 leading-relaxed">At the top of each manuscript include: the <strong>date and occasion</strong>, the <strong>theme</strong>, and the <strong>specific question being addressed</strong>.</p>
-                  </div>
-                )}
-              </div>
-
+              ))}
             </div>
-            )}
+            <Link href="/dashboard/ordinand"
+              className="flex items-center justify-between px-5 py-4 bg-blue-50 border border-blue-100 rounded-2xl hover:border-blue-200 hover:bg-blue-100/60 transition-all group">
+              <div>
+                <p className="text-sm font-black text-blue-800">View your assignment checklist</p>
+                <p className="text-xs text-blue-600 font-medium mt-0.5">Track status, submit work, and view feedback for all 17 requirements</p>
+              </div>
+              <span className="text-blue-400 font-bold text-lg group-hover:text-blue-600 transition-colors flex-shrink-0 ml-4">→</span>
+            </Link>
           </Section>
 
           {/* Mentorship */}
