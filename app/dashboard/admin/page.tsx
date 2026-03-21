@@ -291,6 +291,28 @@ export default function AdminPage() {
     })
   }
 
+  function insertBullet() {
+    const ta = notesRef.current
+    if (!ta) return
+    const start = ta.selectionStart, end = ta.selectionEnd
+    const val = ta.value
+    // Find the beginning of the first selected line
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1
+    if (start === end) {
+      // No selection — prepend bullet on current line
+      const newVal = val.substring(0, lineStart) + '- ' + val.substring(lineStart)
+      setNewEventNotes(newVal)
+      requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(start + 2, start + 2) })
+    } else {
+      // Selection — bullet every line in selection
+      const selectedText = val.substring(lineStart, end)
+      const bulleted = selectedText.split('\n').map(line => '- ' + line).join('\n')
+      const newVal = val.substring(0, lineStart) + bulleted + val.substring(end)
+      setNewEventNotes(newVal)
+      requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(lineStart, lineStart + bulleted.length) })
+    }
+  }
+
   function toggleEventCohort(id: string) {
     setNewEventCohorts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
@@ -825,13 +847,15 @@ export default function AdminPage() {
                         className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-600 font-black text-xs transition-colors">B</button>
                       <button type="button" title="Italic" onClick={() => insertMd('*', '*', 'italic text')}
                         className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-500 italic text-xs transition-colors">I</button>
+                      <button type="button" title="Bullet list" onClick={insertBullet}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-600 text-xs transition-colors font-bold">• List</button>
                       <button type="button" title="Insert link" onClick={insertLink}
                         className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-600 text-xs transition-colors">🔗</button>
                     </div>
                   </div>
                   <textarea ref={notesRef} className={inputClass} value={newEventNotes} onChange={e => setNewEventNotes(e.target.value)} rows={4}
-                    placeholder={'Any additional details ordinands should know...\n\nUse **bold**, *italic*, or [Link Text](https://url) for formatting.'} />
-                  <p className="text-xs text-slate-400 mt-1 font-medium">Use **bold**, *italic*, and [Link Text](https://url) for formatting. Line breaks are preserved.</p>
+                    placeholder={'Any additional details ordinands should know...\n\nUse **bold**, *italic*, [Link Text](https://url), or start lines with - for a bulleted list.'} />
+                  <p className="text-xs text-slate-400 mt-1 font-medium">Use **bold**, *italic*, [Link Text](https://url), or start lines with <code className="bg-slate-100 px-1 rounded">-</code> for bullets. Line breaks are preserved.</p>
                 </div>
                 <div className="flex gap-3">
                   <button type="submit" disabled={isAddingEvent} style={{ backgroundColor: isAddingEvent ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>
