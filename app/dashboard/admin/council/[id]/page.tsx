@@ -2,7 +2,7 @@
 // Admin management page for an individual council member.
 // Shows profile (editable), last login, grading assignment stats, and HTML email report.
 'use client'
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'

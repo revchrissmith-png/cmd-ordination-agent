@@ -97,7 +97,7 @@ export default function CouncilGradePage() {
     if (sub) {
       const { data: g } = await supabase
         .from('grades')
-        .select('id, overall_rating, overall_comments, graded_at, sermon_rubric, paper_assessment')
+        .select('id, overall_rating, overall_comments, graded_at, sermon_rubric, sermon_section_comments, paper_assessment')
         .eq('submission_id', sub.id)
         .single()
       if (g) {
