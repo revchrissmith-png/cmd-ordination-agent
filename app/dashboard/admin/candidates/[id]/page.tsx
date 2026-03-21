@@ -73,6 +73,9 @@ export default function CandidateDetailPage() {
   const [uploadingReqId, setUploadingReqId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
+  // Grader selector inside grade modal
+  const [modalGraderId, setModalGraderId] = useState<string>('')
+
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
@@ -266,23 +269,36 @@ CMD Ordaining Council`
     const { data: { publicUrl } } = supabase.storage.from('submissions').getPublicUrl(path)
 
     const existingSubmission = Array.isArray(req.submissions) ? req.submissions[0] : req.submissions
+    let submissionId: string
     if (existingSubmission) {
       await supabase.from('submissions').update({ file_url: publicUrl, submitted_at: new Date().toISOString() }).eq('id', existingSubmission.id)
+      submissionId = existingSubmission.id
     } else {
-      await supabase.from('submissions').insert({
+      const { data: newSub } = await supabase.from('submissions').insert({
         ordinand_id: id,
         ordinand_requirement_id: req.id,
         file_url: publicUrl,
         submitted_at: new Date().toISOString(),
-      })
+      }).select('id').single()
+      submissionId = newSub?.id
     }
 
     await supabase.from('ordinand_requirements').update({ status: 'submitted' }).eq('id', req.id)
 
-    flash('File uploaded. You can now grade this assignment.', 'success')
     setUploadingReqId(null)
     setIsUploading(false)
     fetchData()
+
+    // Automatically open the grade modal
+    const updatedReq = {
+      ...req,
+      status: 'submitted',
+      submissions: [{ id: submissionId, file_url: publicUrl, grades: [] }],
+    }
+    setSelectedReq(updatedReq)
+    setRating('')
+    setComments('')
+    setModalGraderId('')
   }
 
   async function handleSaveGrade() {
@@ -292,12 +308,25 @@ CMD Ordaining Council`
     const submission = Array.isArray(selectedReq.submissions) ? selectedReq.submissions[0] : selectedReq.submissions
     if (!submission) { flash('No submission found to grade.', 'error'); setIsSaving(false); return }
     const { data: currentUser } = await supabase.auth.getUser()
-    const { error: gradeError } = await supabase.from('grades').upsert({ submission_id: submission.id, grading_assignment_id: gaId, overall_rating: rating, overall_comments: comments, graded_by: currentUser.user?.id, graded_at: new Date().toISOString() }, { onConflict: 'submission_id' })
+
+    // If admin specified a grader, create/update the grading assignment for them
+    let resolvedGaId = gaId
+    if (modalGraderId) {
+      if (gaId) {
+        await supabase.from('grading_assignments').update({ council_member_id: modalGraderId, reassigned_at: new Date().toISOString() }).eq('id', gaId)
+      } else {
+        const { data: newGa } = await supabase.from('grading_assignments').insert({ ordinand_requirement_id: selectedReq.id, council_member_id: modalGraderId, assigned_by: currentUser.user?.id }).select('id').single()
+        resolvedGaId = newGa?.id
+      }
+    }
+
+    const gradedBy = modalGraderId || currentUser.user?.id
+    const { error: gradeError } = await supabase.from('grades').upsert({ submission_id: submission.id, grading_assignment_id: resolvedGaId, overall_rating: rating, overall_comments: comments, graded_by: gradedBy, graded_at: new Date().toISOString() }, { onConflict: 'submission_id' })
     if (gradeError) { flash('Error saving grade: ' + gradeError.message, 'error'); setIsSaving(false); return }
     const newStatus: Status = rating === 'insufficient' ? 'revision_required' : 'complete'
     await supabase.from('ordinand_requirements').update({ status: newStatus }).eq('id', selectedReq.id)
     flash('Grade saved.', 'success')
-    setSelectedReq(null); setRating(''); setComments('')
+    setSelectedReq(null); setRating(''); setComments(''); setModalGraderId('')
     fetchData()
     setIsSaving(false)
   }
@@ -635,9 +664,23 @@ CMD Ordaining Council`
                     <p className="text-sm text-slate-400 font-medium mt-1">{candidate.first_name} {candidate.last_name}</p>
                   </div>
                   <button
-                    onClick={() => { setSelectedReq(null); setRating(''); setComments('') }}
+                    onClick={() => { setSelectedReq(null); setRating(''); setComments(''); setModalGraderId('') }}
                     className="text-slate-400 hover:text-slate-700 font-black text-xl transition-colors"
                   >✕</button>
+                </div>
+                <div>
+                  <label className={labelClass}>Graded By</label>
+                  <select
+                    className={inputClass}
+                    value={modalGraderId}
+                    onChange={e => setModalGraderId(e.target.value)}
+                  >
+                    <option value="">Select council member…</option>
+                    {councilMembers.map(m => (
+                      <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-400 font-medium mt-1">Required for migration. Leave blank to record as your own grade.</p>
                 </div>
                 <div>
                   <label className={labelClass}>Rating</label>
@@ -670,7 +713,7 @@ CMD Ordaining Council`
                     {isSaving ? 'Saving…' : 'Save Grade'}
                   </button>
                   <button
-                    onClick={() => { setSelectedReq(null); setRating(''); setComments('') }}
+                    onClick={() => { setSelectedReq(null); setRating(''); setComments(''); setModalGraderId('') }}
                     className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:text-slate-800 transition-colors"
                   >
                     Cancel
