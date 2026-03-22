@@ -69,6 +69,8 @@ export default function AdminPage() {
   const [newCandidateFirst, setNewCandidateFirst] = useState('')
   const [newCandidateLast, setNewCandidateLast] = useState('')
   const [newCandidateCohort, setNewCandidateCohort] = useState('')
+  const [newCandidateMentorName, setNewCandidateMentorName] = useState('')
+  const [newCandidateMentorEmail, setNewCandidateMentorEmail] = useState('')
   const [isAddingCandidate, setIsAddingCandidate] = useState(false)
 
   const [archiveTarget, setArchiveTarget] = useState<any>(null)
@@ -235,6 +237,8 @@ export default function AdminPage() {
         firstName: newCandidateFirst,
         lastName: newCandidateLast,
         cohortId: newCandidateCohort,
+        mentorName: newCandidateMentorName.trim() || null,
+        mentorEmail: newCandidateMentorEmail.trim() || null,
         roles: ['ordinand'],
       }),
     })
@@ -245,7 +249,7 @@ export default function AdminPage() {
       const count = result.requirementsCreated ?? '?'
       flash(`${newCandidateFirst} ${newCandidateLast} registered with ${count} requirements generated.`, 'success')
       if (result.warning) flash(result.warning, 'error')
-      setNewCandidateEmail(''); setNewCandidateFirst(''); setNewCandidateLast(''); setNewCandidateCohort('')
+      setNewCandidateEmail(''); setNewCandidateFirst(''); setNewCandidateLast(''); setNewCandidateCohort(''); setNewCandidateMentorName(''); setNewCandidateMentorEmail('')
       fetchCandidates()
     }
     setIsAddingCandidate(false)
@@ -588,6 +592,13 @@ export default function AdminPage() {
                       <option value="">Select a cohort...</option>
                       {cohorts.map(c => <option key={c.id} value={c.id}>{c.name} — Sermons: {topicLabel(c.sermon_topic)}</option>)}
                     </select>
+                  </div>
+                  <div className="pt-1">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Mentor <span className="normal-case font-medium text-slate-300">(optional — can be added later)</span></p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div><label className={labelClass}>Mentor Name</label><input className={inputClass} value={newCandidateMentorName} onChange={e => setNewCandidateMentorName(e.target.value)} placeholder="Rev. Jane Smith" /></div>
+                      <div><label className={labelClass}>Mentor Email</label><input className={inputClass} type="email" value={newCandidateMentorEmail} onChange={e => setNewCandidateMentorEmail(e.target.value)} placeholder="mentor@church.ca" /></div>
+                    </div>
                   </div>
                   <button type="submit" disabled={isAddingCandidate} style={{ backgroundColor: isAddingCandidate ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCandidate ? 'Registering...' : 'Register Ordinand'}</button>
                 </form>

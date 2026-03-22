@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Parse request body
-  const { email, firstName, lastName, cohortId, roles } = await req.json()
+  const { email, firstName, lastName, cohortId, mentorName, mentorEmail, roles } = await req.json()
   if (!email || !firstName || !lastName || !roles?.length) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
     full_name: `${firstName.trim()} ${lastName.trim()}`,
     roles,
     cohort_id: cohortId ?? null,
+    mentor_name: mentorName ?? null,
+    mentor_email: mentorEmail ?? null,
   }, { onConflict: 'id' })
 
   if (profileError) {
