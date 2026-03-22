@@ -1,5 +1,5 @@
 # CLAUDE.md — CMD Ordination Agent
-*Project briefing for Claude Code. Last updated: March 21, 2026 · v0.4.0*
+*Project briefing for Claude Code. Last updated: March 22, 2026 · v1.0-alpha*
 
 ---
 
@@ -28,6 +28,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 | Deployment | Vercel (auto-deploys on push to `main`) |
 | AI | Anthropic API — model: `claude-haiku-4-5-20251001` |
 | Email | Resend — sending domain `send.canadianmidwest.ca`, from address `noreply@send.canadianmidwest.ca` |
+| PDF | jsPDF (v4) — client-side PDF generation, no server resources required |
 
 **Key config files that must exist:**
 - `tailwind.config.js` — content paths for CSS class scanning
@@ -53,7 +54,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Admin Console card hidden from non-admins
 
 ### ✅ Admin Console (`/dashboard/admin`)
-- **Ordinands tab** — register new ordinands; auto-generates 17 requirements on registration; archive/complete flow (see below)
+- **Ordinands tab** — register new ordinands including mentor name, mentor email, and sermon topic at registration time; auto-generates 17 requirements on registration; archive/complete flow (see below)
 - **Council Members tab** — add/remove council members, grant admin; "Manage →" link per member to council manage page
 - **Cohorts tab** — create cohorts (year + season + sermon topic)
 - **Calendar tab** — create/edit/delete cohort gathering events with rich notes editor (bold, italic, links, bullet lists); multi-cohort assignment (select one, several, or all cohorts per event); linked assignment picker
@@ -74,10 +75,30 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
   - Includes a **submission date picker** (defaults to today, capped at today) so historical Moodle dates can be recorded accurately
   - Uploads file to Supabase Storage under the ordinand's folder path
   - Creates or updates a `submissions` record with `file_name`, `version`, and `submitted_at`
-  - Sets requirement status to `submitted`
-  - Auto-opens the grade modal immediately after upload
+  - Sets requirement status to `submitted` and shows a flash — does NOT auto-open the grade modal, so ungraded Moodle submissions can be migrated without forcing a grade entry
 - **"Graded By" dropdown** in grade modal — allows admin to attribute a grade to a specific council member (critical for Moodle migration: historical grades must be attributed correctly)
+- **Self-assessment entry for papers** — admin can open a 📋 modal on any paper requirement and manually enter the ordinand's self-assessment ratings and evidence text (used when migrating Moodle records where the ordinand submitted a self-assessment but it isn't captured in the portal)
 - **"Send Progress Email"** button opens a modal with a pre-composed HTML email; primary action sends via Resend API; "Copy HTML" fallback also available
+- **External Evaluations card** — send mentor and church board evaluation invitations by email directly from the portal; tracks status (no token / pending / submitted); admin can view submitted response inline
+
+### ✅ AI Interview Brief (`/dashboard/admin/candidates/[id]`)
+- On-demand generation from the ordinand's admin detail page via "Generate Interview Brief" button
+- Calls `/api/admin/interview-brief/route.ts` — auth-protected, admin-only
+- Synthesises the ordinand's complete journey from all data sources:
+  - All 17 grades and rubric ratings (overall rating + written feedback)
+  - Paper self-assessments — ordinand's own ratings and evidence text per criterion
+  - Council section-level ratings (paper rubric) and sermon section comments
+  - Mentor evaluation responses and church board evaluation responses
+  - Pardington conversation history (all sessions from `pardington_logs`)
+- Output: 7-section structured brief — Candidate Overview, Assignment Completion, Council-Identified Strengths, Areas for Continued Growth, Self-Assessment Insight, Pardington Study Patterns, Suggested Interview Probes
+- Streams to the page in real time as the AI writes
+- **"↓ Download PDF" button** generates a branded PDF client-side using jsPDF:
+  - CMD dark-blue header bar and confidentiality footer on every page
+  - Title block: "Oral Interview Brief", candidate name, cohort, generation date
+  - Section headers styled with Alliance-blue left-bar accent boxes
+  - Inline markdown rendered correctly: `##` → styled headers, `**text**` → bold, `*text*` → italic (word-by-word renderer handles mixed formatting within wrapped lines)
+  - Auto page breaks with repeated header on continuation pages
+  - Downloads as `Interview-Brief-FirstName-LastName.pdf`
 
 ### ✅ Council Member Manage Page (`/dashboard/admin/council/[id]`)
 - Editable profile (name, email)
@@ -141,18 +162,32 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Grade modal: rating + feedback → saves to `grades` table, updates requirement status
 
 ### ✅ Handbook Wiki (`/handbook`)
-- Full multi-page wiki accessible to all authenticated users
+- Full multi-page wiki with two-tier access: `isPublic: true` sections are visible without a portal login (for district website integration); `isPublic: false` sections show a sign-in prompt to unauthenticated visitors
 - Landing page (`/handbook`): role-based entry grid (Ordinand, Mentor, Church Leader, Council Member) with pill links to relevant sections; full section index below
 - Section pages (`/handbook/[section]`): persistent left sidebar on desktop; mobile "☰ All Sections" overlay; in-section anchor navigation pills; Prev/Next section navigation
 - 8 sections: Introduction, Key Stakeholders, The Ordinand's Journey, Assignment Requirements, Mentorship, Interview & Ordination, Council Responsibilities, Appendices & Resources
 - Content stored in `app/handbook/content.ts` as a typed data structure (`ContentBlock` union: `p | ul | callout | outcomes`)
 - Linked from: ordinand dashboard quick cards, council header, process guide
 
+### ✅ External Evaluation Forms (`/eval/[token]`)
+- Secure token-based forms — no portal login required for evaluators
+- Admin sends an email invitation directly from the ordinand's detail page
+- Mentor invitation: pre-fills recipient name/email from `candidate.mentor_name` / `candidate.mentor_email`; admin reviews and sends
+- Church board invitation: admin enters recipient name and email manually
+- Both flows show a rich HTML email preview (JSX-rendered) before sending
+- Invitation sent via `/api/admin/send-evaluation-invite` — creates token server-side, sends branded HTML email via Resend; rolls back token if email fails so admin can retry cleanly
+- Link is a UUID token: `ordination.canadianmidwest.ca/eval/[token]` — unguessable, single-use
+- Form pre-fills ordinand name; evaluator sees CMD branding but no portal nav or auth wall
+- 8 questions matching the paper forms + 13-category rating grid using the 5-point scale with explanation block
+- Church board form adds: date ministry commenced, board member position
+- On submission: data saved to `evaluations` table, token marked submitted (cannot resubmit)
+- Database: `evaluation_tokens` and `evaluations` tables with RLS — policies are role-agnostic (not `TO anon`) so both logged-in council members who are also mentors and external evaluators can submit
+
 ---
 
 ## 4. Database Schema Quick Reference
 
-**Profiles columns:** `id, full_name, first_name, last_name, email, cohort_id, roles (text[]), role (enum), cohort_year, mentor_name, status, status_changed_at, created_at, updated_at`
+**Profiles columns:** `id, full_name, first_name, last_name, email, cohort_id, roles (text[]), role (enum), cohort_year, mentor_name, mentor_email, sermon_topic, status, status_changed_at, created_at, updated_at`
 ⚠️ `status` column: `null` = active, `'deleted'` = soft-deleted, `'completed'` = archived. Filter active ordinands with `.is('status', null)`.
 
 **Cohorts columns:** `id, name, year, season, sermon_topic (enum), created_at, updated_at`
@@ -219,17 +254,21 @@ app/
                                        input validation, accepts optional studyHistory for system prompt
     admin/
       register-user/route.ts        ✅ Supabase Admin user creation + requirement generation
+      interview-brief/route.ts      ✅ AI Interview Brief — fetches all ordinand data, streams
+                                       structured brief via Anthropic API; admin-only
       send-council-report/route.ts  ✅ Resend API — sends council member report email
       send-evaluation-invite/route.ts ✅ Creates eval token + sends branded invitation email via Resend
+      council-member-info/route.ts  ✅ Service-role lookup for last sign-in timestamp
 
   dashboard/
     page.tsx                        ✅ Role-based router (auto-redirects council + ordinands)
 
     admin/
       page.tsx                      ✅ Admin console (Ordinands / Council / Cohorts / Calendar tabs)
-      candidates/[id]/page.tsx      ✅ Ordinand detail: edit profile, graders, grade, email,
-                                       admin upload (with date picker) + grade attribution,
-                                       archive/complete flow
+                                       Ordinand registration includes mentor name/email + sermon topic
+      candidates/[id]/page.tsx      ✅ Ordinand detail: edit profile, graders, grade, upload,
+                                       admin self-assessment entry, eval invitations,
+                                       AI Interview Brief with PDF download
       council/[id]/page.tsx         ✅ Council member manage: profile, stats, full assignment
                                        table, report email via Resend
 
@@ -254,95 +293,62 @@ app/
   handbook/
     page.tsx                        ✅ Handbook wiki landing page (role-based entry + section index)
     content.ts                      ✅ All wiki content as typed data (8 sections, 42+ subsections)
+                                       Each section has isPublic flag for district website integration
     [section]/page.tsx              ✅ Dynamic section viewer (sidebar, anchors, prev/next)
+                                       Public sections visible without login; portal sections gated
 
 utils/
-  supabase/client.ts                ✅ Supabase browser client
+  supabase/client.ts                ✅ Supabase browser client (createBrowserClient — cookie-based)
   selfAssessmentQuestions.ts        ✅ Self-assessment question sets (5 topics)
 
-middleware.ts                        ✅ Edge middleware — protects /dashboard/* and /handbook/* with server-validated Supabase auth
-next.config.js                      ✅ Security headers (CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy)
+middleware.ts                        ✅ Edge middleware — refreshes auth cookies on every request
+                                       Does NOT redirect unauthenticated users (see gotcha #16)
+next.config.js                      ✅ Security headers (CSP, X-Frame-Options, nosniff,
+                                       Referrer-Policy, Permissions-Policy)
 tailwind.config.js                  ✅ Content paths for CSS class scanning
 postcss.config.js                   ✅ Tailwind + Autoprefixer pipeline
-package.json                        ✅ Dependencies (tailwindcss, autoprefixer, @anthropic-ai/sdk)
+package.json                        ✅ Dependencies (tailwindcss, autoprefixer, @anthropic-ai/sdk,
+                                       jspdf for PDF generation)
 ```
 
 ---
 
-## 6. Migration Context (as of March 21, 2026)
+## 6. Migration Context (as of March 22, 2026)
 
 The portal is in active beta migration from Moodle (the previous LMS used during alpha).
 
 - **21 ordinands** are being migrated to the portal now (Spring 2026 and Fall 2026 cohorts)
 - **9 ordinands** remain in Moodle until their Moodle subscription renews (Spring 2027 / Fall 2027 cohorts) — running dual systems temporarily is unavoidable given the 3-year ordination process
-- **Admin upload** is the primary migration tool: admin uploads each ordinand's existing files from Moodle, sets the original submission date, then uses the "Graded By" selector to attribute grades to the correct council member
+- **Admin upload** is the primary migration tool: upload file, set original submission date, use "Graded By" to attribute grade to the correct council member; upload no longer auto-opens the grade modal, so ungraded submissions can be migrated freely
+- **Admin self-assessment entry** allows migration of paper self-assessments submitted in Moodle that weren't captured in portal form fields
 - **Joanna Smith** (joanna@rosewoodpark.ca) was the first live beta migration — completed March 21, 2026; 5/17 requirements complete from real Moodle data
 
 ---
 
-## 7. What Is NOT Built Yet
+## 7. What Remains To Be Built
 
-Items are grouped by release phase as defined in the Alpha Report slide deck (March 2026).
-
-### ✅ External Evaluation Forms (Mentor & Church Board) — built March 2026
-
-- Secure token-based forms at `/eval/[token]` — no portal login required for evaluators
-- Admin sends an email invitation directly from the ordinand's detail page — no external tools needed
-- Mentor invitation: pre-fills recipient name/email from `candidate.mentor_name` / `candidate.mentor_email`; admin reviews and sends
-- Church board invitation: admin enters recipient name and email manually
-- Both flows show a rich HTML email preview (JSX-rendered, not raw HTML injection) before sending
-- Invitation sent via `/api/admin/send-evaluation-invite` — creates token server-side, sends branded HTML email via Resend; rolls back token if email fails so admin can retry cleanly
-- Link is a UUID token: `ordination.canadianmidwest.ca/eval/[token]` — unguessable, single-use
-- Form pre-fills ordinand name; evaluator sees CMD branding but no portal nav or auth wall
-- 8 questions matching the paper forms + 13-category rating grid using the 5-point scale with explanation block
-- Church board form adds: date ministry commenced, board member position
-- On submission: data saved to `evaluations` table, token marked submitted (cannot resubmit)
-- Admin sees live status on ordinand detail page: **Send Invitation →** (no token yet) / **Resend Invitation** (pending) / **View Response** (submitted)
-- Database: `evaluation_tokens` and `evaluations` tables with RLS — policies are role-agnostic (not `TO anon`) so both logged-in council members who are also mentors and external evaluators can submit
-- Sent once, near the end of the ordinand's journey before the oral interview
-
-### Near-term UX gaps (no phase gate — build as needed)
+### Near-term UX gaps (build when stakeholder feedback arrives)
 
 - **File viewer in admin** — admin can see that a submission was made and can upload new files, but can't open/preview the actual document from the admin candidate page
-- **Archive report — AI/interview/ordination components** — the assignment completion summary section works; the AI summary, oral interview report, and ordination service sections are scaffolded with "Coming Soon" badges for a future build
+- **Archive report — AI/interview/ordination components** — the assignment completion summary section works; the AI summary, oral interview report, and ordination service sections are scaffolded with "Coming Soon" badges (the Interview Brief covers the pre-interview use case; archive report components are post-ordination records)
 
-### Beta phase (security hardening + SSO)
+### Beta security (remaining items)
 
-- ✅ **Auth check on Study Agent API** — `supabase.auth.getUser()` check added; unauthenticated requests receive 401. Study page now passes `Authorization: Bearer` token on every call.
-- ✅ **HTTP security headers** — Added via `next.config.js` headers(): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, and full CSP (default-src self, connect-src Supabase, img-src imgur for email preview, frame-ancestors none).
-- ✅ **Message array size cap in Study Agent** — Rolling window of 20 messages applied before sending to Anthropic. Message structure also validated (role must be 'user'|'assistant', content must be string).
-- ✅ **Session-refresh middleware (middleware.ts)** — Edge middleware using `@supabase/ssr` runs on every request and keeps auth cookies fresh (calls `getUser()` to renew expiring tokens). Does NOT redirect unauthenticated users — see gotcha #16 below. Route-level auth protection is handled client-side in each page component, which is the primary and reliable mechanism.
 - **Rate limiting on API routes** — `/api/study-agent`, `/api/admin/register-user`, `/api/admin/send-council-report` have no rate limiting; would require Upstash Redis or Vercel KV. Low urgency given closed user base and Study Agent now requires auth.
 - **Tighter RLS for profile data** — current RLS allows council members to read all profiles; scope reads to only what each role needs
-- **"Sign in with Microsoft" SSO** — for churches on Microsoft 365; Supabase supports Azure AD provider. OTP email code remains as fallback
-- **"Sign in with Google" SSO** — for churches on Google Workspace; Supabase supports Google provider. OTP email code remains as fallback
+
+### SSO (longer-term)
+
+- **"Sign in with Microsoft"** — for churches on Microsoft 365; Supabase supports Azure AD provider. OTP email code remains as fallback
+- **"Sign in with Google"** — for churches on Google Workspace; Supabase supports Google provider. OTP email code remains as fallback
 - All three auth methods (OTP, Microsoft, Google) displayed on the login page simultaneously
-
-### v1.0 Feature: AI Interview Brief
-
-The headline v1.0 feature — before each oral interview, the system synthesizes the ordinand's complete ordination journey into a council-ready briefing document, replacing hours of manual pre-interview preparation.
-
-**What the brief includes:**
-- Acknowledged strengths drawn from grades and written feedback
-- Growth areas from constructive feedback and revision history
-- Self-assessment gap analysis (where ordinand rated themselves vs. how council graded)
-- Study agent struggle patterns (topics the ordinand returned to repeatedly)
-- Suggested interview probe areas based on the above
-
-**Data sources the AI pulls from:**
-- All 17 grades and rubric ratings
-- All council written feedback
-- All ordinand self-assessment text (papers)
-- Study agent conversation history (✅ now logged in `pardington_logs` — one row per session, upserted after each exchange)
-- Mentor evaluations and church board evaluations (✅ now stored in `evaluations` table)
-
-**Delivery:** Generated on-demand from the ordinand's admin detail page; output as a formatted in-page report (and eventually downloadable PDF)
 
 ### Longer-term / exploratory
 
-- **Board evaluation integration** — local church board evaluations referenced in the ordination process have no digital collection mechanism yet
+- **Tighter RLS for profile data** — council members can currently read all profiles; scope reads to only what each role needs
+- **Downloadable archive report** — post-ordination PDF record of the full journey (distinct from the Interview Brief which is pre-interview and council-facing)
 
-**Design note — mentors are intentionally outside the system.** Mentors are referenced in the handbook and on the ordinand dashboard (name/email display), but they do not have portal access and this is by design. The CMD wants distance between the mentoring relationship and the formal assessment process. Do not build a mentor login, report submission, or evaluation flow.
+**Design note — mentors are intentionally outside the system.** Mentors are referenced in the handbook and on the ordinand dashboard (name/email display), but they do not have portal access and this is by design. The CMD wants distance between the mentoring relationship and the formal assessment process. Do not build a mentor login, report submission, or evaluation flow inside the portal. Mentor evaluations are collected via the token-based external form only.
 
 ---
 
@@ -381,6 +387,10 @@ The headline v1.0 feature — before each oral interview, the system synthesizes
 16. **Middleware cannot redirect after OTP login — cookie timing race** — After `verifyOtp()` succeeds, `createBrowserClient` (from `@supabase/ssr`) stores the session in a cookie. However, when `router.push('/dashboard')` fires immediately after, the Edge middleware runs before the cookie is visible in the request headers. The middleware sees no session and redirects to `/`. The login page's `onAuthStateChange` then sees the valid in-memory session and pushes to `/dashboard` again — creating an infinite redirect loop the browser breaks by dumping the user at the email step. **The middleware must NOT redirect unauthenticated users for this reason.** Client-side auth checks remain the primary protection. The middleware's value is session-cookie refresh only.
 
 17. **`createBrowserClient` vs `createClient` — sessions must be in cookies** — The Edge middleware (`middleware.ts`) uses `@supabase/ssr`'s `createServerClient`, which reads sessions from cookies. The older `createClient` from `@supabase/supabase-js` stores sessions in localStorage, which the middleware cannot see. Always use `createBrowserClient` from `@supabase/ssr` for the browser Supabase client (`utils/supabase/client.ts`) so that sessions are cookie-based and the middleware can refresh them.
+
+18. **jsPDF dynamic import — avoid SSR** — Import jsPDF with `await import('jspdf')` inside the click handler, not at the top of the file. Although all pages are `'use client'`, the dynamic import ensures jsPDF (which references `window` internally) is never evaluated during any server-side pass. Always cast `splitTextToSize` return values as `string[]` — TypeScript infers `string | string[]` but it always returns an array.
+
+19. **Do not attempt local dev server previews** — Supabase environment variables are Vercel-only and are not available locally. `npm run dev` will fail to connect to the database. All testing is done against the live Vercel deployment at ordination.canadianmidwest.ca.
 
 ---
 
