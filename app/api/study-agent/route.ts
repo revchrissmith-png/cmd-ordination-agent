@@ -1,8 +1,18 @@
 // app/api/study-agent/route.ts
 import Anthropic from '@anthropic-ai/sdk'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const serviceClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+// Rolling window: only the most recent N messages are sent to the model.
+// Prevents a very long session from accumulating excessive token costs.
+const MAX_MESSAGES = 20
 
 const SYSTEM_PROMPT = `You are Pardington — an AI ordination study partner for pastoral candidates (called "ordinands") in the Canadian Midwest District of the Christian and Missionary Alliance church. You are named in honour of George Palmer Pardington (1858–1925), theologian, Bible teacher, and close colleague of A.B. Simpson at the Christian and Missionary Alliance. Pardington authored "The Charter of the Christian's Liberty," "Outline Studies in Christian Doctrine," and other foundational Alliance texts. He was known for his precision, warmth, and ability to make deep theology accessible to ordinary Christians in ministry.
 
@@ -253,12 +263,40 @@ Primary questions:
 Supplemental: counselling a couple/person inquiring about divorce; counselling someone struggling with their gender identity.`
 
 export async function POST(req: NextRequest) {
+  // Auth check — must be a logged-in portal user; prevents unauthenticated
+  // requests from running up Anthropic API costs.
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+  const token = authHeader.slice(7)
+  const { data: { user }, error: authError } = await serviceClient.auth.getUser(token)
+  if (authError || !user) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
   try {
     const { messages } = await req.json()
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response('Invalid request: messages array required', { status: 400 })
     }
+
+    // Validate every message has the expected shape before sending to Anthropic
+    const isValid = messages.every(
+      (m: unknown) =>
+        m !== null &&
+        typeof m === 'object' &&
+        typeof (m as Record<string, unknown>).role === 'string' &&
+        ['user', 'assistant'].includes((m as Record<string, unknown>).role as string) &&
+        typeof (m as Record<string, unknown>).content === 'string'
+    )
+    if (!isValid) {
+      return new Response('Invalid message format', { status: 400 })
+    }
+
+    // Apply rolling window — only send the most recent MAX_MESSAGES to the model
+    const cappedMessages = messages.slice(-MAX_MESSAGES)
 
     const encoder = new TextEncoder()
 
@@ -269,7 +307,7 @@ export async function POST(req: NextRequest) {
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 1024,
             system: SYSTEM_PROMPT,
-            messages: messages.map((m: { role: string; content: string }) => ({
+            messages: cappedMessages.map((m: { role: string; content: string }) => ({
               role: m.role as 'user' | 'assistant',
               content: m.content,
             })),

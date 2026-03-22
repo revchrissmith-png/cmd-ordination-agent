@@ -53,9 +53,13 @@ export default function PardingtonPage() {
     setMessages(prev => [...prev, { role: 'assistant', content: '' }])
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/study-agent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ messages: updatedMessages }),
       })
 
