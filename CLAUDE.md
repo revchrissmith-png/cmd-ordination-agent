@@ -1,5 +1,5 @@
 # CLAUDE.md — CMD Ordination Agent
-*Project briefing for Claude Code. Last updated: March 21, 2026 · v0.3.0*
+*Project briefing for Claude Code. Last updated: March 21, 2026 · v0.4.0*
 
 ---
 
@@ -121,6 +121,11 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - System prompt includes full handbook, reading list, paper questions, interview questions
 - Refuses to write papers or sermons for candidates
 - Requires `ANTHROPIC_API_KEY` in Vercel environment variables
+- **Auth-protected** — requires valid Bearer token; unauthenticated requests receive 401
+- **Message cap** — rolling window of 20 messages sent to model; input validated before dispatch
+- **Conversation memory (session resume)** — on page load, fetches the ordinand's most recent session from `pardington_logs` and restores it as the active conversation. The existing `session_id` is reused so new exchanges continue the same log row. "New conversation" button in header resets to a fresh session.
+- **Conversation memory (topic history)** — older sessions (beyond the one being resumed) are summarised into a plain-text history block (capped at ~2500 chars) and injected at the end of the system prompt each turn. Pardington uses this to build on prior discussions, avoid re-explaining covered topics, and greet the ordinand as someone it already knows.
+- **Conversation logging** — after each completed exchange, the full message array is upserted to `pardington_logs` (fire-and-forget, never blocks the UI). One row per session; see schema below.
 
 ### ✅ Council Dashboard (`/dashboard/council`)
 - Council-only users auto-redirect here on login (bypass the hub entirely)
@@ -210,7 +215,8 @@ app/
   globals.css                       ✅ @tailwind directives
 
   api/
-    study-agent/route.ts            ✅ Streaming Anthropic API backend
+    study-agent/route.ts            ✅ Streaming Anthropic API backend — auth-gated, message cap,
+                                       input validation, accepts optional studyHistory for system prompt
     admin/
       register-user/route.ts        ✅ Supabase Admin user creation + requirement generation
       send-council-report/route.ts  ✅ Resend API — sends council member report email
@@ -239,7 +245,8 @@ app/
       requirements/[id]/page.tsx    ✅ Requirement detail + submission form
 
     study/
-      page.tsx                      ✅ Pardington AI study agent chat UI
+      page.tsx                      ✅ Pardington AI study agent — streaming chat, session resume,
+                                       topic history injection, post-exchange logging to pardington_logs
 
   eval/
     [token]/page.tsx                ✅ Public evaluation form (mentor & church board) — no auth required
@@ -304,7 +311,7 @@ Items are grouped by release phase as defined in the Alpha Report slide deck (Ma
 - ✅ **Auth check on Study Agent API** — `supabase.auth.getUser()` check added; unauthenticated requests receive 401. Study page now passes `Authorization: Bearer` token on every call.
 - ✅ **HTTP security headers** — Added via `next.config.js` headers(): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, and full CSP (default-src self, connect-src Supabase, img-src imgur for email preview, frame-ancestors none).
 - ✅ **Message array size cap in Study Agent** — Rolling window of 20 messages applied before sending to Anthropic. Message structure also validated (role must be 'user'|'assistant', content must be string).
-- ✅ **Server-side route protection (middleware.ts)** — Edge middleware using `@supabase/ssr` guards all `/dashboard/*` and `/handbook/*` routes. Uses `supabase.auth.getUser()` (server-validated) not `getSession()` (cookie-only). Unauthenticated users are redirected to `/`.
+- ✅ **Session-refresh middleware (middleware.ts)** — Edge middleware using `@supabase/ssr` runs on every request and keeps auth cookies fresh (calls `getUser()` to renew expiring tokens). Does NOT redirect unauthenticated users — see gotcha #16 below. Route-level auth protection is handled client-side in each page component, which is the primary and reliable mechanism.
 - **Rate limiting on API routes** — `/api/study-agent`, `/api/admin/register-user`, `/api/admin/send-council-report` have no rate limiting; would require Upstash Redis or Vercel KV. Low urgency given closed user base and Study Agent now requires auth.
 - **Tighter RLS for profile data** — current RLS allows council members to read all profiles; scope reads to only what each role needs
 - **"Sign in with Microsoft" SSO** — for churches on Microsoft 365; Supabase supports Azure AD provider. OTP email code remains as fallback
@@ -370,6 +377,10 @@ The headline v1.0 feature — before each oral interview, the system synthesizes
 14. **Unused variables cause build failures in production** — TypeScript strict mode treats unused `const` declarations as compile errors (not just warnings). This kills the CSS as well as the JS — the page renders unstyled. Always remove variables that are declared but no longer referenced after refactoring.
 
 15. **`useParams()` can return null in Next.js 14** — The TypeScript type for `useParams()` includes `null`. Always null-check before accessing properties: `params && typeof params.section === 'string' ? params.section : ''`. Skipping this causes a production build failure.
+
+16. **Middleware cannot redirect after OTP login — cookie timing race** — After `verifyOtp()` succeeds, `createBrowserClient` (from `@supabase/ssr`) stores the session in a cookie. However, when `router.push('/dashboard')` fires immediately after, the Edge middleware runs before the cookie is visible in the request headers. The middleware sees no session and redirects to `/`. The login page's `onAuthStateChange` then sees the valid in-memory session and pushes to `/dashboard` again — creating an infinite redirect loop the browser breaks by dumping the user at the email step. **The middleware must NOT redirect unauthenticated users for this reason.** Client-side auth checks remain the primary protection. The middleware's value is session-cookie refresh only.
+
+17. **`createBrowserClient` vs `createClient` — sessions must be in cookies** — The Edge middleware (`middleware.ts`) uses `@supabase/ssr`'s `createServerClient`, which reads sessions from cookies. The older `createClient` from `@supabase/supabase-js` stores sessions in localStorage, which the middleware cannot see. Always use `createBrowserClient` from `@supabase/ssr` for the browser Supabase client (`utils/supabase/client.ts`) so that sessions are cookie-based and the middleware can refresh them.
 
 ---
 
