@@ -210,6 +210,7 @@ app/
     admin/
       register-user/route.ts        ✅ Supabase Admin user creation + requirement generation
       send-council-report/route.ts  ✅ Resend API — sends council member report email
+      send-evaluation-invite/route.ts ✅ Creates eval token + sends branded invitation email via Resend
 
   dashboard/
     page.tsx                        ✅ Role-based router (auto-redirects council + ordinands)
@@ -273,14 +274,18 @@ Items are grouped by release phase as defined in the Alpha Report slide deck (Ma
 ### ✅ External Evaluation Forms (Mentor & Church Board) — built March 2026
 
 - Secure token-based forms at `/eval/[token]` — no portal login required for evaluators
-- Admin generates a unique link per type (mentor / church board) from the ordinand's detail page
+- Admin sends an email invitation directly from the ordinand's detail page — no external tools needed
+- Mentor invitation: pre-fills recipient name/email from `candidate.mentor_name` / `candidate.mentor_email`; admin reviews and sends
+- Church board invitation: admin enters recipient name and email manually
+- Both flows show a rich HTML email preview (JSX-rendered, not raw HTML injection) before sending
+- Invitation sent via `/api/admin/send-evaluation-invite` — creates token server-side, sends branded HTML email via Resend; rolls back token if email fails so admin can retry cleanly
 - Link is a UUID token: `ordination.canadianmidwest.ca/eval/[token]` — unguessable, single-use
 - Form pre-fills ordinand name; evaluator sees CMD branding but no portal nav or auth wall
 - 8 questions matching the paper forms + 13-category rating grid using the 5-point scale with explanation block
 - Church board form adds: date ministry commenced, board member position
 - On submission: data saved to `evaluations` table, token marked submitted (cannot resubmit)
-- Admin sees live status (Pending / Submitted) on ordinand detail page with Copy Link or View Response
-- Database: `evaluation_tokens` and `evaluations` tables with RLS — anon can read token by UUID and insert; admins manage all
+- Admin sees live status on ordinand detail page: **Send Invitation →** (no token yet) / **Resend Invitation** (pending) / **View Response** (submitted)
+- Database: `evaluation_tokens` and `evaluations` tables with RLS — policies are role-agnostic (not `TO anon`) so both logged-in council members who are also mentors and external evaluators can submit
 - Sent once, near the end of the ordinand's journey before the oral interview
 
 ### Near-term UX gaps (no phase gate — build as needed)
