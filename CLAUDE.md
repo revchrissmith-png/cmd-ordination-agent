@@ -264,7 +264,6 @@ Items are grouped by release phase as defined in the Alpha Report slide deck (Ma
 
 ### Near-term UX gaps (no phase gate — build as needed)
 
-- **Paper grading UI improvement** — council can grade papers but the self-assessment data is not displayed alongside the submission during grading (data is saved in `submissions.self_assessment` jsonb, just not rendered on the grading page yet)
 - **File viewer in admin** — admin can see that a submission was made and can upload new files, but can't open/preview the actual document from the admin candidate page
 - **Archive report — AI/interview/ordination components** — the assignment completion summary section works; the AI summary, oral interview report, and ordination service sections are scaffolded with "Coming Soon" badges for a future build
 
@@ -301,8 +300,9 @@ The headline v1.0 feature — before each oral interview, the system synthesizes
 
 ### Longer-term / exploratory
 
-- **Mentor portal** — mentors are referenced throughout the system and handbook but have no dedicated login, report submission form, or evaluation flow. Mentor evaluation data is a listed future input to the AI Interview Brief
 - **Board evaluation integration** — local church board evaluations referenced in the ordination process have no digital collection mechanism yet
+
+**Design note — mentors are intentionally outside the system.** Mentors are referenced in the handbook and on the ordinand dashboard (name/email display), but they do not have portal access and this is by design. The CMD wants distance between the mentoring relationship and the formal assessment process. Do not build a mentor login, report submission, or evaluation flow.
 
 ---
 
