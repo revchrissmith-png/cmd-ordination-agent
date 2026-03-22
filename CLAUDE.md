@@ -260,10 +260,49 @@ The portal is in active beta migration from Moodle (the previous LMS used during
 
 ## 7. What Is NOT Built Yet
 
+Items are grouped by release phase as defined in the Alpha Report slide deck (March 2026).
+
+### Near-term UX gaps (no phase gate — build as needed)
+
 - **Paper grading UI improvement** — council can grade papers but the self-assessment data is not displayed alongside the submission during grading (data is saved in `submissions.self_assessment` jsonb, just not rendered on the grading page yet)
-- **File viewer in admin** — admin can see that a submission was made and can upload new files, but can't view/preview the actual file from the admin page
-- **Archive report — AI/interview/ordination components** — the assignment summary section of the archive report works; the AI summary, oral interview report, and ordination service sections show "Coming Soon" and are scaffolded for a future build
-- **Mentor report submission** — mentors are referenced throughout the system but have no dedicated portal login or report submission flow yet
+- **File viewer in admin** — admin can see that a submission was made and can upload new files, but can't open/preview the actual document from the admin candidate page
+- **Archive report — AI/interview/ordination components** — the assignment completion summary section works; the AI summary, oral interview report, and ordination service sections are scaffolded with "Coming Soon" badges for a future build
+
+### Beta phase (security hardening + SSO)
+
+- **Auth check on Study Agent API** — `/api/study-agent/route.ts` currently has no server-side auth verification; any request with a valid format can call it. Needs `supabase.auth.getUser()` check at the top of the route handler
+- **Rate limiting on all API routes** — `/api/study-agent`, `/api/admin/register-user`, `/api/admin/send-council-report` have no rate limiting; needs middleware or Vercel edge config
+- **HTTP security headers** — CSP, X-Frame-Options, and related headers not yet configured; add via `next.config.js` headers()
+- **Message array size cap in Study Agent** — no limit on how many messages can accumulate in a session; a very long conversation could send excessive tokens. Add a rolling window cap (e.g. last 20 messages)
+- **Tighter RLS for profile data** — current RLS allows council members to read all profiles; scope reads to only what each role needs
+- **"Sign in with Microsoft" SSO** — for churches on Microsoft 365; Supabase supports Azure AD provider. OTP email code remains as fallback
+- **"Sign in with Google" SSO** — for churches on Google Workspace; Supabase supports Google provider. OTP email code remains as fallback
+- All three auth methods (OTP, Microsoft, Google) displayed on the login page simultaneously
+
+### v1.0 Feature: AI Interview Brief
+
+The headline v1.0 feature — before each oral interview, the system synthesizes the ordinand's complete ordination journey into a council-ready briefing document, replacing hours of manual pre-interview preparation.
+
+**What the brief includes:**
+- Acknowledged strengths drawn from grades and written feedback
+- Growth areas from constructive feedback and revision history
+- Self-assessment gap analysis (where ordinand rated themselves vs. how council graded)
+- Study agent struggle patterns (topics the ordinand returned to repeatedly)
+- Suggested interview probe areas based on the above
+
+**Data sources the AI pulls from:**
+- All 17 grades and rubric ratings
+- All council written feedback
+- All ordinand self-assessment text (papers)
+- Study agent conversation history
+- Future: mentor evaluations and board assessments
+
+**Delivery:** Generated on-demand from the ordinand's admin detail page; output as a formatted in-page report (and eventually downloadable PDF)
+
+### Longer-term / exploratory
+
+- **Mentor portal** — mentors are referenced throughout the system and handbook but have no dedicated login, report submission form, or evaluation flow. Mentor evaluation data is a listed future input to the AI Interview Brief
+- **Board evaluation integration** — local church board evaluations referenced in the ordination process have no digital collection mechanism yet
 
 ---
 
