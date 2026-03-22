@@ -377,12 +377,7 @@ CMD Ordaining Council`
     setRequirements(prev => prev.map(r => r.id === req.id ? updatedReq : r))
     setUploadingReqId(null)
     setIsUploading(false)
-
-    // Open the grade modal immediately
-    setSelectedReq(updatedReq)
-    setRating('')
-    setComments('')
-    setModalGraderId('')
+    flash('File uploaded. Use "Grade →" to add a grade when ready.', 'success')
   }
 
   function openSelfAssessmentModal(req: any) {
