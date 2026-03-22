@@ -143,6 +143,159 @@ export default function CandidateDetailPage() {
     setIsSendingEval(false)
   }
 
+  async function handleDownloadPDF() {
+    const { jsPDF } = await import('jspdf')
+
+    const PW = 612, PH = 792   // letter, points
+    const ML = 60, MR = 60      // left / right margin
+    const CW = PW - ML - MR     // content width
+    const HEADER_H = 40, FOOTER_H = 32
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
+
+    const KNOWN_HEADERS = new Set([
+      'CANDIDATE OVERVIEW', 'ASSIGNMENT COMPLETION SUMMARY',
+      'COUNCIL-IDENTIFIED STRENGTHS', 'AREAS FOR CONTINUED GROWTH',
+      'SELF-ASSESSMENT INSIGHT', 'PARDINGTON STUDY PATTERNS',
+      'SUGGESTED INTERVIEW PROBES',
+    ])
+
+    let y = 0
+
+    function drawPageHeader() {
+      doc.setFillColor(0, 66, 106)
+      doc.rect(0, 0, PW, HEADER_H, 'F')
+      doc.setFillColor(0, 119, 200)
+      doc.rect(0, HEADER_H - 2, PW, 2, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9.5)
+      doc.text('CMD ORDINATION PORTAL', ML, 25)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.text('Canadian Midwest District · The Alliance Canada', PW - MR, 25, { align: 'right' })
+      y = HEADER_H + 44
+    }
+
+    function drawPageFooter(pageNum: number, pageCount: number) {
+      doc.setFillColor(241, 245, 249)
+      doc.rect(0, PH - FOOTER_H, PW, FOOTER_H, 'F')
+      doc.setDrawColor(203, 213, 225)
+      doc.setLineWidth(0.5)
+      doc.line(0, PH - FOOTER_H, PW, PH - FOOTER_H)
+      doc.setTextColor(100, 116, 139)
+      doc.setFont('helvetica', 'italic')
+      doc.setFontSize(7.5)
+      doc.text('CONFIDENTIAL — For CMD Ordination Council Use Only', ML, PH - 12)
+      doc.text(`Page ${pageNum} of ${pageCount}`, PW - MR, PH - 12, { align: 'right' })
+    }
+
+    function checkBreak(needed: number) {
+      if (y + needed > PH - FOOTER_H - 16) {
+        doc.addPage()
+        drawPageHeader()
+      }
+    }
+
+    // ── Page 1 ──────────────────────────────────────────────────────────────
+    drawPageHeader()
+
+    // Title block
+    doc.setDrawColor(0, 119, 200)
+    doc.setLineWidth(1.5)
+    doc.line(ML, y, PW - MR, y)
+    y += 20
+
+    doc.setTextColor(0, 66, 106)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(20)
+    doc.text('Oral Interview Brief', ML, y)
+    y += 26
+
+    doc.setTextColor(30, 41, 59)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(13)
+    doc.text(`${candidate.first_name} ${candidate.last_name}`, ML, y)
+    y += 16
+
+    if (candidate.cohorts) {
+      doc.setTextColor(71, 85, 105)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      const cohortLabel = `${candidate.cohorts.season} ${candidate.cohorts.year} Cohort`
+      doc.text(cohortLabel, ML, y)
+      y += 14
+    }
+
+    doc.setTextColor(100, 116, 139)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    const dateStr = new Date().toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    doc.text(`Generated ${dateStr}`, ML, y)
+    y += 8
+
+    doc.setDrawColor(0, 119, 200)
+    doc.setLineWidth(1.5)
+    doc.line(ML, y, PW - MR, y)
+    y += 28
+
+    // ── Brief content ────────────────────────────────────────────────────────
+    const lines = briefContent.split('\n')
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed === '---') { y += 5; continue }
+
+      if (KNOWN_HEADERS.has(trimmed)) {
+        // Section header with blue left-bar
+        y += 8
+        checkBreak(30)
+        doc.setFillColor(235, 245, 255)
+        doc.rect(ML - 6, y - 14, CW + 12, 24, 'F')
+        doc.setFillColor(0, 119, 200)
+        doc.rect(ML - 6, y - 14, 3, 24, 'F')
+        doc.setTextColor(0, 66, 106)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9.5)
+        doc.text(trimmed, ML + 8, y + 2)
+        y += 20
+
+      } else if (/^[-•]\s/.test(trimmed) || /^\d+\.\s/.test(trimmed)) {
+        // Bullet or numbered item
+        const isNumbered = /^\d+\.\s/.test(trimmed)
+        const bulletChar = isNumbered ? trimmed.match(/^(\d+\.)/)?.[1] ?? '•' : '•'
+        const text = trimmed.replace(/^[-•]\s+/, '').replace(/^\d+\.\s+/, '')
+        const wrapped = doc.splitTextToSize(text, CW - 18) as string[]
+        checkBreak(wrapped.length * 13 + 4)
+        doc.setTextColor(30, 41, 59)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        doc.text(bulletChar, ML + 4, y)
+        doc.text(wrapped, ML + 18, y)
+        y += wrapped.length * 13 + 4
+
+      } else {
+        // Body paragraph
+        const wrapped = doc.splitTextToSize(trimmed, CW) as string[]
+        checkBreak(wrapped.length * 14 + 4)
+        doc.setTextColor(30, 41, 59)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        doc.text(wrapped, ML, y)
+        y += wrapped.length * 14 + 4
+      }
+    }
+
+    // ── Footers on all pages ─────────────────────────────────────────────────
+    const totalPages = doc.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      drawPageFooter(i, totalPages)
+    }
+
+    const safeName = `${candidate.first_name ?? ''}-${candidate.last_name ?? ''}`.replace(/[^a-zA-Z0-9-]/g, '')
+    doc.save(`Interview-Brief-${safeName}.pdf`)
+  }
+
   async function handleGenerateBrief() {
     setShowBrief(true)
     setBriefContent('')
@@ -956,10 +1109,11 @@ CMD Ordaining Council`
                   <div className="flex items-center gap-3">
                     {briefContent && !isGeneratingBrief && (
                       <button
-                        onClick={() => { navigator.clipboard.writeText(briefContent); flash('Brief copied to clipboard.', 'success') }}
-                        className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
+                        onClick={handleDownloadPDF}
+                        className="px-4 py-2 text-white rounded-xl text-xs font-bold transition-all"
+                        style={{ backgroundColor: '#00426A' }}
                       >
-                        Copy Text
+                        ↓ Download PDF
                       </button>
                     )}
                     <button
