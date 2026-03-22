@@ -249,6 +249,8 @@ utils/
   supabase/client.ts                ✅ Supabase browser client
   selfAssessmentQuestions.ts        ✅ Self-assessment question sets (5 topics)
 
+middleware.ts                        ✅ Edge middleware — protects /dashboard/* and /handbook/* with server-validated Supabase auth
+next.config.js                      ✅ Security headers (CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy)
 tailwind.config.js                  ✅ Content paths for CSS class scanning
 postcss.config.js                   ✅ Tailwind + Autoprefixer pipeline
 package.json                        ✅ Dependencies (tailwindcss, autoprefixer, @anthropic-ai/sdk)
@@ -295,10 +297,11 @@ Items are grouped by release phase as defined in the Alpha Report slide deck (Ma
 
 ### Beta phase (security hardening + SSO)
 
-- **Auth check on Study Agent API** — `/api/study-agent/route.ts` currently has no server-side auth verification; any request with a valid format can call it. Needs `supabase.auth.getUser()` check at the top of the route handler
-- **Rate limiting on all API routes** — `/api/study-agent`, `/api/admin/register-user`, `/api/admin/send-council-report` have no rate limiting; needs middleware or Vercel edge config
-- **HTTP security headers** — CSP, X-Frame-Options, and related headers not yet configured; add via `next.config.js` headers()
-- **Message array size cap in Study Agent** — no limit on how many messages can accumulate in a session; a very long conversation could send excessive tokens. Add a rolling window cap (e.g. last 20 messages)
+- ✅ **Auth check on Study Agent API** — `supabase.auth.getUser()` check added; unauthenticated requests receive 401. Study page now passes `Authorization: Bearer` token on every call.
+- ✅ **HTTP security headers** — Added via `next.config.js` headers(): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, and full CSP (default-src self, connect-src Supabase, img-src imgur for email preview, frame-ancestors none).
+- ✅ **Message array size cap in Study Agent** — Rolling window of 20 messages applied before sending to Anthropic. Message structure also validated (role must be 'user'|'assistant', content must be string).
+- ✅ **Server-side route protection (middleware.ts)** — Edge middleware using `@supabase/ssr` guards all `/dashboard/*` and `/handbook/*` routes. Uses `supabase.auth.getUser()` (server-validated) not `getSession()` (cookie-only). Unauthenticated users are redirected to `/`.
+- **Rate limiting on API routes** — `/api/study-agent`, `/api/admin/register-user`, `/api/admin/send-council-report` have no rate limiting; would require Upstash Redis or Vercel KV. Low urgency given closed user base and Study Agent now requires auth.
 - **Tighter RLS for profile data** — current RLS allows council members to read all profiles; scope reads to only what each role needs
 - **"Sign in with Microsoft" SSO** — for churches on Microsoft 365; Supabase supports Azure AD provider. OTP email code remains as fallback
 - **"Sign in with Google" SSO** — for churches on Google Workspace; Supabase supports Google provider. OTP email code remains as fallback
