@@ -78,11 +78,11 @@ export default function CandidateDetailPage() {
   const [modalGraderId, setModalGraderId] = useState<string>('')
 
   // External evaluation tokens
-  const [evalTokens, setEvalTokens]               = useState<any[]>([])
-  const [isGeneratingEval, setIsGeneratingEval]   = useState<'mentor' | 'church' | null>(null)
-  const [copiedEvalToken, setCopiedEvalToken]     = useState<string | null>(null)
-  const [viewingEval, setViewingEval]             = useState<any>(null)
-  const [evalDetail, setEvalDetail]               = useState<any>(null)
+  const [evalTokens, setEvalTokens]           = useState<any[]>([])
+  const [evalInviteModal, setEvalInviteModal] = useState<{ type: 'mentor' | 'church'; name: string; email: string } | null>(null)
+  const [isSendingEval, setIsSendingEval]     = useState(false)
+  const [viewingEval, setViewingEval]         = useState<any>(null)
+  const [evalDetail, setEvalDetail]           = useState<any>(null)
   const [loadingEvalDetail, setLoadingEvalDetail] = useState(false)
 
   function flash(text: string, type: 'success' | 'error') {
@@ -90,25 +90,43 @@ export default function CandidateDetailPage() {
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
   }
 
-  async function handleGenerateEvalToken(type: 'mentor' | 'church') {
-    setIsGeneratingEval(type)
-    const { data: { user } } = await supabase.auth.getUser()
-    const { error } = await supabase
-      .from('evaluation_tokens')
-      .insert({ ordinand_id: id, eval_type: type, created_by: user?.id })
-    if (error) { flash('Error generating evaluation link: ' + error.message, 'error') }
-    else { flash(`${type === 'mentor' ? 'Mentor' : 'Church board'} evaluation link generated.`, 'success'); fetchData(true) }
-    setIsGeneratingEval(null)
+  function openEvalInviteModal(type: 'mentor' | 'church') {
+    setEvalInviteModal({
+      type,
+      name:  type === 'mentor' ? (candidate?.mentor_name  || '') : '',
+      email: type === 'mentor' ? (candidate?.mentor_email || '') : '',
+    })
   }
 
-  function evalUrl(token: string) {
-    return `https://ordination.canadianmidwest.ca/eval/${token}`
-  }
+  async function handleSendEvalInvite() {
+    if (!evalInviteModal) return
+    if (!evalInviteModal.name.trim() || !evalInviteModal.email.trim()) {
+      flash('Recipient name and email address are required.', 'error')
+      return
+    }
+    setIsSendingEval(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { flash('Session expired — please refresh.', 'error'); setIsSendingEval(false); return }
 
-  async function copyEvalLink(token: string) {
-    await navigator.clipboard.writeText(evalUrl(token))
-    setCopiedEvalToken(token)
-    setTimeout(() => setCopiedEvalToken(null), 2500)
+    const res = await fetch('/api/admin/send-evaluation-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        ordinandId:     id,
+        ordinandName:   `${candidate.first_name} ${candidate.last_name}`,
+        evalType:       evalInviteModal.type,
+        recipientName:  evalInviteModal.name.trim(),
+        recipientEmail: evalInviteModal.email.trim().toLowerCase(),
+      }),
+    })
+    const result = await res.json()
+    if (!res.ok) { flash('Error: ' + result.error, 'error') }
+    else {
+      flash(`${evalInviteModal.type === 'mentor' ? 'Mentor' : 'Church board'} evaluation invitation sent to ${evalInviteModal.name}.`, 'success')
+      setEvalInviteModal(null)
+      fetchData(true)
+    }
+    setIsSendingEval(false)
   }
 
   async function loadEvalDetail(evalTokenId: string) {
@@ -741,14 +759,13 @@ CMD Ordaining Council`
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-8 py-5 border-b border-slate-100">
               <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">External Evaluations</h2>
-              <p className="text-xs text-slate-400 font-medium mt-1">Sent once, near the end of the ordinand's journey before the oral interview. Recipients do not need a portal account.</p>
+              <p className="text-xs text-slate-400 font-medium mt-1">Sent once, near the end of the ordinand's journey before the oral interview. Recipients complete the form without a portal account.</p>
             </div>
             <div className="divide-y divide-slate-100">
               {(['mentor', 'church'] as const).map(type => {
                 const typeLabel = type === 'mentor' ? 'Mentor Evaluation' : 'Church Board Evaluation'
-                const icon = type === 'mentor' ? '🤝' : '⛪'
-                // Most recent token of this type
-                const tok = evalTokens.find(t => t.eval_type === type)
+                const icon      = type === 'mentor' ? '🤝' : '⛪'
+                const tok       = evalTokens.find(t => t.eval_type === type)
                 return (
                   <div key={type} className="px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-start gap-3">
@@ -756,22 +773,19 @@ CMD Ordaining Council`
                       <div>
                         <p className="font-bold text-slate-900 text-sm">{typeLabel}</p>
                         {tok ? (
-                          <div className="mt-1 space-y-1">
+                          <div className="mt-1 space-y-0.5">
                             <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${tok.status === 'submitted' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {tok.status === 'submitted' ? '✓ Submitted' : '⏳ Pending'}
+                              {tok.status === 'submitted' ? '✓ Submitted' : '⏳ Awaiting response'}
                             </span>
-                            {tok.status === 'submitted' && tok.submitted_at && (
-                              <p className="text-xs text-slate-400 font-medium">
-                                Received {new Date(tok.submitted_at).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
-                                {tok.evaluator_name ? ` · ${tok.evaluator_name}` : ''}
-                              </p>
-                            )}
-                            {tok.status === 'pending' && (
-                              <p className="text-xs text-slate-400 font-medium break-all">{evalUrl(tok.token)}</p>
-                            )}
+                            <p className="text-xs text-slate-400 font-medium">
+                              {tok.status === 'submitted'
+                                ? `Received ${new Date(tok.submitted_at).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}${tok.evaluator_name ? ` · ${tok.evaluator_name}` : ''}`
+                                : `Sent to ${tok.evaluator_name || 'recipient'}${tok.evaluator_email ? ` (${tok.evaluator_email})` : ''}`
+                              }
+                            </p>
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-400 font-medium mt-0.5">No link generated yet</p>
+                          <p className="text-xs text-slate-400 font-medium mt-0.5">Not yet sent</p>
                         )}
                       </div>
                     </div>
@@ -785,18 +799,17 @@ CMD Ordaining Council`
                         </button>
                       ) : tok?.status === 'pending' ? (
                         <button
-                          onClick={() => copyEvalLink(tok.token)}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${copiedEvalToken === tok.token ? 'bg-green-600 text-white' : 'bg-[#0077C8] text-white hover:bg-[#00426A]'}`}
+                          onClick={() => openEvalInviteModal(type)}
+                          className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
                         >
-                          {copiedEvalToken === tok.token ? '✓ Copied!' : 'Copy Link'}
+                          Resend Invitation
                         </button>
                       ) : (
                         <button
-                          onClick={() => handleGenerateEvalToken(type)}
-                          disabled={isGeneratingEval === type}
-                          className="px-4 py-2 bg-[#00426A] text-white rounded-xl text-xs font-bold hover:bg-[#003558] transition-all disabled:opacity-50"
+                          onClick={() => openEvalInviteModal(type)}
+                          className="px-4 py-2 bg-[#00426A] text-white rounded-xl text-xs font-bold hover:bg-[#003558] transition-all"
                         >
-                          {isGeneratingEval === type ? 'Generating…' : 'Generate Link'}
+                          Send Invitation →
                         </button>
                       )}
                     </div>
@@ -805,6 +818,109 @@ CMD Ordaining Council`
               })}
             </div>
           </div>
+
+          {/* Send evaluation invitation modal */}
+          {evalInviteModal && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden">
+                <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-black text-[#0077C8] uppercase tracking-widest mb-1">
+                      {evalInviteModal.type === 'mentor' ? 'Mentor Evaluation' : 'Church Board Evaluation'}
+                    </p>
+                    <h3 className="text-lg font-black text-slate-900">Send Invitation</h3>
+                    <p className="text-sm text-slate-400 font-medium mt-0.5">{candidate?.first_name} {candidate?.last_name}</p>
+                  </div>
+                  <button onClick={() => setEvalInviteModal(null)} className="text-slate-400 hover:text-slate-700 font-black text-xl mt-1">✕</button>
+                </div>
+
+                <div className="px-8 py-6 space-y-5">
+                  {/* Recipient fields */}
+                  <div>
+                    <label className={labelClass}>
+                      {evalInviteModal.type === 'mentor' ? 'Mentor Name' : 'Recipient Name'}
+                    </label>
+                    <input
+                      className={inputClass}
+                      value={evalInviteModal.name}
+                      onChange={e => setEvalInviteModal(m => m ? { ...m, name: e.target.value } : m)}
+                      placeholder="Full name"
+                    />
+                    {evalInviteModal.type === 'mentor' && !candidate?.mentor_name && (
+                      <p className="text-xs text-amber-600 font-medium mt-1">⚠ No mentor name on file — add it in the profile section above.</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      {evalInviteModal.type === 'mentor' ? 'Mentor Email Address' : 'Recipient Email Address'}
+                    </label>
+                    <input
+                      className={inputClass}
+                      type="email"
+                      value={evalInviteModal.email}
+                      onChange={e => setEvalInviteModal(m => m ? { ...m, email: e.target.value } : m)}
+                      placeholder="email@example.com"
+                    />
+                    {evalInviteModal.type === 'mentor' && !candidate?.mentor_email && (
+                      <p className="text-xs text-amber-600 font-medium mt-1">⚠ No mentor email on file — add it in the profile section above.</p>
+                    )}
+                  </div>
+
+                  {/* Email preview */}
+                  <div>
+                    <label className={labelClass}>Email Preview</label>
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden text-sm">
+                      {/* Preview header */}
+                      <div style={{ background: '#00426A', borderBottom: '3px solid #0077C8', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img src="https://i.imgur.com/ZHqDQJC.png" style={{ height: '24px' }} alt="CMD" />
+                        <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '12px', letterSpacing: '0.05em' }}>CMD ORDINATION PORTAL</span>
+                      </div>
+                      {/* Preview body */}
+                      <div className="p-5 bg-white space-y-3 text-slate-600 leading-relaxed">
+                        <p>Dear <strong className="text-slate-800">{evalInviteModal.name || '[Recipient Name]'}</strong>,</p>
+                        <p className="text-xs">
+                          {evalInviteModal.type === 'mentor'
+                            ? `You are receiving this message because you have been serving as the ministry mentor for `
+                            : `You are receiving this message as a representative of the Board of Elders for the church where `
+                          }
+                          <strong className="text-slate-800">{candidate?.first_name} {candidate?.last_name}</strong>
+                          {evalInviteModal.type === 'mentor' ? '.' : ' serves in ministry.'}
+                        </p>
+                        <p className="text-xs">
+                          As {candidate?.first_name} approaches the final stage of the ordination process with the Canadian Midwest District,
+                          the Ordaining Council is gathering evaluations from those who know them best in ministry context.
+                          Your honest and thoughtful response is an important part of this process.
+                        </p>
+                        <div className="py-1">
+                          <span className="inline-block bg-[#00426A] text-white px-5 py-2.5 rounded-lg font-bold text-xs">Complete the Evaluation →</span>
+                        </div>
+                        <p className="text-xs text-slate-400">This link is personal to you and expires after a single submission. The form takes approximately 15–20 minutes to complete.</p>
+                      </div>
+                      {/* Preview footer */}
+                      <div className="bg-slate-50 border-t border-slate-200 py-3 px-5 text-center">
+                        <p className="text-xs text-slate-400">Canadian Midwest District · The Alliance Canada · ordination.canadianmidwest.ca</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      onClick={handleSendEvalInvite}
+                      disabled={isSendingEval || !evalInviteModal.name.trim() || !evalInviteModal.email.trim()}
+                      className="px-6 py-3 rounded-xl font-black text-sm text-white transition-all disabled:opacity-50"
+                      style={{ backgroundColor: isSendingEval ? '#aaa' : '#00426A', cursor: isSendingEval ? 'not-allowed' : 'pointer' }}
+                    >
+                      {isSendingEval ? 'Sending…' : 'Send Invitation'}
+                    </button>
+                    <button onClick={() => setEvalInviteModal(null)} className="px-6 py-3 rounded-xl font-bold text-sm text-slate-500 hover:text-slate-800 transition-colors">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Evaluation response modal */}
           {viewingEval && (
