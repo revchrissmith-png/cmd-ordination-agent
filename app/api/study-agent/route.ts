@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { messages } = await req.json()
+    const { messages, studyHistory } = await req.json()
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response('Invalid request: messages array required', { status: 400 })
@@ -298,6 +298,14 @@ export async function POST(req: NextRequest) {
     // Apply rolling window — only send the most recent MAX_MESSAGES to the model
     const cappedMessages = messages.slice(-MAX_MESSAGES)
 
+    // Inject past-session history into the system prompt if provided.
+    // Appended rather than prepended so the core instructions always take priority.
+    // studyHistory is a plain-text block built client-side from pardington_logs.
+    const effectiveSystemPrompt =
+      studyHistory && typeof studyHistory === 'string' && studyHistory.trim()
+        ? `${SYSTEM_PROMPT}\n\n${studyHistory.trim()}`
+        : SYSTEM_PROMPT
+
     const encoder = new TextEncoder()
 
     const stream = new ReadableStream({
@@ -306,7 +314,7 @@ export async function POST(req: NextRequest) {
           const anthropicStream = client.messages.stream({
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 1024,
-            system: SYSTEM_PROMPT,
+            system: effectiveSystemPrompt,
             messages: cappedMessages.map((m: { role: string; content: string }) => ({
               role: m.role as 'user' | 'assistant',
               content: m.content,

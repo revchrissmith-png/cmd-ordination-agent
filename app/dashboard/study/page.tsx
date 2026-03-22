@@ -26,26 +26,106 @@ const SUGGESTED_QUESTIONS = [
 ]
 
 export default function PardingtonPage() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const [messages, setMessages]           = useState<Message[]>([])
+  const [input, setInput]                 = useState('')
+  const [isLoading, setIsLoading]         = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const bottomRef   = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Session identity — stable for the lifetime of this page load.
-  // A new UUID is generated each time the page mounts, so navigating
-  // away and back starts a fresh session row in pardington_logs.
   const sessionId  = useRef<string>(crypto.randomUUID())
   const startedAt  = useRef<string>(new Date().toISOString())
   const ordinandId = useRef<string | null>(null)
 
+  // Plain-text history summary injected into the system prompt each turn.
+  // Built once from older sessions; never changes during a session.
+  const studyHistory = useRef<string>('')
+
+  // Build the history context block from sessions older than the one being resumed.
+  // Extracts user questions up to MAX_CHARS so the token cost stays bounded.
+  function buildHistorySummary(sessions: Array<{ messages: Message[]; started_at: string }>): string {
+    const MAX_CHARS = 2500
+    const lines: string[] = []
+    let charCount = 0
+
+    for (const session of sessions) {
+      if (charCount >= MAX_CHARS) break
+      const userMsgs = session.messages.filter(m => m.role === 'user')
+      if (userMsgs.length === 0) continue
+
+      const date = new Date(session.started_at).toLocaleDateString('en-CA', {
+        month: 'long', day: 'numeric', year: 'numeric',
+      })
+      lines.push(`[${date}]`)
+
+      for (const msg of userMsgs) {
+        const excerpt = msg.content.length > 160
+          ? msg.content.slice(0, 157) + '…'
+          : msg.content
+        lines.push(`- "${excerpt}"`)
+        charCount += excerpt.length + 5
+        if (charCount >= MAX_CHARS) break
+      }
+      lines.push('')
+    }
+
+    if (lines.length === 0) return ''
+
+    const sessionWord = sessions.length === 1 ? 'session' : 'sessions'
+    return [
+      '---',
+      '',
+      '## Your conversation history with this ordinand',
+      '',
+      `You have spoken with this ordinand in ${sessions.length} previous ${sessionWord}. Here are the questions and topics they raised:`,
+      '',
+      ...lines,
+      'Use this history to build naturally on what they have already explored. Do not re-explain things they have clearly worked through. Notice topics they return to repeatedly — these may be areas they are wrestling with or find particularly meaningful. Greet them as someone you already know, not as a stranger.',
+    ].join('\n')
+  }
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setIsLoadingHistory(false); return }
       ordinandId.current = user.id
       logActivity(user.id, 'pardington', '/dashboard/study')
+
+      // Fetch recent sessions — most recent first.
+      // Index 0 = resume candidate; indices 1–5 = history for system prompt.
+      const { data: logs } = await supabase
+        .from('pardington_logs')
+        .select('session_id, messages, started_at')
+        .eq('ordinand_id', user.id)
+        .order('started_at', { ascending: false })
+        .limit(6)
+
+      if (logs && logs.length > 0) {
+        // Option 2 — Resume the most recent session
+        const latest = logs[0] as { session_id: string; messages: Message[]; started_at: string }
+        if (latest.messages && latest.messages.length > 0) {
+          setMessages(latest.messages)
+          sessionId.current = latest.session_id   // continue upsetting the same row
+          startedAt.current = latest.started_at
+        }
+
+        // Option 1 — Build topic history from older sessions for the system prompt
+        if (logs.length > 1) {
+          const older = logs.slice(1) as Array<{ messages: Message[]; started_at: string }>
+          studyHistory.current = buildHistorySummary(older)
+        }
+      }
+
+      setIsLoadingHistory(false)
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Start a completely fresh conversation (new session row, empty chat)
+  function startNewConversation() {
+    sessionId.current = crypto.randomUUID()
+    startedAt.current = new Date().toISOString()
+    setMessages([])
+  }
 
   // Persist the completed conversation to pardington_logs.
   // Uses an upsert on session_id so each page-load accumulates into
@@ -92,7 +172,7 @@ export default function PardingtonPage() {
           'Content-Type': 'application/json',
           ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ messages: updatedMessages }),
+        body: JSON.stringify({ messages: updatedMessages, studyHistory: studyHistory.current }),
       })
 
       if (!res.ok || !res.body) throw new Error('Request failed')
@@ -151,9 +231,19 @@ export default function PardingtonPage() {
             <div style={{ color: '#90C8F0', fontSize: '0.65rem', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ordination Study Partner</div>
           </div>
         </div>
-        <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>
-          ← Dashboard
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {messages.length > 0 && (
+            <button
+              onClick={startNewConversation}
+              style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', background: 'none', border: '1px solid rgba(144,200,240,0.4)', borderRadius: '6px', padding: '0.3rem 0.75rem', cursor: 'pointer' }}
+            >
+              + New conversation
+            </button>
+          )}
+          <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>
+            ← Dashboard
+          </Link>
+        </div>
       </header>
 
       {/* Integrity banner */}
@@ -167,7 +257,18 @@ export default function PardingtonPage() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '1.2rem 1rem' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-          {messages.length === 0 && (
+          {isLoadingHistory && (
+            <div style={{ textAlign: 'center', padding: '4rem 0', color: '#94a3b8', fontSize: '0.85rem' }}>
+              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                {[0, 150, 300].map(delay => (
+                  <span key={delay} style={{ width: '8px', height: '8px', backgroundColor: C.allianceBlue, borderRadius: '50%', display: 'inline-block', animation: 'bounce 1s infinite', animationDelay: `${delay}ms`, opacity: 0.5 }} />
+                ))}
+              </div>
+              Picking up where you left off…
+            </div>
+          )}
+
+          {!isLoadingHistory && messages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '2.5rem 0' }}>
               <img
                 src="/pardington-portrait.png"
@@ -201,7 +302,7 @@ export default function PardingtonPage() {
                 ))}
               </div>
             </div>
-          )}
+          )} {/* end !isLoadingHistory && messages.length === 0 */}
 
           {messages.map((msg, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-start', gap: '0.6rem' }}>
