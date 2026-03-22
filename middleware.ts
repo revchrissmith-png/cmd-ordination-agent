@@ -1,14 +1,19 @@
 // middleware.ts
-// Server-side route protection using @supabase/ssr.
-// Runs at the Edge before any page or API route is rendered.
-// Redirects unauthenticated requests for /dashboard and /handbook to the login page.
-// Public routes (/eval, /api, /auth) are intentionally left unguarded here —
-// the eval form is token-gated, and API routes handle their own auth checks.
+// Session-refresh middleware using @supabase/ssr.
+// Runs at the Edge before every page render and keeps the auth cookie
+// fresh so server components (and future SSR pages) always have a valid token.
+//
+// NOTE: Route-level auth protection (redirecting unauthenticated users to login)
+// is handled client-side in each page component. The middleware intentionally does
+// NOT redirect here because of a timing race: immediately after OTP verification the
+// session cookie may not yet be readable by the Edge runtime, which causes an
+// infinite redirect loop (middleware bounces to /, login page tries /dashboard again).
+// Revisit once the cookie timing is confirmed stable across deployments.
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // Build a mutable response so the Supabase client can refresh cookies if needed
+  // Build a mutable response so the Supabase client can write refreshed cookies
   let response = NextResponse.next({
     request: { headers: request.headers },
   })
@@ -22,13 +27,9 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          // First write the new cookie values onto the request so
-          // downstream server components see the refreshed session
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
-          // Then rebuild the response so the updated cookies are sent
-          // back to the browser
           response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
@@ -38,22 +39,11 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // getUser() validates the session with the Supabase server — it is the
-  // authoritative check. getSession() alone only reads the local cookie and
-  // should not be trusted for access control decisions.
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
-
-  // Protect every route under /dashboard and /handbook
-  const isProtected =
-    pathname.startsWith('/dashboard') || pathname.startsWith('/handbook')
-
-  if (isProtected && !user) {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/'
-    return NextResponse.redirect(loginUrl)
-  }
+  // Refresh the session token if it is close to expiry.
+  // We call getUser() (not getSession()) because getUser() performs a
+  // server-side token validation and triggers a token refresh when needed.
+  // We intentionally ignore the return value here — no redirect on failure.
+  await supabase.auth.getUser()
 
   return response
 }
