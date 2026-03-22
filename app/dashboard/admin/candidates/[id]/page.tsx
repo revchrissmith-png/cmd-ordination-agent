@@ -77,9 +77,49 @@ export default function CandidateDetailPage() {
   // Grader selector inside grade modal
   const [modalGraderId, setModalGraderId] = useState<string>('')
 
+  // External evaluation tokens
+  const [evalTokens, setEvalTokens]               = useState<any[]>([])
+  const [isGeneratingEval, setIsGeneratingEval]   = useState<'mentor' | 'church' | null>(null)
+  const [copiedEvalToken, setCopiedEvalToken]     = useState<string | null>(null)
+  const [viewingEval, setViewingEval]             = useState<any>(null)
+  const [evalDetail, setEvalDetail]               = useState<any>(null)
+  const [loadingEvalDetail, setLoadingEvalDetail] = useState(false)
+
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
+  }
+
+  async function handleGenerateEvalToken(type: 'mentor' | 'church') {
+    setIsGeneratingEval(type)
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase
+      .from('evaluation_tokens')
+      .insert({ ordinand_id: id, eval_type: type, created_by: user?.id })
+    if (error) { flash('Error generating evaluation link: ' + error.message, 'error') }
+    else { flash(`${type === 'mentor' ? 'Mentor' : 'Church board'} evaluation link generated.`, 'success'); fetchData(true) }
+    setIsGeneratingEval(null)
+  }
+
+  function evalUrl(token: string) {
+    return `https://ordination.canadianmidwest.ca/eval/${token}`
+  }
+
+  async function copyEvalLink(token: string) {
+    await navigator.clipboard.writeText(evalUrl(token))
+    setCopiedEvalToken(token)
+    setTimeout(() => setCopiedEvalToken(null), 2500)
+  }
+
+  async function loadEvalDetail(evalTokenId: string) {
+    setLoadingEvalDetail(true)
+    const { data } = await supabase
+      .from('evaluations')
+      .select('*')
+      .eq('token_id', evalTokenId)
+      .single()
+    setEvalDetail(data)
+    setLoadingEvalDetail(false)
   }
 
   async function fetchData(silent = false) {
@@ -110,6 +150,13 @@ export default function CandidateDetailPage() {
       .select('id, name, year, season, sermon_topic')
       .order('year', { ascending: false })
     setCohorts(cohortList || [])
+
+    const { data: tokens } = await supabase
+      .from('evaluation_tokens')
+      .select('id, token, eval_type, evaluator_name, status, submitted_at, created_at')
+      .eq('ordinand_id', id)
+      .order('created_at', { ascending: false })
+    setEvalTokens(tokens || [])
 
     if (!silent) setLoading(false)
   }
@@ -687,6 +734,169 @@ CMD Ordaining Council`
             <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
               <p className="text-slate-400 font-bold">No requirements found for this ordinand.</p>
               <p className="text-slate-300 text-sm font-medium mt-1">Requirements are generated automatically when a cohort is assigned during registration.</p>
+            </div>
+          )}
+
+          {/* External Evaluations */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-8 py-5 border-b border-slate-100">
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">External Evaluations</h2>
+              <p className="text-xs text-slate-400 font-medium mt-1">Sent once, near the end of the ordinand's journey before the oral interview. Recipients do not need a portal account.</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {(['mentor', 'church'] as const).map(type => {
+                const typeLabel = type === 'mentor' ? 'Mentor Evaluation' : 'Church Board Evaluation'
+                const icon = type === 'mentor' ? '🤝' : '⛪'
+                // Most recent token of this type
+                const tok = evalTokens.find(t => t.eval_type === type)
+                return (
+                  <div key={type} className="px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl mt-0.5">{icon}</span>
+                      <div>
+                        <p className="font-bold text-slate-900 text-sm">{typeLabel}</p>
+                        {tok ? (
+                          <div className="mt-1 space-y-1">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${tok.status === 'submitted' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {tok.status === 'submitted' ? '✓ Submitted' : '⏳ Pending'}
+                            </span>
+                            {tok.status === 'submitted' && tok.submitted_at && (
+                              <p className="text-xs text-slate-400 font-medium">
+                                Received {new Date(tok.submitted_at).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                {tok.evaluator_name ? ` · ${tok.evaluator_name}` : ''}
+                              </p>
+                            )}
+                            {tok.status === 'pending' && (
+                              <p className="text-xs text-slate-400 font-medium break-all">{evalUrl(tok.token)}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 font-medium mt-0.5">No link generated yet</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {tok?.status === 'submitted' ? (
+                        <button
+                          onClick={() => { setViewingEval(tok); loadEvalDetail(tok.id) }}
+                          className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
+                        >
+                          View Response
+                        </button>
+                      ) : tok?.status === 'pending' ? (
+                        <button
+                          onClick={() => copyEvalLink(tok.token)}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${copiedEvalToken === tok.token ? 'bg-green-600 text-white' : 'bg-[#0077C8] text-white hover:bg-[#00426A]'}`}
+                        >
+                          {copiedEvalToken === tok.token ? '✓ Copied!' : 'Copy Link'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleGenerateEvalToken(type)}
+                          disabled={isGeneratingEval === type}
+                          className="px-4 py-2 bg-[#00426A] text-white rounded-xl text-xs font-bold hover:bg-[#003558] transition-all disabled:opacity-50"
+                        >
+                          {isGeneratingEval === type ? 'Generating…' : 'Generate Link'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Evaluation response modal */}
+          {viewingEval && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b border-slate-100 px-8 py-5 flex justify-between items-start rounded-t-3xl">
+                  <div>
+                    <p className="text-xs font-black text-[#0077C8] uppercase tracking-widest mb-1">
+                      {viewingEval.eval_type === 'mentor' ? 'Mentor Evaluation' : 'Church Board Evaluation'}
+                    </p>
+                    <h3 className="text-lg font-black text-slate-900">{candidate?.first_name} {candidate?.last_name}</h3>
+                    {evalDetail?.evaluator_name && <p className="text-sm text-slate-400 font-medium mt-0.5">Submitted by {evalDetail.evaluator_name}</p>}
+                  </div>
+                  <button onClick={() => { setViewingEval(null); setEvalDetail(null) }} className="text-slate-400 hover:text-slate-700 font-black text-xl">✕</button>
+                </div>
+                <div className="px-8 py-6 space-y-6">
+                  {loadingEvalDetail ? (
+                    <p className="text-slate-400 text-center font-medium py-8">Loading response…</p>
+                  ) : evalDetail ? (
+                    <>
+                      {viewingEval.eval_type === 'church' && evalDetail.ministry_start_date && (
+                        <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Ministry Commenced</p>
+                          <p className="text-sm font-medium text-slate-800">{new Date(evalDetail.ministry_start_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                        </div>
+                      )}
+                      {viewingEval.eval_type === 'church' && evalDetail.board_member_position && (
+                        <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Board Position</p>
+                          <p className="text-sm font-medium text-slate-800">{evalDetail.board_member_position}</p>
+                        </div>
+                      )}
+                      {[
+                        { key: 'q1_call', label: "1. God's Call" },
+                        { key: 'q2_strengths', label: '2. Ministry Strengths' },
+                        { key: 'q3_development', label: '3. Areas for Development' },
+                      ].map(({ key, label }) => evalDetail[key] && (
+                        <div key={key}>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                          <p className="text-sm font-medium text-slate-800 whitespace-pre-wrap">{evalDetail[key]}</p>
+                        </div>
+                      ))}
+                      {evalDetail.q4_ratings && Object.keys(evalDetail.q4_ratings).length > 0 && (
+                        <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">4. General Evaluation Ratings</p>
+                          <div className="space-y-2">
+                            {Object.entries(evalDetail.q4_ratings).map(([cat, rating]) => (
+                              <div key={cat} className="flex items-center justify-between gap-4 py-1 border-b border-slate-50">
+                                <p className="text-xs font-medium text-slate-600">{cat}</p>
+                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold shrink-0 ${
+                                  rating === 'exceptional' ? 'bg-emerald-100 text-emerald-700' :
+                                  rating === 'excellent'   ? 'bg-blue-100 text-blue-700' :
+                                  rating === 'good'        ? 'bg-slate-100 text-slate-700' :
+                                  rating === 'adequate'    ? 'bg-amber-100 text-amber-700' :
+                                  'bg-red-100 text-red-700'
+                                }`}>{String(rating).charAt(0).toUpperCase() + String(rating).slice(1)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {[
+                        { key: 'q5a_spiritual_growth',    label: '5a. Spiritual Growth & Maturity' },
+                        { key: 'q5b_emotional_stability', label: '5b. Emotional Stability' },
+                        { key: 'q5c_family_relationship', label: '5c. Family Relationship' },
+                        { key: 'q6_moral_concern',        label: '6. Moral Life' },
+                        { key: 'q7_fruitfulness',         label: '7. Fruitfulness' },
+                      ].map(({ key, label }) => evalDetail[key] && (
+                        <div key={key}>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                          <p className="text-sm font-medium text-slate-800 whitespace-pre-wrap">{evalDetail[key]}</p>
+                        </div>
+                      ))}
+                      <div>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">8. Ordination Recommendation</p>
+                        <p className={`text-sm font-black ${evalDetail.q8_recommendation ? 'text-green-700' : 'text-red-700'}`}>
+                          {evalDetail.q8_recommendation ? '✓ Recommends for ordination' : '✕ Does not recommend for ordination'}
+                        </p>
+                        {evalDetail.q8_explanation && <p className="text-sm font-medium text-slate-700 mt-1 whitespace-pre-wrap">{evalDetail.q8_explanation}</p>}
+                      </div>
+                      {evalDetail.additional_comments && (
+                        <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Additional Comments</p>
+                          <p className="text-sm font-medium text-slate-800 whitespace-pre-wrap">{evalDetail.additional_comments}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-slate-400 text-center font-medium py-8">Could not load evaluation response.</p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

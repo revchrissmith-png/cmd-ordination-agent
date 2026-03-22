@@ -167,6 +167,11 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 **Grading assignments columns:** `id, ordinand_requirement_id, council_member_id, assigned_by, assigned_at, reassigned_at, notes`
 ⚠️ `ordinand_requirement_id` has a UNIQUE constraint — only one grading assignment per requirement. Always check for an existing one before inserting.
 
+**Evaluation tokens columns:** `id, token (uuid, unique), ordinand_id, eval_type ('mentor'|'church'), evaluator_name, evaluator_email, status ('pending'|'submitted'), submitted_at, created_by, created_at`
+⚠️ `token` is a separate UUID from `id` — it's the public-facing value in the URL. Query by `token` (not `id`) from the public form page.
+
+**Evaluations columns:** `id, token_id, ordinand_id, eval_type, evaluator_name, q1_call, q2_strengths, q3_development, q4_ratings (jsonb), q5a_spiritual_growth, q5b_emotional_stability, q5c_family_relationship, q6_moral_concern, q7_fruitfulness, q8_recommendation (boolean), q8_explanation, additional_comments, ministry_start_date (church only), board_member_position (church only), created_at`
+
 **Grades columns:** `id, submission_id, grading_assignment_id, overall_rating, overall_comments, graded_by, graded_at, paper_assessment (jsonb), sermon_section_comments (jsonb)`
 ⚠️ Grades have NO direct FK to `ordinand_requirements`. The chain is:
 `ordinand_requirements → submissions → grades`
@@ -231,6 +236,9 @@ app/
     study/
       page.tsx                      ✅ Pardington AI study agent chat UI
 
+  eval/
+    [token]/page.tsx                ✅ Public evaluation form (mentor & church board) — no auth required
+
   handbook/
     page.tsx                        ✅ Handbook wiki landing page (role-based entry + section index)
     content.ts                      ✅ All wiki content as typed data (8 sections, 42+ subsections)
@@ -261,6 +269,19 @@ The portal is in active beta migration from Moodle (the previous LMS used during
 ## 7. What Is NOT Built Yet
 
 Items are grouped by release phase as defined in the Alpha Report slide deck (March 2026).
+
+### ✅ External Evaluation Forms (Mentor & Church Board) — built March 2026
+
+- Secure token-based forms at `/eval/[token]` — no portal login required for evaluators
+- Admin generates a unique link per type (mentor / church board) from the ordinand's detail page
+- Link is a UUID token: `ordination.canadianmidwest.ca/eval/[token]` — unguessable, single-use
+- Form pre-fills ordinand name; evaluator sees CMD branding but no portal nav or auth wall
+- 8 questions matching the paper forms + 13-category rating grid using the 5-point scale with explanation block
+- Church board form adds: date ministry commenced, board member position
+- On submission: data saved to `evaluations` table, token marked submitted (cannot resubmit)
+- Admin sees live status (Pending / Submitted) on ordinand detail page with Copy Link or View Response
+- Database: `evaluation_tokens` and `evaluations` tables with RLS — anon can read token by UUID and insert; admins manage all
+- Sent once, near the end of the ordinand's journey before the oral interview
 
 ### Near-term UX gaps (no phase gate — build as needed)
 
