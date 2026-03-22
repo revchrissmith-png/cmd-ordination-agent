@@ -32,11 +32,43 @@ export default function PardingtonPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // Session identity — stable for the lifetime of this page load.
+  // A new UUID is generated each time the page mounts, so navigating
+  // away and back starts a fresh session row in pardington_logs.
+  const sessionId  = useRef<string>(crypto.randomUUID())
+  const startedAt  = useRef<string>(new Date().toISOString())
+  const ordinandId = useRef<string | null>(null)
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) logActivity(user.id, 'pardington', '/dashboard/study')
+      if (!user) return
+      ordinandId.current = user.id
+      logActivity(user.id, 'pardington', '/dashboard/study')
     })
   }, [])
+
+  // Persist the completed conversation to pardington_logs.
+  // Uses an upsert on session_id so each page-load accumulates into
+  // one row regardless of how many exchanges happen in the session.
+  // Fire-and-forget — never blocks or throws into the UI.
+  async function saveSession(finalMessages: Message[]) {
+    if (!ordinandId.current) return
+    try {
+      await supabase.from('pardington_logs').upsert(
+        {
+          session_id:      sessionId.current,
+          ordinand_id:     ordinandId.current,
+          messages:        finalMessages,
+          message_count:   finalMessages.length,
+          started_at:      startedAt.current,
+          last_message_at: new Date().toISOString(),
+        },
+        { onConflict: 'session_id' }
+      )
+    } catch {
+      // Silently swallow — logging must never interrupt the conversation
+    }
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -79,6 +111,14 @@ export default function PardingtonPage() {
           return copy
         })
       }
+
+      // Stream complete — persist the full conversation (including the
+      // just-finished assistant response) to pardington_logs.
+      const completedMessages: Message[] = [
+        ...updatedMessages,
+        { role: 'assistant', content: accumulated },
+      ]
+      saveSession(completedMessages)
     } catch {
       setMessages(prev => {
         const copy = [...prev]

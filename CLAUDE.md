@@ -172,6 +172,10 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 
 **Evaluations columns:** `id, token_id, ordinand_id, eval_type, evaluator_name, q1_call, q2_strengths, q3_development, q4_ratings (jsonb), q5a_spiritual_growth, q5b_emotional_stability, q5c_family_relationship, q6_moral_concern, q7_fruitfulness, q8_recommendation (boolean), q8_explanation, additional_comments, ministry_start_date (church only), board_member_position (church only), created_at`
 
+**Pardington logs columns:** `id, session_id (uuid, unique — client-generated per page load), ordinand_id, messages (jsonb — [{role, content}] array), message_count, started_at, last_message_at, created_at`
+⚠️ One row per conversation session. Upsert on `session_id` so multiple exchanges in the same session update the same row. A new `session_id` is generated each time the study page mounts. Admins can SELECT all logs (for the AI Interview Brief); ordinands can only read/write their own.
+⚠️ `saveSession()` is fire-and-forget — errors are swallowed so logging never interrupts the conversation.
+
 **Grades columns:** `id, submission_id, grading_assignment_id, overall_rating, overall_comments, graded_by, graded_at, paper_assessment (jsonb), sermon_section_comments (jsonb)`
 ⚠️ Grades have NO direct FK to `ordinand_requirements`. The chain is:
 `ordinand_requirements → submissions → grades`
@@ -322,8 +326,8 @@ The headline v1.0 feature — before each oral interview, the system synthesizes
 - All 17 grades and rubric ratings
 - All council written feedback
 - All ordinand self-assessment text (papers)
-- Study agent conversation history
-- Future: mentor evaluations and board assessments
+- Study agent conversation history (✅ now logged in `pardington_logs` — one row per session, upserted after each exchange)
+- Mentor evaluations and church board evaluations (✅ now stored in `evaluations` table)
 
 **Delivery:** Generated on-demand from the ordinand's admin detail page; output as a formatted in-page report (and eventually downloadable PDF)
 
