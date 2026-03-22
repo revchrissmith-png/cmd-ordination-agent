@@ -239,14 +239,74 @@ export default function CandidateDetailPage() {
     doc.line(ML, y, PW - MR, y)
     y += 28
 
+    // ── Markdown helpers ─────────────────────────────────────────────────────
+    type Seg = { text: string; bold: boolean; italic: boolean }
+
+    function parseInline(text: string): Seg[] {
+      const segs: Seg[] = []
+      const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g
+      let last = 0, m: RegExpExecArray | null
+      while ((m = re.exec(text)) !== null) {
+        if (m.index > last) segs.push({ text: text.slice(last, m.index), bold: false, italic: false })
+        if (m[1] !== undefined) segs.push({ text: m[1], bold: true, italic: false })
+        else segs.push({ text: m[2], bold: false, italic: true })
+        last = re.lastIndex
+      }
+      if (last < text.length) segs.push({ text: text.slice(last), bold: false, italic: false })
+      return segs.filter(s => s.text.length > 0)
+    }
+
+    function stripInline(text: string): string {
+      return text.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1')
+    }
+
+    // Renders mixed bold/italic/normal segments word-by-word, returns line count
+    function renderFormatted(segs: Seg[], x: number, startY: number, maxW: number, fontSize: number, lineH: number): number {
+      const tokens: { word: string; bold: boolean; italic: boolean }[] = []
+      for (const seg of segs) {
+        for (const word of seg.text.split(/(\s+)/)) {
+          if (word) tokens.push({ word, bold: seg.bold, italic: seg.italic })
+        }
+      }
+      let cx = x, cy = startY, lines = 1
+      for (const t of tokens) {
+        if (/^\s+$/.test(t.word)) continue // spaces handled via prefix
+        const style = t.bold ? 'bold' : t.italic ? 'italic' : 'normal'
+        doc.setFont('helvetica', style)
+        doc.setFontSize(fontSize)
+        const prefix = cx > x ? ' ' : ''
+        const w = doc.getTextWidth(prefix + t.word)
+        if (cx > x && cx + w > x + maxW) {
+          cy += lineH; cx = x; lines++
+          doc.text(t.word, cx, cy)
+          cx += doc.getTextWidth(t.word)
+        } else {
+          doc.text(prefix + t.word, cx, cy)
+          cx += w
+        }
+      }
+      return lines
+    }
+
+    function estimateLines(plain: string, maxW: number, fontSize: number): number {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(fontSize)
+      return (doc.splitTextToSize(plain, maxW) as string[]).length
+    }
+
     // ── Brief content ────────────────────────────────────────────────────────
     const lines = briefContent.split('\n')
     for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed || trimmed === '---') { y += 5; continue }
 
-      if (KNOWN_HEADERS.has(trimmed)) {
-        // Section header with blue left-bar
+      // ## headers — strip prefix, check if it's a known section or a sub-header
+      const isMarkdownHeader = /^#{1,3}\s/.test(trimmed)
+      const headerText = isMarkdownHeader ? trimmed.replace(/^#+\s*/, '') : trimmed
+      const headerKey = headerText.toUpperCase()
+
+      if (KNOWN_HEADERS.has(headerKey) || KNOWN_HEADERS.has(trimmed)) {
+        // Full section header with blue left-bar
         y += 8
         checkBreak(30)
         doc.setFillColor(235, 245, 255)
@@ -256,32 +316,42 @@ export default function CandidateDetailPage() {
         doc.setTextColor(0, 66, 106)
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(9.5)
-        doc.text(trimmed, ML + 8, y + 2)
+        doc.text(headerKey, ML + 8, y + 2)
         y += 20
 
+      } else if (isMarkdownHeader) {
+        // Sub-header (## or ### not in the known list)
+        checkBreak(22)
+        doc.setTextColor(0, 66, 106)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.text(stripInline(headerText), ML, y)
+        y += 18
+
       } else if (/^[-•]\s/.test(trimmed) || /^\d+\.\s/.test(trimmed)) {
-        // Bullet or numbered item
+        // Bullet or numbered item — strip bullet, parse inline formatting
         const isNumbered = /^\d+\.\s/.test(trimmed)
-        const bulletChar = isNumbered ? trimmed.match(/^(\d+\.)/)?.[1] ?? '•' : '•'
-        const text = trimmed.replace(/^[-•]\s+/, '').replace(/^\d+\.\s+/, '')
-        const wrapped = doc.splitTextToSize(text, CW - 18) as string[]
-        checkBreak(wrapped.length * 13 + 4)
+        const bulletChar = isNumbered ? (trimmed.match(/^(\d+\.)/)?.[1] ?? '•') : '•'
+        const itemText = trimmed.replace(/^[-•]\s+/, '').replace(/^\d+\.\s+/, '')
+        const plain = stripInline(itemText)
+        const est = estimateLines(plain, CW - 18, 10)
+        checkBreak(est * 13 + 4)
         doc.setTextColor(30, 41, 59)
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
         doc.text(bulletChar, ML + 4, y)
-        doc.text(wrapped, ML + 18, y)
-        y += wrapped.length * 13 + 4
+        const rendered = renderFormatted(parseInline(itemText), ML + 18, y, CW - 18, 10, 13)
+        y += rendered * 13 + 4
 
       } else {
-        // Body paragraph
-        const wrapped = doc.splitTextToSize(trimmed, CW) as string[]
-        checkBreak(wrapped.length * 14 + 4)
+        // Body paragraph — parse inline formatting
+        const plain = stripInline(trimmed)
+        const est = estimateLines(plain, CW, 10)
+        checkBreak(est * 14 + 4)
         doc.setTextColor(30, 41, 59)
-        doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
-        doc.text(wrapped, ML, y)
-        y += wrapped.length * 14 + 4
+        const rendered = renderFormatted(parseInline(trimmed), ML, y, CW, 10, 14)
+        y += rendered * 14 + 4
       }
     }
 
