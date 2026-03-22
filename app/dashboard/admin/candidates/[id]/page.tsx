@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
+import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../utils/selfAssessmentQuestions'
 
 type Rating = 'insufficient' | 'adequate' | 'good' | 'excellent' | 'exceptional'
 type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
@@ -73,6 +74,14 @@ export default function CandidateDetailPage() {
   const [uploadingReqId, setUploadingReqId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadDate, setUploadDate] = useState<string>(() => new Date().toISOString().split('T')[0])
+
+  // Self-assessment modal state
+  const [saReq, setSaReq] = useState<any | null>(null)
+  const [saQuestionRatings, setSaQuestionRatings] = useState<Record<string, string>>({})
+  const [saCompletenessEvidence, setSaCompletenessEvidence] = useState('')
+  const [saRatings, setSaRatings] = useState<Record<string, string>>({})
+  const [saEvidence, setSaEvidence] = useState<Record<string, string>>({})
+  const [isSavingSA, setIsSavingSA] = useState(false)
 
   // Grader selector inside grade modal
   const [modalGraderId, setModalGraderId] = useState<string>('')
@@ -151,7 +160,7 @@ export default function CandidateDetailPage() {
 
     const { data: reqs } = await supabase
       .from('ordinand_requirements')
-      .select(`id, status, updated_at, requirement_templates(id, type, topic, book_category, title, display_order), grading_assignments(id, council_member_id), submissions(id, file_url, grades(id, overall_rating, overall_comments, graded_at))`)
+      .select(`id, status, updated_at, requirement_templates(id, type, topic, book_category, title, display_order), grading_assignments(id, council_member_id), submissions(id, file_url, self_assessment, grades(id, overall_rating, overall_comments, graded_at))`)
       .eq('ordinand_id', id)
       .order('id')
     setRequirements(reqs || [])
@@ -374,6 +383,54 @@ CMD Ordaining Council`
     setRating('')
     setComments('')
     setModalGraderId('')
+  }
+
+  function openSelfAssessmentModal(req: any) {
+    const submission = Array.isArray(req.submissions) ? req.submissions[0] : req.submissions
+    if (submission?.self_assessment?.version === 2) {
+      const s = submission.self_assessment.sections || {}
+      setSaQuestionRatings(s.completeness?.question_ratings || {})
+      setSaCompletenessEvidence(s.completeness?.evidence || '')
+      const ratings: Record<string, string> = {}
+      const evidence: Record<string, string> = {}
+      PAPER_SECTIONS.filter(p => p.id !== 'completeness').forEach(section => {
+        ratings[section.id] = s[section.id]?.rating || ''
+        evidence[section.id] = s[section.id]?.evidence || ''
+      })
+      setSaRatings(ratings)
+      setSaEvidence(evidence)
+    } else {
+      setSaQuestionRatings({})
+      setSaCompletenessEvidence('')
+      setSaRatings({})
+      setSaEvidence({})
+    }
+    setSaReq(req)
+  }
+
+  async function handleSaveSelfAssessment() {
+    if (!saReq) return
+    const submission = Array.isArray(saReq.submissions) ? saReq.submissions[0] : saReq.submissions
+    if (!submission?.id) { flash('No submission found — upload the file first.', 'error'); return }
+    setIsSavingSA(true)
+    const sectionData: Record<string, any> = {
+      completeness: { question_ratings: saQuestionRatings, evidence: saCompletenessEvidence },
+    }
+    PAPER_SECTIONS.filter(s => s.id !== 'completeness').forEach(section => {
+      sectionData[section.id] = { rating: saRatings[section.id] || '', evidence: saEvidence[section.id] || '' }
+    })
+    const { error } = await supabase
+      .from('submissions')
+      .update({ self_assessment: { version: 2, sections: sectionData } })
+      .eq('id', submission.id)
+    if (error) {
+      flash('Failed to save self-assessment: ' + error.message, 'error')
+    } else {
+      flash('Self-assessment saved', 'success')
+      setSaReq(null)
+      fetchData()
+    }
+    setIsSavingSA(false)
   }
 
   async function handleSaveGrade() {
@@ -681,6 +738,22 @@ CMD Ordaining Council`
                               </button>
                             )
                           )}
+                          {/* Self-assessment entry for paper requirements */}
+                          {(() => {
+                            const isPaper = req.requirement_templates?.type === 'paper'
+                            const hasSub = !!(Array.isArray(req.submissions) ? req.submissions[0] : req.submissions)?.id
+                            const hasSA = !!(Array.isArray(req.submissions) ? req.submissions[0] : req.submissions)?.self_assessment
+                            if (!isPaper || !hasSub) return null
+                            return (
+                              <button
+                                onClick={() => openSelfAssessmentModal(req)}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${hasSA ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}
+                                title={hasSA ? 'Edit ordinand self-assessment' : 'Add ordinand self-assessment'}
+                              >
+                                {hasSA ? '📋 Self-assessment ✓' : '📋 Self-assessment'}
+                              </button>
+                            )
+                          })()}
                           {(status === 'submitted' || status === 'under_review') && (
                             <button
                               onClick={() => { setSelectedReq(req); setRating(grade?.overall_rating ?? ''); setComments(grade?.overall_comments ?? '') }}
@@ -1015,6 +1088,100 @@ CMD Ordaining Council`
               </div>
             </div>
           )}
+
+          {/* Self-assessment modal */}
+          {saReq && (() => {
+            const topic = saReq.requirement_templates?.topic as string
+            const topicDef = SELF_ASSESSMENT_TOPICS[topic]
+            const RATINGS = ['insufficient', 'adequate', 'good', 'excellent', 'exceptional']
+            return (
+              <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">Ordinand Self-Assessment</p>
+                      <h3 className="text-xl font-black text-slate-900">{saReq.requirement_templates?.title}</h3>
+                      <p className="text-sm text-slate-400 font-medium mt-1">{candidate.first_name} {candidate.last_name}</p>
+                    </div>
+                    <button onClick={() => setSaReq(null)} className="text-slate-300 hover:text-slate-500 text-2xl font-black leading-none">×</button>
+                  </div>
+
+                  <p className="text-xs text-slate-500 font-medium mb-6 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                    Enter the ordinand&apos;s self-assessment responses as submitted in Moodle. For each section, record their rating and the evidence they cited from their paper.
+                  </p>
+
+                  <div className="space-y-6">
+                    {/* Section 1: Completeness — per-question ratings */}
+                    <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
+                      <h4 className="text-sm font-black text-slate-800 mb-1">Completeness</h4>
+                      <p className="text-xs text-slate-500 mb-4">Have you addressed each of the key questions as outlined in the assignment guide?</p>
+                      {topicDef?.questions.map(q => (
+                        <div key={q.id} className="mb-3">
+                          <p className="text-xs text-slate-600 font-medium mb-1.5 leading-relaxed">{q.question}</p>
+                          <select
+                            value={saQuestionRatings[q.id] || ''}
+                            onChange={e => setSaQuestionRatings(prev => ({ ...prev, [q.id]: e.target.value }))}
+                            className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-indigo-100 outline-none w-full"
+                          >
+                            <option value="">Select rating…</option>
+                            {RATINGS.map(r => <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5 mt-4">Evidence from their paper</label>
+                      <textarea
+                        value={saCompletenessEvidence}
+                        onChange={e => setSaCompletenessEvidence(e.target.value)}
+                        rows={3}
+                        placeholder="Where and how does the paper address completeness?"
+                        className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-indigo-100 outline-none resize-none"
+                      />
+                    </div>
+
+                    {/* Sections 2–6: single rating + evidence */}
+                    {PAPER_SECTIONS.filter(s => s.id !== 'completeness').map(section => (
+                      <div key={section.id} className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
+                        <h4 className="text-sm font-black text-slate-800 mb-1">{section.title}</h4>
+                        <p className="text-xs text-slate-500 mb-3 leading-relaxed">{section.prompt}</p>
+                        <select
+                          value={saRatings[section.id] || ''}
+                          onChange={e => setSaRatings(prev => ({ ...prev, [section.id]: e.target.value }))}
+                          className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-indigo-100 outline-none w-full mb-3"
+                        >
+                          <option value="">Select rating…</option>
+                          {RATINGS.map(r => <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+                        </select>
+                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Evidence from their paper</label>
+                        <textarea
+                          value={saEvidence[section.id] || ''}
+                          onChange={e => setSaEvidence(prev => ({ ...prev, [section.id]: e.target.value }))}
+                          rows={3}
+                          placeholder="Where and how does the paper address this criterion?"
+                          className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-indigo-100 outline-none resize-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3 mt-8">
+                    <button
+                      onClick={handleSaveSelfAssessment}
+                      disabled={isSavingSA}
+                      className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-black hover:bg-indigo-700 transition-all disabled:opacity-50"
+                    >
+                      {isSavingSA ? 'Saving…' : 'Save Self-Assessment'}
+                    </button>
+                    <button
+                      onClick={() => setSaReq(null)}
+                      className="px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Grade modal */}
           {selectedReq && (
