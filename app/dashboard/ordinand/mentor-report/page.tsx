@@ -251,7 +251,7 @@ export default function MentorReportPage() {
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Ready to send?</p>
                 <p className="text-sm text-slate-600 font-medium leading-relaxed">
                   {canSubmit
-                    ? `${totalAnswered()} question${totalAnswered() !== 1 ? 's' : ''} answered across ${sectionsWithAnswers} section${sectionsWithAnswers !== 1 ? 's' : ''}. Click below to open a pre-addressed email in your mail client.`
+                    ? `${totalAnswered()} question${totalAnswered() !== 1 ? 's' : ''} answered across ${sectionsWithAnswers} section${sectionsWithAnswers !== 1 ? 's' : ''}. Click the button to open a pre-addressed email in your mail client.`
                     : 'Fill in at least one response above to enable the submit button.'}
                 </p>
                 {canSubmit && sectionsWithAnswers < SECTIONS.length && (
