@@ -187,7 +187,7 @@ export default function EvalFormPage() {
       {/* Header */}
       <header className="bg-[#00426A] border-b-4 border-[#0077C8] px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" className="h-9" />
+          <img src="/cmd-logo.png" alt="CMD Logo" className="h-9" />
           <div>
             <p className="text-white font-black text-sm tracking-wide">CMD ORDINATION PORTAL</p>
             <p className="text-blue-200 text-xs font-medium">Canadian Midwest District · The Alliance Canada</p>

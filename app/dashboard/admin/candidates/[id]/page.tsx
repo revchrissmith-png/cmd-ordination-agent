@@ -740,7 +740,7 @@ CMD Ordaining Council`
 
       <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
-          <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '35px' }} />
+          <img src="/cmd-logo.png" alt="CMD Logo" style={{ height: '35px' }} />
           <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -1278,7 +1278,7 @@ CMD Ordaining Council`
                     <div className="border border-slate-200 rounded-2xl overflow-hidden text-sm">
                       {/* Preview header */}
                       <div style={{ background: '#00426A', borderBottom: '3px solid #0077C8', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <img src="https://i.imgur.com/ZHqDQJC.png" style={{ height: '24px' }} alt="CMD" />
+                        <img src="/cmd-logo.png" style={{ height: '24px' }} alt="CMD" />
                         <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '12px', letterSpacing: '0.05em' }}>CMD ORDINATION PORTAL</span>
                       </div>
                       {/* Preview body */}

@@ -84,7 +84,7 @@ export default function Home() {
         {/* Logo + branding */}
         <div style={{ textAlign: 'center', marginBottom: '2.4rem' }}>
           <img
-            src="https://i.imgur.com/ZHqDQJC.png"
+            src="/cmd-logo.png"
             alt="CMD Logo"
             style={{ height: '96px', marginBottom: '1.4rem' }}
           />

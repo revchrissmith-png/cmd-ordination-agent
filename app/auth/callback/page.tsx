@@ -40,7 +40,7 @@ export default function AuthCallbackPage() {
       backgroundColor: C.deepSea,
       fontFamily: 'Arial, sans-serif',
     }}>
-      <img src="https://i.imgur.com/ZHqDQJC.png" alt="CMD Logo" style={{ height: '72px', marginBottom: '1.5rem' }} />
+      <img src="/cmd-logo.png" alt="CMD Logo" style={{ height: '72px', marginBottom: '1.5rem' }} />
       <p style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 'bold', fontSize: '1.05rem', letterSpacing: '0.03em' }}>
         Signing you in…
       </p>

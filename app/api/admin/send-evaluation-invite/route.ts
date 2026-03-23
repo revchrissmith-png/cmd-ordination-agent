@@ -32,7 +32,7 @@ function buildEmailHtml(opts: {
         <!-- Header -->
         <tr>
           <td style="background:#00426A;border-bottom:4px solid #0077C8;padding:20px 32px;">
-            <img src="https://i.imgur.com/ZHqDQJC.png" height="36" alt="CMD" style="vertical-align:middle;" />
+            <img src="/cmd-logo.png" height="36" alt="CMD" style="vertical-align:middle;" />
             <span style="color:#ffffff;font-weight:bold;font-size:15px;letter-spacing:0.05em;vertical-align:middle;margin-left:12px;">CMD ORDINATION PORTAL</span>
           </td>
         </tr>
