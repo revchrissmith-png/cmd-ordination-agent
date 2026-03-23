@@ -764,13 +764,18 @@ export const WIKI_SECTIONS: WikiSection[] = [
         id: 'A-10',
         heading: 'A.10 — Reading Schedule for Cohort Gatherings',
         blocks: [
-          { type: 'p', text: 'Cohort gatherings are organized around theological themes that align with your reading categories. While you may read your books in any order throughout the three years, the following general alignment helps frame conversations at each gathering:' },
+          { type: 'p', text: 'Ordinands are expected to manage their reading requirements in alignment with their cohort gathering schedule. Each reading category is tied to the cohort conversation where that topic is discussed — complete the relevant reading before that gathering.' },
           { type: 'ul', items: [
-            'Year 1 Gatherings — Christology, Pneumatology, and foundational Alliance distinctives',
-            'Year 2 Gatherings — Missiology, ecclesiology, and pastoral practice',
-            'Year 3 Gatherings — Theological integration, ministry leadership, and interview preparation',
+            'History (1.1) — Divine Healing Paper Discussion',
+            'Theology (1.2) — Christ-Centred Life and Ministry Paper Discussion',
+            'Deeper Life (1.3) — Spirit-Empowered Life and Ministry Paper Discussion',
+            'Missions (1.4) — Mission-Focused Life and Ministry Paper Discussion',
+            'Holy Scripture (1.5) — The Scriptures Paper Discussion',
+            'Anthropology (1.6) — Anthropology Book Discussion',
+            'Disciple Making (1.7) — Disciple Making Book Discussion',
+            'Specific Ministry Focus (1.8) — To be discussed with your mentor at an agreed upon time',
           ]},
-          { type: 'p', text: 'Your specific cohort calendar — including gathering dates, locations, and linked assignments — is visible on your dashboard. Check there for the most current schedule.' },
+          { type: 'callout', variant: 'tip', text: 'If the cohort event topic is assigned to preaching for you, it is suggested you read the book for your first homiletics cohort instead.' },
           { type: 'link', href: '/dashboard/ordinand', label: 'View Your Cohort Calendar', description: 'See upcoming gatherings and linked requirements on your dashboard' },
         ]
       },
