@@ -74,10 +74,23 @@ function renderBlock(block: ContentBlock, idx: number) {
   }
 }
 
+function stripHeadingNumber(heading: string): string {
+  return heading.replace(/^[A-Za-z0-9]+\.[\d]*\s*(?:—\s*)?/, '')
+}
+
 export default function HandbookSection() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [closedSubs, setClosedSubs] = useState<Set<string>>(new Set())
+
+  const toggleSub = (id: string) => {
+    setClosedSubs(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
   const router = useRouter()
   const params = useParams()
   const slug = params && typeof params.section === 'string' ? params.section : ''
@@ -229,8 +242,9 @@ export default function HandbookSection() {
                     <div className="mt-5 flex flex-wrap gap-2">
                       {section.subsections.map(sub => (
                         <a key={sub.id} href={`#${sub.id}`}
+                          onClick={() => setClosedSubs(prev => { const next = new Set(prev); next.delete(sub.id); return next })}
                           className="text-xs font-bold px-3 py-1.5 bg-white rounded-full border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700 transition-colors cursor-pointer">
-                          {sub.heading.split(' ').slice(1).join(' ')}
+                          {stripHeadingNumber(sub.heading)}
                         </a>
                       ))}
                     </div>
@@ -238,13 +252,28 @@ export default function HandbookSection() {
                 </div>
 
                 {/* Subsections */}
-                <div className="space-y-10">
-                  {section.subsections.map(sub => (
-                    <div key={sub.id} id={sub.id} className="scroll-mt-24">
-                      <h2 className="text-base font-black mb-4 pb-3 border-b border-slate-200" style={{ color: C.allianceBlue }}>{sub.heading}</h2>
-                      {sub.blocks.map((block, i) => renderBlock(block, i))}
-                    </div>
-                  ))}
+                <div className="space-y-3">
+                  {section.subsections.map(sub => {
+                    const isOpen = !closedSubs.has(sub.id)
+                    return (
+                      <div key={sub.id} id={sub.id} className="scroll-mt-24 bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <button
+                          onClick={() => toggleSub(sub.id)}
+                          className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-slate-50 transition-colors"
+                        >
+                          <h2 className="text-sm font-black" style={{ color: C.allianceBlue }}>
+                            {stripHeadingNumber(sub.heading)}
+                          </h2>
+                          <span className="flex-shrink-0 text-slate-400 text-xs font-bold transition-transform duration-200" style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}>▾</span>
+                        </button>
+                        {isOpen && (
+                          <div className="px-5 pb-5 pt-1 border-t border-slate-100">
+                            {sub.blocks.map((block, i) => renderBlock(block, i))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
 
                 {/* Portal CTA for public visitors */}
