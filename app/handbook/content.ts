@@ -6,6 +6,7 @@ export type ContentBlock =
   | { type: 'ul'; items: string[] }
   | { type: 'callout'; variant: 'info' | 'tip' | 'warning'; text: string }
   | { type: 'outcomes'; items: Array<{ label: string; desc: string; color: string }> }
+  | { type: 'link'; href: string; label: string; description?: string; external?: boolean }
 
 export type SubSection = {
   id: string
@@ -611,6 +612,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
             'Adheres to CMD formatting and citation standards (see A.4)',
           ]},
           { type: 'callout', variant: 'info', text: 'Reports are submitted through the CMD Ordination Portal under the appropriate requirement.' },
+          { type: 'link', href: '/dashboard/ordinand', label: 'Submit a Book Report', description: 'Open your dashboard to view and submit all 17 requirements' },
         ]
       },
       {
@@ -618,6 +620,7 @@ export const WIKI_SECTIONS: WikiSection[] = [
         heading: 'A.2 — CMD Ordination Requirements',
         blocks: [
           { type: 'p', text: 'The complete and current requirements are accessible through the CMD Ordination Portal. The Portal displays all 17 requirements personalized to each ordinand\'s cohort and sermon topic assignment — 10 book reports, 4 theological papers, and 3 sermons.' },
+          { type: 'link', href: '/dashboard/ordinand', label: 'View Your Requirements', description: 'See all 17 requirements, track progress, and make submissions' },
         ]
       },
       {
@@ -625,73 +628,141 @@ export const WIKI_SECTIONS: WikiSection[] = [
         heading: 'A.3 — Self-Assessment Guide',
         blocks: [
           { type: 'p', text: 'A self-assessment form is built into each theological paper submission in the CMD Ordination Portal. Before submitting a paper, ordinands rate their own work against each evaluation criterion and provide written evidence from their paper. This self-assessment is reviewed alongside the paper by the assigned council member.' },
-          { type: 'p', text: 'For reference and offline study, a sample self-assessment guide for the Christ-Centred Life and Ministry paper is available from the District Ministry Centre.' },
+          { type: 'p', text: 'For each criterion, you will be asked to rate your paper on a five-point scale (Insufficient → Adequate → Good → Excellent → Exceptional) and describe specifically where and how your paper engages with that criterion — citing sections, arguments, or page numbers.' },
+          { type: 'link', href: '/dashboard/ordinand', label: 'Complete a Paper Self-Assessment', description: 'Open a paper requirement in the portal to access the self-assessment form' },
         ]
       },
       {
         id: 'A-4',
         heading: 'A.4 — Paper Formatting and Style Guide',
         blocks: [
-          { type: 'p', text: 'This guide provides detailed expectations for formatting, structure, and citation for all written submissions. Available from the District Ministry Centre and through the CMD Ordination Portal.' },
+          { type: 'p', text: 'All written papers submitted for ordination requirements should follow these formatting expectations:' },
+          { type: 'ul', items: [
+            'Length: 10–12 pages, not including title page or bibliography',
+            'Font: 12pt Times New Roman or equivalent serif font',
+            'Spacing: Double-spaced body text',
+            'Margins: 1 inch on all sides',
+            'Citations: Turabian/Chicago footnote style',
+            'Title page: paper title, ordinand name, date, and requirement name',
+            'Writing in first-person is acceptable and encouraged where appropriate',
+          ]},
+          { type: 'callout', variant: 'info', text: 'For questions about formatting expectations not covered here, contact the District Ministry Centre.' },
         ]
       },
       {
         id: 'A-5',
         heading: 'A.5 — Sample Interview Questions',
         blocks: [
-          { type: 'p', text: 'The interview questions are available in two ways:' },
+          { type: 'p', text: 'The oral interview covers theological formation, personal calling, ministry practice, and character. The following are representative questions used by the ordaining council:' },
           { type: 'ul', items: [
-            'As a PDF document available from the District Ministry Centre',
-            'Interactively through Pardington in the CMD Ordination Portal — Pardington will walk ordinands through the questions one at a time and offer feedback on responses',
+            'Describe your sense of call to vocational ministry. How has that call been confirmed over time?',
+            'How has your understanding of the atonement shaped your preaching and pastoral care?',
+            'What does it mean to be a Spirit-empowered leader? How do you cultivate dependence on the Holy Spirit?',
+            'Describe a theological challenge you have wrestled with. How did you resolve it, or how do you hold the tension?',
+            'How has your understanding of divine healing developed through this process?',
+            'What is the missional responsibility of the local church? How does your ministry reflect that?',
+            'How do you approach Scripture in your preaching? Walk us through your sermon preparation process.',
+            'What do you believe about the fourfold gospel (Saviour, Sanctifier, Healer, Coming King)?',
+            'How have you grown in character and emotional maturity through this ordination process?',
+            'What accountability structures do you have in place in your personal and ministry life?',
           ]},
-          { type: 'callout', variant: 'tip', text: 'To start an interactive interview prep session, open Pardington and say: "Help me prepare for my oral interview."' },
+          { type: 'callout', variant: 'tip', text: 'Pardington can walk you through these questions interactively and give feedback on your responses. Open the Study Agent and say: "Help me prepare for my oral interview."' },
+          { type: 'link', href: '/dashboard/study', label: 'Prepare with Pardington', description: 'Practice oral interview questions interactively with the AI study agent' },
         ]
       },
       {
         id: 'A-6',
         heading: 'A.6 — Mentor Report Template',
         blocks: [
-          { type: 'p', text: 'This template provides mentors with a structured tool to assess and provide feedback on their ordinand\'s progress. The template is submitted monthly through the CMD Ordination Portal.' },
-          { type: 'p', text: 'A copy of the template is available from the District Ministry Centre.' },
+          { type: 'p', text: 'Ordinands submit a monthly report to their mentor summarizing their progress, reflections, and any areas where they are seeking guidance. The report is organized into five sections:' },
+          { type: 'ul', items: [
+            'Ministry & Preaching — recent preaching opportunities, feedback received, areas of growth',
+            'Theological Formation — readings completed, key insights, questions arising from study',
+            'Personal & Spiritual Life — spiritual disciplines, personal challenges, areas of renewal',
+            'Relationships & Community — family, team, and congregational relationships',
+            'Goals & Next Steps — upcoming focus areas and any support needed from the mentor',
+          ]},
+          { type: 'p', text: 'You are expected to answer at least one question from each section each month. The report is sent as an email directly to your mentor through the portal.' },
+          { type: 'link', href: '/dashboard/ordinand/mentor-report', label: 'Submit a Mentor Report', description: 'Open the monthly report form and send it to your mentor' },
         ]
       },
       {
         id: 'A-7',
         heading: 'A.7 — Mentor Orientation Materials',
         blocks: [
-          { type: 'p', text: 'This document equips mentors with background and expectations for their role, including theological and pastoral considerations. Available from the District Ministry Centre.' },
+          { type: 'p', text: 'Mentors are equipped with background and expectations for their role before the mentoring relationship begins. The orientation covers:' },
+          { type: 'ul', items: [
+            'The purpose and theology of mentorship in the ordination process',
+            'The distinction between mentoring and formal assessment — mentors are not evaluators',
+            'How to structure monthly mentoring conversations',
+            'How to read and respond to the ordinand\'s monthly report',
+            'Expectations around availability, confidentiality, and communication with the district',
+            'The external evaluation form that mentors complete near the end of the process',
+          ]},
+          { type: 'callout', variant: 'info', text: 'The full Mentor Orientation document is available from the District Ministry Centre. Mentors do not have a portal login — the mentoring relationship is intentionally kept separate from the formal assessment process.' },
         ]
       },
       {
         id: 'A-8',
         heading: 'A.8 — CMD Ordaining Council Job Description',
         blocks: [
-          { type: 'p', text: 'This document outlines the responsibilities and expectations of council members serving on the CMD Ordaining Council. Available from the District Ministry Centre.' },
+          { type: 'p', text: 'Council members serve as theological assessors, pastoral guides, and formal witnesses to the ordination process. The role includes:' },
+          { type: 'ul', items: [
+            'Reviewing and grading submitted assignments (book reports, papers, sermons)',
+            'Providing written feedback using the five-point rating scale',
+            'Attending cohort gatherings when possible',
+            'Participating in oral examination panels',
+            'Maintaining confidentiality regarding candidate progress and feedback',
+            'Responding to grading assignments within 30 days of submission',
+          ]},
+          { type: 'callout', variant: 'info', text: 'Travel-related expenses for council responsibilities may be submitted for reimbursement. Contact the District Ministry Centre for the expense claim process. The full job description document is available from the District Ministry Centre.' },
+          { type: 'link', href: '/dashboard/council', label: 'Open Your Grading Queue', description: 'View and complete your current council grading assignments' },
         ]
       },
       {
         id: 'A-9',
         heading: 'A.9 — The Alliance Canada Ordination Policy',
         blocks: [
-          { type: 'p', text: 'The national policy governing ordination within The Alliance Canada. All district-level ordination processes must adhere to this framework. Available from The Alliance Canada national office or through the District Ministry Centre.' },
+          { type: 'p', text: 'The CMD ordination process is built on and must comply with the national ordination policy of The Alliance Canada. Key elements of the national framework include:' },
+          { type: 'ul', items: [
+            'Ordination is reserved for those called to a primary preaching and teaching ministry',
+            'Candidates must demonstrate doctrinal alignment with the Statement of Faith of The Alliance Canada',
+            'The ordaining council must be satisfied that the candidate demonstrates the necessary character, competency, and calling',
+            'Ordination requires a formal vote of the ordaining council',
+            'The Alliance Canada maintains a national registry of ordained ministers',
+          ]},
+          { type: 'callout', variant: 'info', text: 'The full national ordination policy is available from The Alliance Canada national office. Contact the District Ministry Centre for a copy or for questions about how the national policy applies to your situation.' },
         ]
       },
       {
         id: 'A-10',
         heading: 'A.10 — Reading Schedule for Cohort Gatherings',
         blocks: [
-          { type: 'p', text: 'This document outlines which reading categories align with which cohort conversations and gathering schedule. Available through the CMD Ordination Portal and from the District Ministry Centre.' },
+          { type: 'p', text: 'Cohort gatherings are organized around theological themes that align with your reading categories. While you may read your books in any order throughout the three years, the following general alignment helps frame conversations at each gathering:' },
+          { type: 'ul', items: [
+            'Year 1 Gatherings — Christology, Pneumatology, and foundational Alliance distinctives',
+            'Year 2 Gatherings — Missiology, ecclesiology, and pastoral practice',
+            'Year 3 Gatherings — Theological integration, ministry leadership, and interview preparation',
+          ]},
+          { type: 'p', text: 'Your specific cohort calendar — including gathering dates, locations, and linked assignments — is visible on your dashboard. Check there for the most current schedule.' },
+          { type: 'link', href: '/dashboard/ordinand', label: 'View Your Cohort Calendar', description: 'See upcoming gatherings and linked requirements on your dashboard' },
         ]
       },
       {
         id: 'A-11',
         heading: 'A.11 — Sermon Evaluation Rubric',
         blocks: [
-          { type: 'p', text: 'This rubric is used by council members to evaluate submitted sermons. It assesses biblical faithfulness, theological integration, clarity of communication, and pastoral application.' },
+          { type: 'p', text: 'Council members evaluate submitted sermons using a six-section rubric. Understanding this rubric before you preach will help you prepare a sermon that meets the expectations of the ordination process.' },
           { type: 'ul', items: [
-            'The rubric is visible in the CMD Ordination Portal on each sermon requirement page',
-            'A PDF version is available from the District Ministry Centre',
+            'Biblical Faithfulness — accurate exegesis, sound interpretation, responsible handling of the text',
+            'Theological Integration — connects the passage to broader Alliance distinctives and systematic theology',
+            'Christ-Centredness — the sermon is explicitly and organically Christ-centred',
+            'Clarity of Communication — clear structure, accessible language, logical progression',
+            'Pastoral Application — practical, relevant, and appropriately applied to the congregation',
+            'Delivery & Presence — confidence, engagement, and effectiveness as a communicator',
           ]},
+          { type: 'p', text: 'Each section is rated on the five-point scale: Insufficient → Adequate → Good → Excellent → Exceptional. Graders may also leave section-specific comments.' },
+          { type: 'link', href: '/dashboard/ordinand', label: 'View Sermon Requirements in the Portal', description: 'The full rubric is visible on each sermon requirement page before you submit' },
         ]
       },
     ]

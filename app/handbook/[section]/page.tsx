@@ -51,6 +51,24 @@ function renderBlock(block: ContentBlock, idx: number) {
           ))}
         </div>
       )
+    case 'link':
+      return (
+        <a
+          key={idx}
+          href={block.href}
+          target={block.external ? '_blank' : undefined}
+          rel={block.external ? 'noopener noreferrer' : undefined}
+          className="flex items-center justify-between gap-4 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 mb-4 hover:bg-blue-100 transition-colors group no-underline"
+        >
+          <div>
+            <p className="text-sm font-black text-blue-900">{block.label}</p>
+            {block.description && <p className="text-xs font-medium text-blue-700 mt-0.5">{block.description}</p>}
+          </div>
+          <span className="text-blue-400 text-lg flex-shrink-0 group-hover:translate-x-1 transition-transform">
+            {block.external ? '↗' : '→'}
+          </span>
+        </a>
+      )
     default:
       return null
   }
