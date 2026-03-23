@@ -348,6 +348,44 @@ The portal is in active beta migration from Moodle (the previous LMS used during
 - **Tighter RLS for profile data** — council members can currently read all profiles; scope reads to only what each role needs
 - **Downloadable archive report** — post-ordination PDF record of the full journey (distinct from the Interview Brief which is pre-interview and council-facing)
 
+### Post-ordination Record & RockRMS Integration (future)
+
+A permanent ordination record feature to be built after the core portal is stable. Fills in the three "Coming Soon" sections of the existing archive report modal.
+
+**What the report includes:**
+- Grades summary (all 17 requirements)
+- Executive summary of council feedback (AI-generated; lighter than the Interview Brief)
+- Interview outcome: `ordained` / `ordained_with_conditions` / `deferred` / `not_recommended`
+- Conditions or remedial assignments (if applicable)
+- Names of council members present at the oral examination
+- Ordination service date and officiant name
+- Embedded scanned copy of the ordination certificate
+
+**Data model (new table: `ordination_records`):**
+- `ordinand_id` (FK to profiles)
+- `interview_outcome` (enum)
+- `conditions_text` (text, nullable)
+- `council_present` (uuid[], council member IDs)
+- `interview_date` (date)
+- `service_date` (date, nullable)
+- `officiant_name` (text, nullable)
+- `certificate_file_url` (text — Supabase Storage)
+- `report_pdf_url` (text — compiled report stored in Supabase Storage)
+- `rock_person_id` (integer — Rock RMS PersonId, entered manually by admin on the ordinand's profile)
+- `pushed_to_rock_at` (timestamptz, nullable)
+
+**RockRMS integration:**
+- Rock REST API at `{rock_base_url}/api/`
+- Auth: API key stored as Vercel environment variable (`ROCK_API_KEY`)
+- Push flow: upload PDF → POST to `/api/BinaryFiles` → POST to `/api/Documents` linking file to `rock_person_id`
+- One-time push (not a sync); `pushed_to_rock_at` timestamp records when it was sent
+- Admin enters the ordinand's Rock `PersonId` on their profile page before pushing
+
+**Pre-build decisions needed:**
+1. Confirm Rock instance URL and obtain API key
+2. Decide: Documents feature vs. Person Attribute (File type) for storage in Rock
+3. Confirm whether Rock person lookup by email is acceptable, or whether manual PersonId entry is preferred
+
 **Design note — mentors are intentionally outside the system.** Mentors are referenced in the handbook and on the ordinand dashboard (name/email display), but they do not have portal access and this is by design. The CMD wants distance between the mentoring relationship and the formal assessment process. Do not build a mentor login, report submission, or evaluation flow inside the portal. Mentor evaluations are collected via the token-based external form only.
 
 ---
