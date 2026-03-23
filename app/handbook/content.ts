@@ -634,19 +634,32 @@ export const WIKI_SECTIONS: WikiSection[] = [
       },
       {
         id: 'A-4',
-        heading: 'A.4 — Paper Formatting and Style Guide',
+        heading: 'A.4 — Expectations for Ordination Papers',
         blocks: [
-          { type: 'p', text: 'All written papers submitted for ordination requirements should follow these formatting expectations:' },
+          { type: 'p', text: 'An ordination paper is an assignment in which the ordinand intends to take and defend a position on a particular point of doctrine. Ordinands are encouraged to prayerfully consider the history of the doctrine under examination, and to avail themselves of the wisdom of mentors, respected authors, and fellow ministers in clarifying their understanding. The final position taken should be based on and defended by sound Scriptural exegesis, in-depth research, and synthesis of thought. The paper must also demonstrate how this position directly affects the life and ministry of the ordinand.' },
+          { type: 'p', text: 'General Guidelines:' },
           { type: 'ul', items: [
-            'Length: 10–12 pages, not including title page or bibliography',
-            'Font: 12pt Times New Roman or equivalent serif font',
-            'Spacing: Double-spaced body text',
-            'Margins: 1 inch on all sides',
-            'Citations: Turabian/Chicago footnote style',
-            'Title page: paper title, ordinand name, date, and requirement name',
-            'Writing in first-person is acceptable and encouraged where appropriate',
+            'Papers must demonstrate a synthesis of sound theological reflection and practical application',
+            'Interaction with a variety of sound theological sources is required — not less than eight academic sources is expected',
+            'Significant issues and an awareness of differing points of view should be demonstrated, but clearly articulating your own position is essential',
+            '10–12 pages of content, double spaced, size 12 font (Times New Roman or comparable) — title page, outline, and bibliography are not part of the page count',
+            'Properly footnoted using SBL notation, unless the Ordination Council gives prior permission for an alternative system',
+            'Proofread carefully before submission for clear content and appropriate use of the English language',
           ]},
-          { type: 'callout', variant: 'info', text: 'For questions about formatting expectations not covered here, contact the District Ministry Centre.' },
+          { type: 'p', text: 'Required Elements:' },
+          { type: 'ul', items: [
+            'File name: FirstName LastName_Assignment Title_Date Submitted',
+            'Header on each page: your name and the assignment title',
+            'Organization: proper sections with headings, table of contents, and page numbers',
+          ]},
+          { type: 'p', text: 'Required Paper Structure:' },
+          { type: 'ul', items: [
+            '1. Overview of the Theological Issue — a brief overview of common theological positions in The Alliance Canada, Alliance distinctives where appropriate, and relevant Scripture passages',
+            '2. Thoughtful Personal Reflection — your personal conclusion after the theological overview, the factors and convictions that led you to your position, and approximately one page on how you incorporate this position in your ministry practically',
+            '3. Conclusion — a proper conclusion synthesizing all elements of the paper',
+            '4. Sufficiency of Sources and Citations — meaningful interaction with at least eight quality academic sources, including theological dictionaries, biblical commentaries, and theological texts',
+          ]},
+          { type: 'callout', variant: 'tip', text: 'For sermons: submit a .docx or .pdf document including your name, a link to the sermon recording, the sermon name, and any relevant notes (e.g. "starts at 11:32 mark on digital file").' },
         ]
       },
       {
