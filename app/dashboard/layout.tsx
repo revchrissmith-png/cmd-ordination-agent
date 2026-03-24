@@ -14,7 +14,7 @@ export default function DashboardLayout({
       {/* Navigation Bar */}
       <nav className="bg-white border-b px-8 py-4 shadow-sm">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <span className="font-bold text-blue-900 tracking-tight">CMD Ordination Portal</span>
+          <a href="/dashboard" className="font-bold text-blue-900 tracking-tight" style={{ textDecoration: 'none' }}>CMD Ordination Portal</a>
           <div className="flex gap-4 text-sm font-medium text-gray-600">
              {/* We can add logout or profile links here later */}
           </div>

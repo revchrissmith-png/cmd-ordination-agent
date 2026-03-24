@@ -223,7 +223,7 @@ export default function PardingtonPage() {
       {/* Header */}
       <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <img src="/cmd-logo.png" alt="CMD Logo" style={{ height: '35px' }} />
+          <a href="/dashboard" style={{ display: 'flex', cursor: 'pointer' }}><img src="/cmd-logo.png" alt="CMD Logo" style={{ height: '35px' }} /></a>
           <div style={{ width: '1px', height: '28px', backgroundColor: 'rgba(255,255,255,0.2)' }} />
           <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '38px' }} />
           <div>
