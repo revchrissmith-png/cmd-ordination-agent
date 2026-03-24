@@ -71,6 +71,7 @@ export default function CouncilMemberManagePage() {
   const [editingProfile, setEditingProfile] = useState(false)
   const [editFirst, setEditFirst] = useState('')
   const [editLast, setEditLast] = useState('')
+  const [editEmail, setEditEmail] = useState('')
   const [isSavingProfile, setIsSavingProfile] = useState(false)
 
   // Email modal
@@ -97,6 +98,7 @@ export default function CouncilMemberManagePage() {
     if (profile) {
       setEditFirst(profile.first_name || '')
       setEditLast(profile.last_name || '')
+      setEditEmail(profile.email || '')
     }
 
     // Last login — via service-role API route
@@ -169,12 +171,34 @@ export default function CouncilMemberManagePage() {
 
   async function handleSaveProfile() {
     setIsSavingProfile(true)
-    const { error } = await supabase
+    const { data: { session } } = await supabase.auth.getSession()
+
+    // Update name in profiles
+    const { error: nameError } = await supabase
       .from('profiles')
       .update({ first_name: editFirst, last_name: editLast, full_name: `${editFirst} ${editLast}`.trim() })
       .eq('id', id)
-    if (error) { flash('Error saving profile: ' + error.message, 'error') }
-    else { flash('Profile updated.', 'success'); setEditingProfile(false); fetchData() }
+    if (nameError) { flash('Error saving profile: ' + nameError.message, 'error'); setIsSavingProfile(false); return }
+
+    // Update email via service-role API if changed
+    if (editEmail.trim() && editEmail.trim() !== member?.email) {
+      const res = await fetch('/api/admin/update-user-email', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ userId: id, email: editEmail.trim() }),
+      })
+      if (!res.ok) {
+        const { error } = await res.json()
+        flash('Name saved, but email update failed: ' + error, 'error')
+        setIsSavingProfile(false)
+        fetchData()
+        return
+      }
+    }
+
+    flash('Profile updated.', 'success')
+    setEditingProfile(false)
+    fetchData()
     setIsSavingProfile(false)
   }
 
@@ -408,7 +432,10 @@ export default function CouncilMemberManagePage() {
                     <label style={labelStyle}>Last Name</label>
                     <input style={inputStyle} value={editLast} onChange={e => setEditLast(e.target.value)} />
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>Email changes must be made through Supabase Auth. Contact the IT administrator.</p>
+                  <div>
+                    <label style={labelStyle}>Email</label>
+                    <input style={inputStyle} type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+                  </div>
                   <button onClick={handleSaveProfile} disabled={isSavingProfile} style={{ padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: 'none', backgroundColor: isSavingProfile ? '#e2e8f0' : C.deepSea, color: isSavingProfile ? '#94a3b8' : C.white, cursor: 'pointer' }}>
                     {isSavingProfile ? 'Saving…' : 'Save Changes'}
                   </button>
