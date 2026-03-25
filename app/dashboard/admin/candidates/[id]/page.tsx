@@ -99,6 +99,8 @@ export default function CandidateDetailPage() {
   const [briefContent, setBriefContent]       = useState('')
   const [isGeneratingBrief, setIsGeneratingBrief] = useState(false)
 
+  const [isObserver, setIsObserver] = useState(false)
+
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
@@ -442,7 +444,17 @@ export default function CandidateDetailPage() {
     if (!silent) setLoading(false)
   }
 
-  useEffect(() => { fetchData() }, [id])
+  useEffect(() => {
+    fetchData()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.from('profiles').select('roles').eq('id', user.id).single().then(({ data: myProfile }) => {
+          const myRoles: string[] = (myProfile as any)?.roles ?? []
+          setIsObserver(myRoles.includes('observer') && !myRoles.includes('admin'))
+        })
+      }
+    })
+  }, [id])
 
   // Populate edit fields when candidate loads
   useEffect(() => {
@@ -772,7 +784,7 @@ CMD Ordaining Council`
               )}
             </div>
             <div className="flex gap-3 flex-wrap">
-              {!editingProfile && (
+              {!editingProfile && !isObserver && (
                 <button
                   onClick={() => setEditingProfile(true)}
                   className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:border-blue-300 hover:text-blue-600 transition-all"
@@ -926,14 +938,14 @@ CMD Ordaining Council`
                                 ? <span className="text-xs text-slate-500 font-medium">Grader: <span className="font-bold text-slate-700">{grader.first_name} {grader.last_name}</span></span>
                                 : <span className="text-xs text-amber-600 font-bold">No grader assigned</span>
                               }
-                              {!isReassigning ? (
+                              {!isObserver && !isReassigning ? (
                                 <button
                                   onClick={() => setReassigningId(req.id)}
                                   className="text-xs text-blue-500 hover:text-blue-700 font-bold transition-colors"
                                 >
                                   {grader ? 'Reassign' : 'Assign Grader'}
                                 </button>
-                              ) : (
+                              ) : !isObserver && isReassigning ? (
                                 <div className="flex items-center gap-2">
                                   <select
                                     className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-blue-100 outline-none"
@@ -947,11 +959,11 @@ CMD Ordaining Council`
                                   </select>
                                   <button onClick={() => setReassigningId(null)} className="text-xs text-slate-400 hover:text-slate-600 font-bold">Cancel</button>
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                           {/* Admin upload on behalf */}
-                          {status !== 'complete' && (
+                          {!isObserver && status !== 'complete' && (
                             uploadingReqId === req.id ? (
                               <div className="flex flex-col gap-2 bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5">
                                 <div className="flex items-center gap-2">
@@ -1000,7 +1012,7 @@ CMD Ordaining Council`
                             )
                           )}
                           {/* Self-assessment entry for paper requirements */}
-                          {(() => {
+                          {!isObserver && (() => {
                             const isPaper = req.requirement_templates?.type === 'paper'
                             const hasSub = !!(Array.isArray(req.submissions) ? req.submissions[0] : req.submissions)?.id
                             const hasSA = !!(Array.isArray(req.submissions) ? req.submissions[0] : req.submissions)?.self_assessment
@@ -1015,7 +1027,7 @@ CMD Ordaining Council`
                               </button>
                             )
                           })()}
-                          {(status === 'submitted' || status === 'under_review') && (
+                          {!isObserver && (status === 'submitted' || status === 'under_review') && (
                             <button
                               onClick={() => { setSelectedReq(req); setRating(grade?.overall_rating ?? ''); setComments(grade?.overall_comments ?? '') }}
                               className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-sm"
@@ -1032,7 +1044,7 @@ CMD Ordaining Council`
                             </button>
                           )}
                           {/* Reset button — available for any submitted/graded status */}
-                          {status !== 'not_started' && (
+                          {!isObserver && status !== 'not_started' && (
                             confirmReset?.id === req.id ? (
                               <div className="flex flex-col gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                                 <span className="text-xs font-black text-amber-800">Revert this submission?</span>
@@ -1132,19 +1144,19 @@ CMD Ordaining Council`
                           View Response
                         </button>
                       ) : tok?.status === 'pending' ? (
-                        <button
+                        !isObserver ? <button
                           onClick={() => openEvalInviteModal(type)}
                           className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
                         >
                           Resend Invitation
-                        </button>
+                        </button> : <span className="text-xs text-slate-400 font-medium">Pending</span>
                       ) : (
-                        <button
+                        !isObserver ? <button
                           onClick={() => openEvalInviteModal(type)}
                           className="px-4 py-2 bg-[#00426A] text-white rounded-xl text-xs font-bold hover:bg-[#003558] transition-all"
                         >
                           Send Invitation →
-                        </button>
+                        </button> : <span className="text-xs text-slate-400 font-medium">Not sent</span>
                       )}
                     </div>
                   </div>

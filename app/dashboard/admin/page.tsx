@@ -82,6 +82,8 @@ export default function AdminPage() {
   const [activityLogs, setActivityLogs]     = useState<any[]>([])
   const [activityLoading, setActivityLoading] = useState(false)
 
+  const [isObserver, setIsObserver] = useState(false)
+
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
@@ -150,6 +152,14 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.from('profiles').select('roles').eq('id', user.id).single().then(({ data: myProfile }) => {
+          const myRoles: string[] = (myProfile as any)?.roles ?? []
+          setIsObserver(myRoles.includes('observer') && !myRoles.includes('admin'))
+        })
+      }
+    })
     fetchCouncil()
     fetchCohorts()
     fetchCandidates()
@@ -433,7 +443,7 @@ export default function AdminPage() {
 
         {activeTab === 'council' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
+            {!isObserver && <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
               <h2 className="text-xs font-black uppercase tracking-widest mb-5" style={{ color: C.allianceBlue }}>Add Council Member</h2>
               <form onSubmit={handleAddCouncil} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -452,7 +462,7 @@ export default function AdminPage() {
                 </div>
                 <button type="submit" disabled={isAddingCouncil} style={{ backgroundColor: isAddingCouncil ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCouncil ? 'Adding...' : 'Add Council Member'}</button>
               </form>
-            </div>
+            </div>}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Current Council ({councilMembers.length})</h2>
@@ -482,7 +492,7 @@ export default function AdminPage() {
                         <td className="px-4 sm:px-8 py-3 sm:py-5 text-right">
                           <div className="flex items-center justify-end gap-2 sm:gap-4">
                             <Link href={`/dashboard/admin/council/${m.id}`} className="text-blue-500 hover:text-blue-700 font-bold text-sm transition-colors whitespace-nowrap">Manage →</Link>
-                            <button onClick={() => handleRemoveCouncil(m)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap hidden sm:block">Remove</button>
+                            {!isObserver && <button onClick={() => handleRemoveCouncil(m)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap hidden sm:block">Remove</button>}
                           </div>
                         </td>
                       </tr>
@@ -498,7 +508,7 @@ export default function AdminPage() {
 
         {activeTab === 'cohorts' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
+            {!isObserver && <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
               <h2 className="text-xs font-black uppercase tracking-widest mb-5" style={{ color: C.allianceBlue }}>Create New Cohort</h2>
               <form onSubmit={handleAddCohort} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -526,7 +536,7 @@ export default function AdminPage() {
                 </div>
                 <button type="submit" disabled={isAddingCohort} style={{ backgroundColor: isAddingCohort ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCohort ? 'Creating...' : 'Create Cohort'}</button>
               </form>
-            </div>
+            </div>}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">All Cohorts ({cohorts.length})</h2>
@@ -571,7 +581,7 @@ export default function AdminPage() {
 
         {activeTab === 'candidates' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
+            {!isObserver && <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8">
               <h2 className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Register New Ordinand</h2>
               <p className="text-xs text-slate-400 font-medium mb-5">Adding an ordinand automatically generates their 17 requirements based on their cohort. They will claim this profile when they first log in via Magic Link.</p>
               {cohorts.length === 0 ? (
@@ -603,7 +613,7 @@ export default function AdminPage() {
                   <button type="submit" disabled={isAddingCandidate} style={{ backgroundColor: isAddingCandidate ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCandidate ? 'Registering...' : 'Register Ordinand'}</button>
                 </form>
               )}
-            </div>
+            </div>}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Registered Ordinands ({candidates.length})</h2>
@@ -638,11 +648,11 @@ export default function AdminPage() {
                         <td className="px-4 sm:px-8 py-4 sm:py-5 text-right">
                           <div className="flex items-center justify-end gap-4">
                             <Link href={`/dashboard/admin/candidates/${person.id}`} style={{ color: C.allianceBlue }} className="font-black transition-colors text-sm whitespace-nowrap">Manage →</Link>
-                            <button
+                            {!isObserver && <button
                               onClick={() => { setArchiveTarget(person); setArchiveStep('action'); setArchiveMode(null); setReportComingSoon(false) }}
                               className="text-slate-300 hover:text-red-400 transition-colors text-base font-black leading-none"
                               title="Remove or complete this ordinand"
-                            >✕</button>
+                            >✕</button>}
                           </div>
                         </td>
                       </tr>
@@ -688,7 +698,7 @@ export default function AdminPage() {
             </div>
 
             {/* Archive / Remove modal */}
-            {archiveStep && archiveTarget && (
+            {!isObserver && archiveStep && archiveTarget && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl">
 
@@ -774,7 +784,7 @@ export default function AdminPage() {
 
         {activeTab === 'calendar' && (
           <div className="space-y-6">
-            <div className={`bg-white rounded-3xl border shadow-sm p-5 sm:p-8 ${editingEvent ? 'border-blue-300' : 'border-slate-200'}`}>
+            {!isObserver && <div className={`bg-white rounded-3xl border shadow-sm p-5 sm:p-8 ${editingEvent ? 'border-blue-300' : 'border-slate-200'}`}>
               <div className="flex items-center justify-between mb-1">
                 <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: editingEvent ? C.allianceBlue : C.allianceBlue }}>
                   {editingEvent ? '✏️  Edit Gathering' : 'Add Gathering'}
@@ -883,7 +893,7 @@ export default function AdminPage() {
                   )}
                 </div>
               </form>
-            </div>
+            </div>}
 
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
@@ -922,10 +932,10 @@ export default function AdminPage() {
                             {ev.notes && <p className="text-xs text-slate-400 font-medium mt-0.5 italic line-clamp-2 break-all">{ev.notes.replace(/<[^>]*>/g, '')}</p>}
                           </div>
                         </div>
-                        <div className="flex gap-3 flex-shrink-0">
+                        {!isObserver && <div className="flex gap-3 flex-shrink-0">
                           <button onClick={() => startEditEvent(ev)} className="text-blue-400 hover:text-blue-600 font-bold text-sm transition-colors whitespace-nowrap">Edit</button>
                           <button onClick={() => handleDeleteEvent(ev.id, ev.title)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap">Remove</button>
-                        </div>
+                        </div>}
                       </div>
                     )
                   })}

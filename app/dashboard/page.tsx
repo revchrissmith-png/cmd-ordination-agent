@@ -68,10 +68,11 @@ export default function DashboardHome() {
   )
 
   const roles: string[] = profile?.roles ?? []
-  const isAdmin   = roles.includes('admin')
-  const isCouncil = roles.includes('council')
+  const isAdmin    = roles.includes('admin')
+  const isCouncil  = roles.includes('council')
   const isOrdinand = roles.includes('ordinand')
-  const roleLabel = roles.length > 0 ? roles.join(', ').toUpperCase() : 'NO ROLE'
+  const isObserver = roles.includes('observer') && !roles.includes('admin')
+  const roleLabel  = roles.length > 0 ? roles.join(', ').toUpperCase() : 'NO ROLE'
 
   return (
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
@@ -111,8 +112,8 @@ export default function DashboardHome() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
 
-          {/* Admin Card — only visible to admins */}
-          {isAdmin && (
+          {/* Admin Card — visible to admins and observers */}
+          {(isAdmin || isObserver) && (
             <div style={{ backgroundColor: C.white, borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: `2px solid ${C.allianceBlue}`, display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
               <div style={{ fontSize: '1.8rem', marginBottom: '0.8rem' }}>📋</div>
               <h3 style={{ color: C.deepSea, fontWeight: 'bold', fontSize: '1rem', margin: '0 0 0.5rem' }}>Admin Console</h3>
@@ -124,7 +125,7 @@ export default function DashboardHome() {
           )}
 
           {/* Council Grading Card */}
-          {(isCouncil || isAdmin) && (
+          {(isCouncil || isAdmin || isObserver) && (
             <div style={{ backgroundColor: C.white, borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '2px solid transparent', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
               <div style={{ fontSize: '1.8rem', marginBottom: '0.8rem' }}>⚖️</div>
               <h3 style={{ color: C.deepSea, fontWeight: 'bold', fontSize: '1rem', margin: '0 0 0.5rem' }}>Grading Queue</h3>
