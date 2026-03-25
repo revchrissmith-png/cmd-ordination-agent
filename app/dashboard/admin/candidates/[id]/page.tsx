@@ -467,10 +467,14 @@ export default function CandidateDetailPage() {
   }, {})
   const total = requirements.length
   const complete = requirements.filter(r => r.status === 'complete').length
-  const inProgress = requirements.filter(r => r.status !== 'not_started' && r.status !== 'complete').length
-  const notStarted = requirements.filter(r => r.status === 'not_started').length
+  const activeInProgress = requirements.filter(r => r.status === 'submitted' || r.status === 'under_review').length
   const revisionRequired = requirements.filter(r => r.status === 'revision_required').length
-  const progressPct = total > 0 ? Math.round((complete / total) * 100) : 0
+  const inProgress = activeInProgress + revisionRequired
+  const notStarted = requirements.filter(r => r.status === 'not_started').length
+  const completePct      = total > 0 ? Math.round((complete / total) * 100) : 0
+  const activeInProgPct  = total > 0 ? Math.round((activeInProgress / total) * 100) : 0
+  const revisionPct      = total > 0 ? Math.round((revisionRequired / total) * 100) : 0
+  const progressPct = completePct
 
   async function handleUpdateProfile() {
     if (!candidate) return
@@ -867,14 +871,22 @@ CMD Ordaining Council`
               <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Overall Progress</h2>
               <span className="text-sm font-black text-slate-700">{complete} / {total} Complete</span>
             </div>
-            <div className="w-full bg-slate-100 rounded-full h-3 mb-4">
-              <div className="bg-blue-600 h-3 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+            <div className="w-full bg-slate-100 rounded-full h-3 mb-4 overflow-hidden flex">
+              {completePct > 0 && (
+                <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${completePct}%` }} />
+              )}
+              {activeInProgPct > 0 && (
+                <div className="h-full bg-yellow-400 transition-all duration-500" style={{ width: `${activeInProgPct}%` }} />
+              )}
+              {revisionPct > 0 && (
+                <div className="h-full bg-red-400 transition-all duration-500" style={{ width: `${revisionPct}%` }} />
+              )}
             </div>
             <div className="flex gap-6 text-xs font-bold flex-wrap">
-              <span className="text-green-600">✓ {complete} Complete</span>
-              <span className="text-amber-600">◷ {inProgress} In Progress</span>
-              <span className="text-slate-400">○ {notStarted} Not Started</span>
-              {revisionRequired > 0 && <span className="text-red-500">⚠ {revisionRequired} Revision Required</span>}
+              <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span><span className="text-green-600">{complete} Complete</span></span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400"></span><span className="text-amber-600">{activeInProgress} In Progress</span></span>
+              {revisionRequired > 0 && <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-red-400"></span><span className="text-red-500">{revisionRequired} Revision Required</span></span>}
+              <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-slate-300"></span><span className="text-slate-400">{notStarted} Not Started</span></span>
             </div>
           </div>
 
