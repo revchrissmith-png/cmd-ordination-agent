@@ -511,7 +511,7 @@ export default function CouncilMemberManagePage() {
           </div>
 
           {/* ── Right column: assignments list ── */}
-          <div style={{ backgroundColor: C.white, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: C.white, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflowX: 'auto' }}>
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9' }}>
               <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.allianceBlue }}>All Grading Assignments ({assignments.length})</p>
             </div>
@@ -519,8 +519,8 @@ export default function CouncilMemberManagePage() {
             {assignments.length === 0 ? (
               <p style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>No grading assignments yet.</p>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div>
+                <table style={{ width: '100%', minWidth: '660px', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f8fafc' }}>
                       {['Status', 'Assignment', 'Type', 'Ordinand', 'Submitted', 'Graded'].map(h => (
