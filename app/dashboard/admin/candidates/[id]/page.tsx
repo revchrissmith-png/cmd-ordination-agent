@@ -106,6 +106,11 @@ export default function CandidateDetailPage() {
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
   }
 
+  function denyObserver(): boolean {
+    if (isObserver) { flash('Observer accounts cannot make changes to the portal.', 'error'); return true }
+    return false
+  }
+
   function openEvalInviteModal(type: 'mentor' | 'church') {
     setEvalInviteModal({
       type,
@@ -115,6 +120,7 @@ export default function CandidateDetailPage() {
   }
 
   async function handleSendEvalInvite() {
+    if (denyObserver()) return
     if (!evalInviteModal) return
     if (!evalInviteModal.name.trim() || !evalInviteModal.email.trim()) {
       flash('Recipient name and email address are required.', 'error')
@@ -489,6 +495,7 @@ export default function CandidateDetailPage() {
   const progressPct = completePct
 
   async function handleUpdateProfile() {
+    if (denyObserver()) return
     if (!candidate) return
     setIsSavingProfile(true)
     const { error } = await supabase
@@ -551,6 +558,7 @@ CMD Ordaining Council`
   }
 
   async function handleAssignGrader(reqId: string, councilMemberId: string) {
+    if (denyObserver()) return
     const { data: currentUser } = await supabase.auth.getUser()
     const { data: existing } = await supabase.from('grading_assignments').select('id').eq('ordinand_requirement_id', reqId).maybeSingle()
     if (existing) {
@@ -576,6 +584,7 @@ CMD Ordaining Council`
   }
 
   async function handleResetSubmission(reqId: string, mode: 'unsubmitted' | 'submitted') {
+    if (denyObserver()) return
     setIsResetting(true)
     const targetStatus = mode === 'unsubmitted' ? 'not_started' : 'submitted'
     const { error } = await supabase
@@ -598,6 +607,7 @@ CMD Ordaining Council`
   }
 
   async function handleAdminUpload(req: any, file: File, dateStr: string) {
+    if (denyObserver()) return
     setIsUploading(true)
     const submittedAt = new Date(dateStr).toISOString()
     const ext = file.name.split('.').pop()
@@ -674,6 +684,7 @@ CMD Ordaining Council`
   }
 
   async function handleSaveSelfAssessment() {
+    if (denyObserver()) return
     if (!saReq) return
     const submission = Array.isArray(saReq.submissions) ? saReq.submissions[0] : saReq.submissions
     if (!submission?.id) { flash('No submission found — upload the file first.', 'error'); return }
@@ -699,6 +710,7 @@ CMD Ordaining Council`
   }
 
   async function handleSaveGrade() {
+    if (denyObserver()) return
     if (!selectedReq || !rating) return
     setIsSaving(true)
     const gaId = Array.isArray(selectedReq.grading_assignments) ? selectedReq.grading_assignments[0]?.id : selectedReq.grading_assignments?.id
@@ -784,7 +796,7 @@ CMD Ordaining Council`
               )}
             </div>
             <div className="flex gap-3 flex-wrap">
-              {!editingProfile && !isObserver && (
+              {!editingProfile && (
                 <button
                   onClick={() => setEditingProfile(true)}
                   className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:border-blue-300 hover:text-blue-600 transition-all"
@@ -938,14 +950,14 @@ CMD Ordaining Council`
                                 ? <span className="text-xs text-slate-500 font-medium">Grader: <span className="font-bold text-slate-700">{grader.first_name} {grader.last_name}</span></span>
                                 : <span className="text-xs text-amber-600 font-bold">No grader assigned</span>
                               }
-                              {!isObserver && !isReassigning ? (
+                              {!isReassigning ? (
                                 <button
                                   onClick={() => setReassigningId(req.id)}
                                   className="text-xs text-blue-500 hover:text-blue-700 font-bold transition-colors"
                                 >
                                   {grader ? 'Reassign' : 'Assign Grader'}
                                 </button>
-                              ) : !isObserver && isReassigning ? (
+                              ) : (
                                 <div className="flex items-center gap-2">
                                   <select
                                     className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-blue-100 outline-none"
@@ -959,11 +971,11 @@ CMD Ordaining Council`
                                   </select>
                                   <button onClick={() => setReassigningId(null)} className="text-xs text-slate-400 hover:text-slate-600 font-bold">Cancel</button>
                                 </div>
-                              ) : null}
+                              )}
                             </div>
                           </div>
                           {/* Admin upload on behalf */}
-                          {!isObserver && status !== 'complete' && (
+                          {status !== 'complete' && (
                             uploadingReqId === req.id ? (
                               <div className="flex flex-col gap-2 bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5">
                                 <div className="flex items-center gap-2">
@@ -1012,7 +1024,7 @@ CMD Ordaining Council`
                             )
                           )}
                           {/* Self-assessment entry for paper requirements */}
-                          {!isObserver && (() => {
+                          {(() => {
                             const isPaper = req.requirement_templates?.type === 'paper'
                             const hasSub = !!(Array.isArray(req.submissions) ? req.submissions[0] : req.submissions)?.id
                             const hasSA = !!(Array.isArray(req.submissions) ? req.submissions[0] : req.submissions)?.self_assessment
@@ -1027,7 +1039,7 @@ CMD Ordaining Council`
                               </button>
                             )
                           })()}
-                          {!isObserver && (status === 'submitted' || status === 'under_review') && (
+                          {(status === 'submitted' || status === 'under_review') && (
                             <button
                               onClick={() => { setSelectedReq(req); setRating(grade?.overall_rating ?? ''); setComments(grade?.overall_comments ?? '') }}
                               className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-sm"
@@ -1044,7 +1056,7 @@ CMD Ordaining Council`
                             </button>
                           )}
                           {/* Reset button — available for any submitted/graded status */}
-                          {!isObserver && status !== 'not_started' && (
+                          {status !== 'not_started' && (
                             confirmReset?.id === req.id ? (
                               <div className="flex flex-col gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                                 <span className="text-xs font-black text-amber-800">Revert this submission?</span>
@@ -1144,19 +1156,19 @@ CMD Ordaining Council`
                           View Response
                         </button>
                       ) : tok?.status === 'pending' ? (
-                        !isObserver ? <button
+                        <button
                           onClick={() => openEvalInviteModal(type)}
                           className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
                         >
                           Resend Invitation
-                        </button> : <span className="text-xs text-slate-400 font-medium">Pending</span>
+                        </button>
                       ) : (
-                        !isObserver ? <button
+                        <button
                           onClick={() => openEvalInviteModal(type)}
                           className="px-4 py-2 bg-[#00426A] text-white rounded-xl text-xs font-bold hover:bg-[#003558] transition-all"
                         >
                           Send Invitation →
-                        </button> : <span className="text-xs text-slate-400 font-medium">Not sent</span>
+                        </button>
                       )}
                     </div>
                   </div>

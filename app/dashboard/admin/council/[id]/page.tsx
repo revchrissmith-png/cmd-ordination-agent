@@ -88,6 +88,11 @@ export default function CouncilMemberManagePage() {
     setTimeout(() => setMessage({ text: '', type: '' }), 5000)
   }
 
+  function denyObserver(): boolean {
+    if (isObserver) { flash('Observer accounts cannot make changes to the portal.', 'error'); return true }
+    return false
+  }
+
   async function fetchData() {
     setLoading(true)
 
@@ -182,6 +187,7 @@ export default function CouncilMemberManagePage() {
   }, [id])
 
   async function handleSaveProfile() {
+    if (denyObserver()) return
     setIsSavingProfile(true)
     const { data: { session } } = await supabase.auth.getSession()
 
@@ -326,6 +332,7 @@ export default function CouncilMemberManagePage() {
   }
 
   async function handleSendEmail() {
+    if (denyObserver()) return
     if (!member?.email || !emailHtml) return
     setSendingEmail(true)
     setEmailSendStatus('idle')
@@ -416,9 +423,9 @@ export default function CouncilMemberManagePage() {
             <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: 500 }}>{member.email}</p>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            {!isObserver && <button onClick={() => setEditingProfile(!editingProfile)} style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: '1.5px solid #e2e8f0', backgroundColor: C.white, color: '#475569', cursor: 'pointer' }}>
+            <button onClick={() => setEditingProfile(!editingProfile)} style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: '1.5px solid #e2e8f0', backgroundColor: C.white, color: '#475569', cursor: 'pointer' }}>
               {editingProfile ? 'Cancel Edit' : '✏️ Edit Profile'}
-            </button>}
+            </button>
             <button onClick={handleGenerateEmail} style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: 'none', backgroundColor: C.allianceBlue, color: C.white, cursor: 'pointer' }}>
               📧 Generate Report Email
             </button>
@@ -606,14 +613,14 @@ export default function CouncilMemberManagePage() {
                   <span style={{ padding: '0.5rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' }}>
                     ✓ Email Sent!
                   </span>
-                ) : !isObserver ? (
+                ) : (
                   <button
                     onClick={handleSendEmail}
                     disabled={sendingEmail}
                     style={{ padding: '0.5rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: 'none', backgroundColor: sendingEmail ? '#94a3b8' : C.deepSea, color: C.white, cursor: sendingEmail ? 'default' : 'pointer', transition: 'background 0.2s' }}>
                     {sendingEmail ? 'Sending…' : '📧 Send Email'}
                   </button>
-                ) : null}
+                )}
                 <button onClick={handleCopyHtml} style={{ padding: '0.5rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: '1px solid #e2e8f0', backgroundColor: copied ? '#f0fdf4' : C.white, color: copied ? '#166534' : '#64748b', cursor: 'pointer', transition: 'all 0.2s' }}>
                   {copied ? '✓ Copied' : 'Copy HTML'}
                 </button>

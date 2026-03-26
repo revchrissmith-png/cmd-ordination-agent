@@ -60,14 +60,26 @@ export default function CouncilGradePage() {
   const [paperSectionRatings, setPaperSectionRatings] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving]       = useState(false)
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null)
+  const [isObserver, setIsObserver]   = useState(false)
 
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
     setTimeout(() => setMessage({ text: '', type: '' }), 6000)
   }
 
+  function denyObserver(): boolean {
+    if (isObserver) { flash('Observer accounts cannot make changes to the portal.', 'error'); return true }
+    return false
+  }
+
   async function fetchData() {
     setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: myProfile } = await supabase.from('profiles').select('roles').eq('id', user.id).single()
+      const myRoles: string[] = myProfile?.roles ?? []
+      setIsObserver(myRoles.includes('observer') && !myRoles.includes('admin'))
+    }
     const { data: assign } = await supabase
       .from('grading_assignments')
       .select('id, ordinand_requirement_id, council_member_id')
@@ -146,6 +158,7 @@ export default function CouncilGradePage() {
     PAPER_SECTIONS.every(s => (paperFeedback[s.id] || '').trim().length > 0)
 
   async function handleSaveGrade() {
+    if (denyObserver()) return
     if (!rating) { flash('Please select an overall rating before saving.', 'error'); return }
     if (!submission) { flash('No submission found to grade.', 'error'); return }
     if (isSermon && !allRubricScored) {
