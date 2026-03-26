@@ -1,5 +1,5 @@
 # CLAUDE.md — CMD Ordination Agent
-*Project briefing for Claude Code. Last updated: March 22, 2026 · v1.0-alpha*
+*Project briefing for Claude Code. Last updated: March 26, 2026 · v1.0-beta*
 
 ---
 
@@ -258,10 +258,12 @@ app/
                                        structured brief via Anthropic API; admin-only
       send-council-report/route.ts  ✅ Resend API — sends council member report email
       send-evaluation-invite/route.ts ✅ Creates eval token + sends branded invitation email via Resend
+      update-user-email/route.ts    ✅ Service-role email update for council member accounts
       council-member-info/route.ts  ✅ Service-role lookup for last sign-in timestamp
 
   dashboard/
     page.tsx                        ✅ Role-based router (auto-redirects council + ordinands)
+                                       Observer role → admin views with write actions blocked
 
     admin/
       page.tsx                      ✅ Admin console (Ordinands / Council / Cohorts / Calendar tabs)
@@ -300,6 +302,7 @@ app/
 utils/
   supabase/client.ts                ✅ Supabase browser client (createBrowserClient — cookie-based)
   selfAssessmentQuestions.ts        ✅ Self-assessment question sets (5 topics)
+  sermonRubric.ts                   ✅ 21-criterion sermon evaluation rubric (6 sections)
 
 middleware.ts                        ✅ Edge middleware — refreshes auth cookies on every request
                                        Does NOT redirect unauthenticated users (see gotcha #16)
@@ -309,13 +312,15 @@ tailwind.config.js                  ✅ Content paths for CSS class scanning
 postcss.config.js                   ✅ Tailwind + Autoprefixer pipeline
 package.json                        ✅ Dependencies (tailwindcss, autoprefixer, @anthropic-ai/sdk,
                                        jspdf for PDF generation)
+README.md                           ✅ Public repo documentation (overview, features, setup,
+                                       adapting for another district)
 ```
 
 ---
 
-## 6. Migration Context (as of March 22, 2026)
+## 6. Migration Context (as of March 26, 2026)
 
-The portal is in active beta migration from Moodle (the previous LMS used during alpha).
+The portal has entered **Beta** as of March 26, 2026. Active migration from Moodle (the alpha LMS) is underway.
 
 - **21 ordinands** are being migrated to the portal now (Spring 2026 and Fall 2026 cohorts)
 - **9 ordinands** remain in Moodle until their Moodle subscription renews (Spring 2027 / Fall 2027 cohorts) — running dual systems temporarily is unavoidable given the 3-year ordination process
