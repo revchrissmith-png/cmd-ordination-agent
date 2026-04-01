@@ -100,6 +100,10 @@ export default function CandidateDetailPage() {
   const [briefContent, setBriefContent]       = useState('')
   const [isGeneratingBrief, setIsGeneratingBrief] = useState(false)
 
+  // Grader exclusions
+  const [exclusions, setExclusions] = useState<any[]>([])
+  const [isAutoAssigning, setIsAutoAssigning] = useState(false)
+
   const [isObserver, setIsObserver] = useState(false)
 
   function flash(text: string, type: 'success' | 'error') {
@@ -110,6 +114,42 @@ export default function CandidateDetailPage() {
   function denyObserver(): boolean {
     if (isObserver) { flash('Observer accounts cannot make changes to the portal.', 'error'); return true }
     return false
+  }
+
+  async function handleAutoAssign() {
+    if (denyObserver()) return
+    setIsAutoAssigning(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/auto-assign-graders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ ordinand_id: id }),
+    })
+    const result = await res.json()
+    if (!res.ok) { flash('Auto-assign failed: ' + (result.error ?? 'Unknown error'), 'error') }
+    else {
+      const msg = result.assigned > 0
+        ? `${result.assigned} grader${result.assigned !== 1 ? 's' : ''} assigned.${result.skipped > 0 ? ` ${result.skipped} skipped.` : ''}`
+        : result.skipped > 0 ? `No graders assigned — ${result.skipped} requirement(s) had no eligible grader.` : 'All requirements already have graders.'
+      flash(msg, result.assigned > 0 ? 'success' : 'error')
+      fetchData(true)
+    }
+    setIsAutoAssigning(false)
+  }
+
+  async function handleAddExclusion(councilMemberId: string) {
+    if (denyObserver()) return
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('grading_exclusions').insert({ ordinand_id: id, council_member_id: councilMemberId, created_by: user?.id })
+    if (error) { flash('Error: ' + error.message, 'error') }
+    else { fetchData(true) }
+  }
+
+  async function handleRemoveExclusion(exclusionId: string) {
+    if (denyObserver()) return
+    const { error } = await supabase.from('grading_exclusions').delete().eq('id', exclusionId)
+    if (error) { flash('Error: ' + error.message, 'error') }
+    else { fetchData(true) }
   }
 
   function openEvalInviteModal(type: 'mentor' | 'church') {
@@ -430,10 +470,16 @@ export default function CandidateDetailPage() {
 
     const { data: council } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name')
+      .select('id, first_name, last_name, grading_types')
       .contains('roles', ['council'])
       .order('last_name')
     setCouncilMembers(council || [])
+
+    const { data: excl } = await supabase
+      .from('grading_exclusions')
+      .select('id, council_member_id')
+      .eq('ordinand_id', id)
+    setExclusions(excl || [])
 
     const { data: cohortList } = await supabase
       .from('cohorts')
@@ -808,6 +854,16 @@ CMD Ordaining Council`
                   ✏️ Edit Profile
                 </button>
               )}
+              {!isObserver && requirements.some(r => !r.grading_assignments || (r.grading_assignments as any[]).length === 0) && (
+                <button
+                  onClick={handleAutoAssign}
+                  disabled={isAutoAssigning}
+                  className="px-4 py-2.5 text-white rounded-xl text-sm font-bold transition-all"
+                  style={{ backgroundColor: isAutoAssigning ? '#aaa' : C.allianceBlue }}
+                >
+                  {isAutoAssigning ? 'Assigning…' : '⚡ Auto-assign Graders'}
+                </button>
+              )}
               <a
                 href={buildProgressEmail()}
                 className="px-4 py-2.5 text-white rounded-xl text-sm font-bold transition-all"
@@ -889,6 +945,41 @@ CMD Ordaining Council`
                 >
                   Cancel
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Grader Exclusions */}
+          {!isObserver && (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Grader Exclusions</h2>
+              <p className="text-xs text-slate-400 mb-4">Excluded council members will never be auto-assigned to this ordinand.</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {exclusions.length === 0 && <span className="text-sm text-slate-400 font-medium">No exclusions set.</span>}
+                {exclusions.map(excl => {
+                  const member = councilMembers.find(m => m.id === excl.council_member_id)
+                  return (
+                    <span key={excl.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-xs font-bold">
+                      {member ? `${member.first_name} ${member.last_name}` : excl.council_member_id}
+                      <button onClick={() => handleRemoveExclusion(excl.id)} className="hover:text-red-900 font-black leading-none">×</button>
+                    </span>
+                  )
+                })}
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  defaultValue=""
+                  onChange={e => { if (e.target.value) { handleAddExclusion(e.target.value); e.target.value = '' } }}
+                  className="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-700 bg-white"
+                >
+                  <option value="" disabled>Add exclusion…</option>
+                  {councilMembers
+                    .filter(m => !exclusions.some(e => e.council_member_id === m.id))
+                    .map(m => (
+                      <option key={m.id} value={m.id}>{m.first_name} {m.last_name}{m.grading_types ? ` (${m.grading_types.join(', ')})` : ''}</option>
+                    ))
+                  }
+                </select>
               </div>
             </div>
           )}
