@@ -2,6 +2,7 @@
 // Council member dashboard — view all assigned requirements, filter by status, link to grading
 'use client'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 
@@ -25,11 +26,15 @@ export default function CouncilDashboard() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterTab>('needs_review')
 
+  const searchParams = useSearchParams()
+  const viewAsId = searchParams?.get('viewAs') ?? null
+
   useEffect(() => {
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: prof } = await supabase.from('profiles').select('full_name, email, roles').eq('id', user.id).single()
+      const targetId = viewAsId || user.id
+      const { data: prof } = await supabase.from('profiles').select('full_name, email, roles').eq('id', targetId).single()
       setProfile(prof)
       const { data: assigns } = await supabase
         .from('grading_assignments')
@@ -41,7 +46,7 @@ export default function CouncilDashboard() {
             cohorts(year, season),
             submissions(submitted_at)
           )`)
-        .eq('council_member_id', user.id)
+        .eq('council_member_id', targetId)
       setAssignments(assigns || [])
       setLoading(false)
     }
@@ -106,6 +111,13 @@ export default function CouncilDashboard() {
         </span>
       </div>
       {/* ── END ALPHA BANNER ── */}
+
+      {viewAsId && profile && (
+        <div style={{ backgroundColor: '#7c3aed', padding: '0.6rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+          <span style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}>👁 Viewing as {profile.full_name} — read-only preview</span>
+          <a href="/dashboard/admin" style={{ color: '#ddd6fe', fontSize: '0.8rem', fontWeight: 700, textDecoration: 'underline' }}>Exit view</a>
+        </div>
+      )}
 
     <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
       <div className="max-w-4xl mx-auto">

@@ -74,6 +74,7 @@ export default function CandidateDetailPage() {
   const [uploadingReqId, setUploadingReqId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadDate, setUploadDate] = useState<string>(() => new Date().toISOString().split('T')[0])
+  const [uploadRecordingUrl, setUploadRecordingUrl] = useState('')
 
   // Self-assessment modal state
   const [saReq, setSaReq] = useState<any | null>(null)
@@ -606,7 +607,7 @@ CMD Ordaining Council`
     setIsResetting(false)
   }
 
-  async function handleAdminUpload(req: any, file: File, dateStr: string) {
+  async function handleAdminUpload(req: any, file: File, dateStr: string, recordingUrl?: string) {
     if (denyObserver()) return
     setIsUploading(true)
     const submittedAt = new Date(dateStr).toISOString()
@@ -627,9 +628,11 @@ CMD Ordaining Council`
     const existingSubmission = Array.isArray(req.submissions) ? req.submissions[0] : req.submissions
     let submissionId: string
     if (existingSubmission) {
-      await supabase.from('submissions').update({ file_url: publicUrl, submitted_at: submittedAt }).eq('id', existingSubmission.id)
+      const isSermonReq = req.requirement_templates?.type === 'sermon'
+      await supabase.from('submissions').update({ file_url: publicUrl, submitted_at: submittedAt, ...(isSermonReq ? { notes: recordingUrl?.trim() || null } : {}) }).eq('id', existingSubmission.id)
       submissionId = existingSubmission.id
     } else {
+      const isSermonReq = req.requirement_templates?.type === 'sermon'
       const { data: newSub, error: subError } = await supabase.from('submissions').insert({
         ordinand_id: id,
         ordinand_requirement_id: req.id,
@@ -637,6 +640,7 @@ CMD Ordaining Council`
         file_name: file.name,
         version: 1,
         submitted_at: submittedAt,
+        ...(isSermonReq ? { notes: recordingUrl?.trim() || null } : {}),
       }).select('id').single()
       if (subError) {
         flash('Upload succeeded but could not create submission record: ' + subError.message, 'error')
@@ -989,6 +993,19 @@ CMD Ordaining Council`
                                     className="text-xs px-2.5 py-1.5 bg-white border border-teal-300 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-teal-200 outline-none"
                                   />
                                 </div>
+                                {req.requirement_templates?.type === 'sermon' && (
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-black text-teal-700 whitespace-nowrap">Recording URL (optional):</label>
+                                    <input
+                                      type="url"
+                                      placeholder="https://www.youtube.com/watch?v=..."
+                                      value={uploadRecordingUrl}
+                                      onChange={e => setUploadRecordingUrl(e.target.value)}
+                                      disabled={isUploading}
+                                      className="text-xs px-2.5 py-1.5 bg-white border border-teal-300 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-teal-200 outline-none w-full"
+                                    />
+                                  </div>
+                                )}
                                 <div className="flex items-center gap-2">
                                   <label className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${isUploading ? 'bg-slate-200 text-slate-400' : 'bg-teal-600 text-white hover:bg-teal-700'}`}>
                                     {isUploading ? 'Uploading…' : '↑ Choose File'}
@@ -999,7 +1016,7 @@ CMD Ordaining Council`
                                       disabled={isUploading}
                                       onChange={e => {
                                         const file = e.target.files?.[0]
-                                        if (file) handleAdminUpload(req, file, uploadDate)
+                                        if (file) handleAdminUpload(req, file, uploadDate, uploadRecordingUrl)
                                       }}
                                     />
                                   </label>
@@ -1013,6 +1030,7 @@ CMD Ordaining Council`
                                 onClick={() => {
                                   setUploadingReqId(req.id)
                                   setUploadDate(new Date().toISOString().split('T')[0])
+                                  setUploadRecordingUrl('')
                                   setReassigningId(null)
                                   setConfirmReset(null)
                                 }}

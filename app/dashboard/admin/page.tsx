@@ -83,6 +83,8 @@ export default function AdminPage() {
   const [activityLoading, setActivityLoading] = useState(false)
 
   const [isObserver, setIsObserver] = useState(false)
+  const [showViewAs, setShowViewAs] = useState(false)
+  const [viewAsSearch, setViewAsSearch] = useState('')
 
   function flash(text: string, type: 'success' | 'error') {
     setMessage({ text, type })
@@ -418,6 +420,7 @@ export default function AdminPage() {
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Link href="/handbook" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>📖 Handbook</Link>
+          <button onClick={() => { setShowViewAs(true); setViewAsSearch('') }} style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>👁 View as User</button>
           <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Dashboard</Link>
         </div>
       </header>
@@ -1036,6 +1039,84 @@ export default function AdminPage() {
         )}
 
       </div>
+
+      {/* ── View as User modal ── */}
+      {showViewAs && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}
+          onClick={() => setShowViewAs(false)}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '16px', width: '100%', maxWidth: '540px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ margin: 0, fontWeight: 900, fontSize: '1rem', color: '#00426A' }}>👁 View as User</p>
+                <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>Choose a user to preview their portal experience. No changes you make will be saved.</p>
+              </div>
+              <button onClick={() => setShowViewAs(false)} style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#94a3b8', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #f1f5f9' }}>
+              <input
+                type="text"
+                placeholder="Search by name or email…"
+                value={viewAsSearch}
+                onChange={e => setViewAsSearch(e.target.value)}
+                autoFocus
+                style={{ width: '100%', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '0.875rem', fontWeight: 500, outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {/* Ordinands section */}
+              {(() => {
+                const q = viewAsSearch.toLowerCase()
+                const filtered = candidates.filter(c =>
+                  c.status == null &&
+                  (`${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
+                )
+                if (filtered.length === 0) return null
+                return (
+                  <div>
+                    <p style={{ margin: 0, padding: '0.75rem 1.5rem 0.25rem', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8' }}>Ordinands</p>
+                    {filtered.map((c: any) => (
+                      <button key={c.id} onClick={() => { window.location.href = `/dashboard/ordinand?viewAs=${c.id}` }}
+                        style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '0.75rem 1.5rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #f8fafc' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1e293b' }}>{c.first_name} {c.last_name}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{c.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+              {/* Council section */}
+              {(() => {
+                const q = viewAsSearch.toLowerCase()
+                const filtered = councilMembers.filter((m: any) =>
+                  (`${m.first_name} ${m.last_name}`.toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q))
+                )
+                if (filtered.length === 0) return null
+                return (
+                  <div>
+                    <p style={{ margin: 0, padding: '0.75rem 1.5rem 0.25rem', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8' }}>Council Members</p>
+                    {filtered.map((m: any) => (
+                      <button key={m.id} onClick={() => { window.location.href = `/dashboard/council?viewAs=${m.id}` }}
+                        style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '0.75rem 1.5rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #f8fafc' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1e293b' }}>{m.first_name} {m.last_name}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{m.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+              {candidates.length === 0 && councilMembers.length === 0 && (
+                <p style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem' }}>No users found.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
     </div>
   )

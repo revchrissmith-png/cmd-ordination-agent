@@ -1,7 +1,7 @@
 // app/dashboard/ordinand/requirements/[id]/page.tsx
 'use client'
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
 import { logActivity } from '../../../../../utils/logActivity'
@@ -165,6 +165,9 @@ export default function OrdinandRequirementPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id ?? ''
 
+  const searchParams = useSearchParams()
+  const viewAsId = searchParams?.get('viewAs') ?? null
+
   const [requirement, setRequirement]   = useState<any>(null)
   const [submission, setSubmission]     = useState<any>(null)
   const [grade, setGrade]               = useState<any>(null)
@@ -262,8 +265,7 @@ export default function OrdinandRequirementPage() {
   const paperInstructions = isPaper && topic ? PAPER_INSTRUCTIONS[topic] : null
   const status: Status = requirement?.status ?? 'not_started'
   const statusCfg = STATUS_CONFIG[status]
-  const isLocked  = status === 'submitted' || status === 'under_review' || status === 'complete'
-  const canEdit   = !isLocked
+  const canEdit   = !viewAsId && (requirement?.status === 'not_started' || requirement?.status === 'revision_required')
 
   const isNewFormatSA = submission?.self_assessment?.version === 2
 
@@ -395,6 +397,13 @@ export default function OrdinandRequirementPage() {
         </a>
         <Link href="/dashboard/ordinand" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← My Requirements</Link>
       </header>
+
+      {viewAsId && (
+        <div style={{ backgroundColor: '#7c3aed', padding: '0.6rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+          <span style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}>👁 Read-only preview — no actions will be saved</span>
+          <a href={`/dashboard/ordinand?viewAs=${viewAsId}`} style={{ color: '#ddd6fe', fontSize: '0.8rem', fontWeight: 700, textDecoration: 'underline' }}>← Back to dashboard</a>
+        </div>
+      )}
 
       <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
         <div className="max-w-3xl mx-auto">

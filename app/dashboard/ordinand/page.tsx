@@ -2,6 +2,7 @@
 // Ordinand dashboard — view all requirements, statuses, links to submission pages
 'use client'
 import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 import { logActivity } from '../../../utils/logActivity'
@@ -29,20 +30,24 @@ export default function OrdinandDashboard() {
   const [loading, setLoading] = useState(true)
   const popoverRef = useRef<HTMLDivElement>(null)
 
+  const searchParams = useSearchParams()
+  const viewAsId = searchParams?.get('viewAs') ?? null
+
   useEffect(() => {
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+      const targetId = viewAsId || user.id
       const { data: prof } = await supabase
         .from('profiles')
         .select('full_name, email, mentor_name, mentor_email, cohort_id, cohorts(year, season, sermon_topic, assignment_due_date)')
-        .eq('id', user.id)
+        .eq('id', targetId)
         .single()
       setProfile(prof)
       const { data: reqs } = await supabase
         .from('ordinand_requirements')
         .select(`id, status, requirement_templates(id, type, topic, title, book_category, display_order)`)
-        .eq('ordinand_id', user.id)
+        .eq('ordinand_id', targetId)
       setRequirements(reqs || [])
 
       if (prof?.cohort_id) {
@@ -63,12 +68,12 @@ export default function OrdinandDashboard() {
           .select('id, first_name, last_name')
           .eq('cohort_id', prof.cohort_id)
           .contains('roles', ['ordinand'])
-          .neq('id', user.id)
+          .neq('id', targetId)
           .order('last_name')
         setCohortMembers(members || [])
       }
 
-      logActivity(user.id, 'ordinand_dashboard', '/dashboard/ordinand')
+      if (!viewAsId) logActivity(user.id, 'ordinand_dashboard', '/dashboard/ordinand')
       setLoading(false)
     }
     fetchData()
@@ -159,6 +164,13 @@ export default function OrdinandDashboard() {
         </span>
       </div>
       {/* ── END ALPHA BANNER ── */}
+
+      {viewAsId && profile && (
+        <div style={{ backgroundColor: '#7c3aed', padding: '0.6rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+          <span style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}>👁 Viewing as {profile.full_name} — read-only preview</span>
+          <a href="/dashboard/admin" style={{ color: '#ddd6fe', fontSize: '0.8rem', fontWeight: 700, textDecoration: 'underline' }}>Exit view</a>
+        </div>
+      )}
 
     <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
       <div className="max-w-4xl mx-auto">
@@ -445,7 +457,7 @@ export default function OrdinandDashboard() {
                   const cfg = STATUS_CONFIG[status]
                   const isRevision = status === 'revision_required'
                   return (
-                    <Link key={req.id} href={`/dashboard/ordinand/requirements/${req.id}`}
+                    <Link key={req.id} href={`/dashboard/ordinand/requirements/${req.id}${viewAsId ? `?viewAs=${viewAsId}` : ''}`}
                       className={`flex items-center justify-between bg-white border rounded-2xl px-6 py-4 hover:shadow-md hover:border-blue-200 transition-all group ${isRevision ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`}>
                       <div className="flex items-center gap-3 min-w-0">
                         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
