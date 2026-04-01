@@ -60,12 +60,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ assigned: 0, skipped: 0, errors: [] })
   }
 
-  // Fetch council members with grading_types
+  // Fetch active council members with grading_types (exclude deleted)
   const { data: councilMembers } = await admin
     .from('profiles')
     .select('id, first_name, last_name, grading_types')
     .contains('roles', ['council'])
-    .is('status', null)
+    .neq('status', 'deleted')
 
   // Fetch exclusions for this ordinand
   const { data: exclusions } = await admin
@@ -165,5 +165,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ assigned, skipped, errors })
+  return NextResponse.json({ assigned, skipped, errors, _debug: { councilMemberCount: (councilMembers || []).length, unassignedCount: unassigned.length } })
 }
