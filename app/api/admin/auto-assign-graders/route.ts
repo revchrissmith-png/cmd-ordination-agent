@@ -165,5 +165,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ assigned, skipped, errors, _debug: { councilMemberCount: (councilMembers || []).length, unassignedCount: unassigned.length } })
+  return NextResponse.json({ assigned, skipped, errors })
 }
