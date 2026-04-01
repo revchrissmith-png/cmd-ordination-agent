@@ -1,5 +1,16 @@
+# Team Context
+
+This project is managed by the Orion AI Team. When working in this repo:
+- Orion orchestrates — delegates all dev work to Nova
+- Nova handles all Next.js, Supabase, TypeScript, and Vercel work
+
+@/Users/christopher/Library/Mobile Documents/com~apple~CloudDocs/Personal/PKAgent/CLAUDE.md
+@/Users/christopher/Library/Mobile Documents/com~apple~CloudDocs/Personal/PKAgent/Team/nova.md
+
+---
+
 # CLAUDE.md — CMD Ordination Agent
-*Project briefing for Claude Code. Last updated: March 26, 2026 · v1.0-beta*
+*Project briefing for Claude Code. Last updated: April 1, 2026 · v1.1*
 
 ---
 
@@ -54,10 +65,11 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Admin Console card hidden from non-admins
 
 ### ✅ Admin Console (`/dashboard/admin`)
-- **Ordinands tab** — register new ordinands including mentor name, mentor email, and sermon topic at registration time; auto-generates 17 requirements on registration; archive/complete flow (see below)
-- **Council Members tab** — add/remove council members, grant admin; "Manage →" link per member to council manage page
+- **Ordinands tab** — register new ordinands including mentor name, mentor email, and sermon topic at registration time; auto-generates 17 requirements on registration; archive/complete flow (see below); **auto-assign checkbox** (default on) triggers smart grader assignment immediately after registration
+- **Council Members tab** — add/remove council members, grant admin; "Manage →" link per member to council manage page; **clickable grading type badges** (Book Reports / Papers / Sermons) per council member to set type restrictions — blue = active, grey strikethrough = inactive; null (all three active) = unrestricted
 - **Cohorts tab** — create cohorts (year + season + sermon topic)
 - **Calendar tab** — create/edit/delete cohort gathering events with rich notes editor (bold, italic, links, bullet lists); multi-cohort assignment (select one, several, or all cohorts per event); linked assignment picker
+- **👁 View as User** — admin selects any ordinand or council member from a searchable modal and previews their exact portal experience; purple banner identifies the view-as session with an Exit link; all write actions are disabled in this mode
 
 ### ✅ Ordinand Archive/Complete Flow (admin)
 - Delete button on each ordinand row opens a two-step modal
@@ -73,6 +85,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Grade modal: 5-level rating + feedback text + "Graded By" selector → saves grade + updates status
 - **"↑ Upload" button** on each incomplete requirement — admin uploads a file on behalf of an ordinand (migration tool + admin-assist for technical difficulties)
   - Includes a **submission date picker** (defaults to today, capped at today) so historical Moodle dates can be recorded accurately
+  - For sermon requirements, includes an optional **Recording URL field** so video/audio links can be stored alongside the uploaded file
   - Uploads file to Supabase Storage under the ordinand's folder path
   - Creates or updates a `submissions` record with `file_name`, `version`, and `submitted_at`
   - Sets requirement status to `submitted` and shows a flash — does NOT auto-open the grade modal, so ungraded Moodle submissions can be migrated without forcing a grade entry
@@ -80,6 +93,8 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - **Self-assessment entry for papers** — admin can open a 📋 modal on any paper requirement and manually enter the ordinand's self-assessment ratings and evidence text (used when migrating Moodle records where the ordinand submitted a self-assessment but it isn't captured in the portal)
 - **"Send Progress Email"** button opens a modal with a pre-composed HTML email; primary action sends via Resend API; "Copy HTML" fallback also available
 - **External Evaluations card** — send mentor and church board evaluation invitations by email directly from the portal; tracks status (no token / pending / submitted); admin can view submitted response inline
+- **Grader Exclusions card** — list conflict-of-interest exclusions (e.g. supervisor, family member) per ordinand; excluded members are never auto-assigned; add via dropdown, remove with ×
+- **⚡ Auto-assign Graders button** — visible in header when any requirement has no grader; calls the auto-assign API and flashes the result count; hidden for observer accounts
 
 ### ✅ AI Interview Brief (`/dashboard/admin/candidates/[id]`)
 - On-demand generation from the ordinand's admin detail page via "Generate Interview Brief" button
@@ -187,8 +202,12 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 
 ## 4. Database Schema Quick Reference
 
-**Profiles columns:** `id, full_name, first_name, last_name, email, cohort_id, roles (text[]), role (enum), cohort_year, mentor_name, mentor_email, sermon_topic, status, status_changed_at, created_at, updated_at`
+**Profiles columns:** `id, full_name, first_name, last_name, email, cohort_id, roles (text[]), role (enum), cohort_year, mentor_name, mentor_email, sermon_topic, status, status_changed_at, grading_types (text[]), created_at, updated_at`
 ⚠️ `status` column: `null` = active, `'deleted'` = soft-deleted, `'completed'` = archived. Filter active ordinands with `.is('status', null)`.
+⚠️ `grading_types`: `null` = unrestricted (can grade all types). Non-null = hard restriction to listed types only. Valid values: `'book_report'`, `'paper'`, `'sermon'`.
+
+**Grading exclusions columns:** `id, ordinand_id, council_member_id, created_by, created_at`
+⚠️ UNIQUE on `(ordinand_id, council_member_id)`. RLS: admins only. Purpose: conflict-of-interest exclusions that prevent a council member from ever being auto-assigned to a specific ordinand.
 
 **Cohorts columns:** `id, name, year, season, sermon_topic (enum), created_at, updated_at`
 
@@ -260,6 +279,8 @@ app/
       send-evaluation-invite/route.ts ✅ Creates eval token + sends branded invitation email via Resend
       update-user-email/route.ts    ✅ Service-role email update for council member accounts
       council-member-info/route.ts  ✅ Service-role lookup for last sign-in timestamp
+      auto-assign-graders/route.ts  ✅ Smart grader assignment: filters by type eligibility +
+                                       exclusions, scores by breadth → pending load → 12-month history
 
   dashboard/
     page.tsx                        ✅ Role-based router (auto-redirects council + ordinands)
@@ -267,10 +288,13 @@ app/
 
     admin/
       page.tsx                      ✅ Admin console (Ordinands / Council / Cohorts / Calendar tabs)
-                                       Ordinand registration includes mentor name/email + sermon topic
-      candidates/[id]/page.tsx      ✅ Ordinand detail: edit profile, graders, grade, upload,
-                                       admin self-assessment entry, eval invitations,
-                                       AI Interview Brief with PDF download
+                                       Registration: mentor name/email, sermon topic, auto-assign checkbox
+                                       Council tab: grading type restriction badges per member
+                                       View as User: impersonate any ordinand or council member
+      candidates/[id]/page.tsx      ✅ Ordinand detail: edit profile, graders, grade, upload (incl.
+                                       sermon recording URL), admin self-assessment entry, eval invitations,
+                                       AI Interview Brief with PDF download,
+                                       Grader Exclusions card, Auto-assign Graders button
       council/[id]/page.tsx         ✅ Council member manage: profile, stats, full assignment
                                        table, report email via Resend
 
@@ -434,6 +458,10 @@ A permanent ordination record feature to be built after the core portal is stabl
 18. **jsPDF dynamic import — avoid SSR** — Import jsPDF with `await import('jspdf')` inside the click handler, not at the top of the file. Although all pages are `'use client'`, the dynamic import ensures jsPDF (which references `window` internally) is never evaluated during any server-side pass. Always cast `splitTextToSize` return values as `string[]` — TypeScript infers `string | string[]` but it always returns an array.
 
 19. **Do not attempt local dev server previews** — Supabase environment variables are Vercel-only and are not available locally. `npm run dev` will fail to connect to the database. All testing is done against the live Vercel deployment at ordination.canadianmidwest.ca.
+
+20. **`grading_types` null means unrestricted** — On `profiles`, `grading_types = null` means a council member can grade all types. A non-null array is a hard restriction. When toggling type badges: if all three types are selected, set `grading_types = null` (not `['book_report','paper','sermon']`). The auto-assign API checks `grading_types IS NULL OR grading_types @> ARRAY[type]` — never assume null means "none".
+
+21. **Auto-assign uses a service-role client for writes** — The auto-assign API authenticates the caller with the SSR client (cookie session), but performs all `grading_assignments` inserts with a service-role client. This is required because ordinand RLS does not allow council inserts. The caller must pass `Authorization: Bearer <access_token>` in the request header.
 
 ---
 
