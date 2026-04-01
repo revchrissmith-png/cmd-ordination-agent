@@ -118,7 +118,8 @@ export async function POST(req: NextRequest) {
     // Filter eligible council members
     const eligible = (councilMembers || []).filter(m => {
       if (excludedIds.has(m.id)) return false
-      if (m.grading_types && !m.grading_types.includes(reqType)) return false
+      // Only restrict by type if the member has explicit grading_types set (non-empty array)
+      if (Array.isArray(m.grading_types) && m.grading_types.length > 0 && !m.grading_types.includes(reqType)) return false
       return true
     })
 
