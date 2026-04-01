@@ -59,6 +59,8 @@ export default function CouncilGradePage() {
   const [paperFeedback, setPaperFeedback] = useState<Record<string, string>>({})
   const [paperSectionRatings, setPaperSectionRatings] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving]       = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null)
   const [isObserver, setIsObserver]   = useState(false)
 
@@ -109,17 +111,18 @@ export default function CouncilGradePage() {
     if (sub) {
       const { data: g } = await supabase
         .from('grades')
-        .select('id, overall_rating, overall_comments, graded_at, sermon_rubric, sermon_section_comments, paper_assessment')
+        .select('id, overall_rating, overall_comments, graded_at, sermon_rubric, sermon_section_comments, paper_assessment, is_draft')
         .eq('submission_id', sub.id)
         .single()
       if (g) {
         setExistingGrade(g)
-        setRating(g.overall_rating)
+        if (g.overall_rating) setRating(g.overall_rating)
         setComments(g.overall_comments || '')
         if (g.sermon_rubric)                    setRubricScores(g.sermon_rubric)
         if (g.sermon_section_comments)          setSectionComments(g.sermon_section_comments)
         if (g.paper_assessment?.sections)       setPaperFeedback(g.paper_assessment.sections)
         if (g.paper_assessment?.section_ratings) setPaperSectionRatings(g.paper_assessment.section_ratings)
+        if (g.is_draft)                         setDraftSavedAt(g.graded_at)
       }
     }
     if (req) {
@@ -157,6 +160,46 @@ export default function CouncilGradePage() {
   const allPaperFeedback = !isPaper || !isNewFormatSA ||
     PAPER_SECTIONS.every(s => (paperFeedback[s.id] || '').trim().length > 0)
 
+  async function handleSaveDraft() {
+    if (denyObserver()) return
+    if (!submission) { flash('No submission found.', 'error'); return }
+    setIsSavingDraft(true)
+    try {
+      const now = new Date().toISOString()
+      const draftData: any = {
+        overall_rating:   rating || null,
+        overall_comments: comments,
+        graded_at:        now,
+        is_draft:         true,
+      }
+      if (isSermon) {
+        draftData.sermon_rubric = rubricScores
+        draftData.sermon_section_comments = sectionComments
+      }
+      if (isPaper && isNewFormatSA) {
+        draftData.paper_assessment = {
+          version: 2,
+          sections: { ...paperFeedback },
+          section_ratings: { ...paperSectionRatings },
+        }
+      }
+      if (existingGrade) {
+        await supabase.from('grades').update(draftData).eq('id', existingGrade.id)
+      } else {
+        const { data: inserted } = await supabase.from('grades').insert({
+          submission_id:        submission.id,
+          grading_assignment_id: assignment.id,
+          graded_by:            assignment.council_member_id,
+          ...draftData,
+        }).select().single()
+        if (inserted) setExistingGrade(inserted)
+      }
+      setDraftSavedAt(now)
+      flash('Draft saved.', 'success')
+    } catch (err: any) { flash('Error saving draft: ' + err.message, 'error') }
+    setIsSavingDraft(false)
+  }
+
   async function handleSaveGrade() {
     if (denyObserver()) return
     if (!rating) { flash('Please select an overall rating before saving.', 'error'); return }
@@ -174,6 +217,7 @@ export default function CouncilGradePage() {
         overall_rating:   rating,
         overall_comments: comments,
         graded_at:        new Date().toISOString(),
+        is_draft:         false,
       }
       if (isSermon) {
         gradeData.sermon_rubric = rubricScores
@@ -626,14 +670,30 @@ export default function CouncilGradePage() {
                     />
                   </div>
 
-                  {/* Save button */}
-                  <button
-                    onClick={handleSaveGrade}
-                    disabled={isSaving || !rating || !allRubricScored || !allPaperFeedback}
-                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
-                  >
-                    {isSaving ? 'Saving...' : existingGrade ? 'Update Grade' : 'Save Grade'}
-                  </button>
+                  {/* Draft saved indicator */}
+                  {draftSavedAt && (
+                    <p className="text-xs text-slate-400 font-medium text-center mb-3">
+                      Draft saved {new Date(draftSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+
+                  {/* Save buttons */}
+                  <div className="flex gap-2 mb-0">
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={isSavingDraft || isSaving}
+                      className="flex-1 border-2 border-slate-300 text-slate-600 py-3 rounded-xl font-bold hover:border-slate-400 hover:bg-slate-50 transition-all disabled:opacity-50"
+                    >
+                      {isSavingDraft ? 'Saving...' : 'Save Draft'}
+                    </button>
+                    <button
+                      onClick={handleSaveGrade}
+                      disabled={isSaving || isSavingDraft || !rating || !allRubricScored || !allPaperFeedback}
+                      className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                    >
+                      {isSaving ? 'Saving...' : existingGrade ? 'Update Grade' : 'Save Grade'}
+                    </button>
+                  </div>
 
                   {isSermon && !allRubricScored && (
                     <p className="text-xs text-amber-600 font-bold text-center mt-3">Complete all {TOTAL_RUBRIC_CRITERIA} rubric criteria to save</p>
