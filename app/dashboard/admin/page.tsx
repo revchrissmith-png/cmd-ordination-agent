@@ -46,6 +46,14 @@ export default function AdminPage() {
     return `${y}-07-31` // default: fall due date
   })
   const [isAddingCohort, setIsAddingCohort] = useState(false)
+  const [editingCohortId, setEditingCohortId] = useState<string | null>(null)
+  const [editCohortName, setEditCohortName] = useState('')
+  const [editCohortYear, setEditCohortYear] = useState('')
+  const [editCohortSeason, setEditCohortSeason] = useState<'spring' | 'fall'>('fall')
+  const [editCohortSermonTopic, setEditCohortSermonTopic] = useState('')
+  const [editCohortDueDate, setEditCohortDueDate] = useState('')
+  const [isSavingCohort, setIsSavingCohort] = useState(false)
+  const [deletingCohortId, setDeletingCohortId] = useState<string | null>(null)
 
   const [events, setEvents] = useState<any[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
@@ -259,6 +267,38 @@ export default function AdminPage() {
     if (error) { flash('Error: ' + error.message, 'error') }
     else { flash(`Cohort "${name}" created.`, 'success'); setNewCohortName(''); setNewCohortDueDate(autoComputeDueDate(newCohortSeason, newCohortYear)); fetchCohorts() }
     setIsAddingCohort(false)
+  }
+
+  function startEditCohort(c: any) {
+    setEditingCohortId(c.id)
+    setEditCohortName(c.name)
+    setEditCohortYear(String(c.year))
+    setEditCohortSeason(c.season)
+    setEditCohortSermonTopic(c.sermon_topic)
+    setEditCohortDueDate(c.assignment_due_date || '')
+  }
+
+  async function handleSaveCohort() {
+    if (denyObserver()) return
+    if (!editingCohortId) return
+    setIsSavingCohort(true)
+    const { error } = await supabase.from('cohorts').update({
+      name: editCohortName.trim(),
+      year: parseInt(editCohortYear),
+      season: editCohortSeason,
+      sermon_topic: editCohortSermonTopic,
+      assignment_due_date: editCohortDueDate || null,
+    }).eq('id', editingCohortId)
+    if (error) { flash('Error: ' + error.message, 'error') }
+    else { flash('Cohort updated.', 'success'); setEditingCohortId(null); fetchCohorts() }
+    setIsSavingCohort(false)
+  }
+
+  async function handleDeleteCohort(id: string) {
+    if (denyObserver()) return
+    const { error } = await supabase.from('cohorts').delete().eq('id', id)
+    if (error) { flash('Cannot delete: ' + error.message, 'error') }
+    else { flash('Cohort deleted.', 'success'); setDeletingCohortId(null); fetchCohorts() }
   }
 
   async function handleAddCandidate(e: React.FormEvent) {
@@ -616,31 +656,74 @@ export default function AdminPage() {
               : (
                 <div className="divide-y divide-slate-100">
                   {cohorts.map(c => (
-                    <div key={c.id} className="px-5 sm:px-8 py-5 sm:py-6 hover:bg-slate-50 transition-colors">
-                      <div className="flex flex-wrap items-center gap-3 mb-4">
-                        <span className="font-bold text-slate-900 text-lg">{c.name}</span>
-                        {c.assignment_due_date && (
-                          <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold">
-                            Due {new Date(c.assignment_due_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
-                          <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-2">🎤 Sermon Topic (3 sermons)</p>
-                          <p className="font-bold text-purple-900 text-sm">{topicLabel(c.sermon_topic)}</p>
+                    <div key={c.id} className="px-5 sm:px-8 py-5 sm:py-6">
+                      {editingCohortId === c.id ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className={labelClass}>Year</label><input className={inputClass} type="number" value={editCohortYear} onChange={e => setEditCohortYear(e.target.value)} /></div>
+                            <div><label className={labelClass}>Season</label>
+                              <select className={inputClass} value={editCohortSeason} onChange={e => setEditCohortSeason(e.target.value as 'spring' | 'fall')}>
+                                <option value="fall">Fall</option><option value="spring">Spring</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div><label className={labelClass}>Cohort Name</label><input className={inputClass} value={editCohortName} onChange={e => setEditCohortName(e.target.value)} /></div>
+                          <div><label className={labelClass}>Assignment Due Date</label><input className={inputClass} type="date" value={editCohortDueDate} onChange={e => setEditCohortDueDate(e.target.value)} /></div>
+                          <div>
+                            <label className={labelClass}>Sermon Topic</label>
+                            <select className={inputClass} value={editCohortSermonTopic} onChange={e => setEditCohortSermonTopic(e.target.value)}>
+                              {TOPICS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            </select>
+                            <p className="text-xs text-amber-600 font-medium mt-1.5">⚠️ Changing the sermon topic does not update requirements already generated for ordinands in this cohort.</p>
+                          </div>
+                          <div className="flex gap-3 pt-1">
+                            <button onClick={handleSaveCohort} disabled={isSavingCohort} style={{ backgroundColor: isSavingCohort ? '#aaa' : C.deepSea, color: C.white, padding: '0.6rem 1.2rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>{isSavingCohort ? 'Saving...' : 'Save Changes'}</button>
+                            <button onClick={() => setEditingCohortId(null)} style={{ padding: '0.6rem 1.2rem', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: '0.875rem', color: '#64748b', backgroundColor: C.white }}>Cancel</button>
+                          </div>
                         </div>
-                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">📄 Paper Topics (4 papers)</p>
-                          <ul className="space-y-1">
-                            {TOPICS.filter(t => t.value !== c.sermon_topic).map(t => (
-                              <li key={t.value} className="text-sm text-slate-700 font-medium flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />{t.label}
-                              </li>
-                            ))}
-                          </ul>
+                      ) : deletingCohortId === c.id ? (
+                        <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+                          <p className="font-bold text-red-800 mb-1">Delete "{c.name}"?</p>
+                          <p className="text-sm text-red-600 mb-4">This cannot be undone. If ordinands are assigned to this cohort, the deletion will fail.</p>
+                          <div className="flex gap-3">
+                            <button onClick={() => handleDeleteCohort(c.id)} style={{ backgroundColor: '#dc2626', color: C.white, padding: '0.6rem 1.2rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>Yes, Delete</button>
+                            <button onClick={() => setDeletingCohortId(null)} style={{ padding: '0.6rem 1.2rem', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: '0.875rem', color: '#64748b', backgroundColor: C.white }}>Cancel</button>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <>
+                          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <span className="font-bold text-slate-900 text-lg">{c.name}</span>
+                              {c.assignment_due_date && (
+                                <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold">
+                                  Due {new Date(c.assignment_due_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => startEditCohort(c)} className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-all">✏️ Edit</button>
+                              <button onClick={() => setDeletingCohortId(c.id)} className="px-3 py-1.5 text-xs font-bold text-red-500 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-all">🗑 Delete</button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100">
+                              <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-2">🎤 Sermon Topic (3 sermons)</p>
+                              <p className="font-bold text-purple-900 text-sm">{topicLabel(c.sermon_topic)}</p>
+                            </div>
+                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">📄 Paper Topics (4 papers)</p>
+                              <ul className="space-y-1">
+                                {TOPICS.filter(t => t.value !== c.sermon_topic).map(t => (
+                                  <li key={t.value} className="text-sm text-slate-700 font-medium flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />{t.label}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
