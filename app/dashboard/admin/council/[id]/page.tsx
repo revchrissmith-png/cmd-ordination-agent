@@ -653,42 +653,6 @@ export default function CouncilMemberManagePage() {
         </div>
       )}
 
-    </div>
-  )
-}
-
-function EmailModalContent({ emailHtml }: { emailHtml: string }) {
-  const [tab, setTab] = useState<'preview' | 'html'>('preview')
-  const tabStyle = (active: boolean): React.CSSProperties => ({
-    padding: '0.5rem 1rem',
-    fontWeight: 700,
-    fontSize: '0.85rem',
-    border: 'none',
-    borderBottom: active ? '2px solid #0077C8' : '2px solid transparent',
-    backgroundColor: 'transparent',
-    color: active ? '#0077C8' : '#94a3b8',
-    cursor: 'pointer',
-  })
-  return (
-    <>
-      <div style={{ padding: '0 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.25rem' }}>
-        <button style={tabStyle(tab === 'preview')} onClick={() => setTab('preview')}>Preview</button>
-        <button style={tabStyle(tab === 'html')} onClick={() => setTab('html')}>HTML Source</button>
-      </div>
-      <div style={{ flex: 1, overflow: 'auto', padding: '1.25rem' }}>
-        {tab === 'preview' ? (
-          <iframe
-            srcDoc={emailHtml}
-            style={{ width: '100%', height: '100%', minHeight: '500px', border: 'none', borderRadius: '8px' }}
-            title="Email Preview"
-          />
-        ) : (
-          <pre style={{ margin: 0, fontSize: '0.75rem', color: '#334155', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', minHeight: '500px' }}>
-            {emailHtml}
-          </pre>
-        )}
-      </div>
-
       {/* View as User modal */}
       {showViewAs && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}
@@ -748,6 +712,43 @@ function EmailModalContent({ emailHtml }: { emailHtml: string }) {
           </div>
         </div>
       )}
+
+    </div>
+  )
+}
+
+function EmailModalContent({ emailHtml }: { emailHtml: string }) {
+  const [tab, setTab] = useState<'preview' | 'html'>('preview')
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    padding: '0.5rem 1rem',
+    fontWeight: 700,
+    fontSize: '0.85rem',
+    border: 'none',
+    borderBottom: active ? '2px solid #0077C8' : '2px solid transparent',
+    backgroundColor: 'transparent',
+    color: active ? '#0077C8' : '#94a3b8',
+    cursor: 'pointer',
+  })
+  return (
+    <>
+      <div style={{ padding: '0 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.25rem' }}>
+        <button style={tabStyle(tab === 'preview')} onClick={() => setTab('preview')}>Preview</button>
+        <button style={tabStyle(tab === 'html')} onClick={() => setTab('html')}>HTML Source</button>
+      </div>
+      <div style={{ flex: 1, overflow: 'auto', padding: '1.25rem' }}>
+        {tab === 'preview' ? (
+          <iframe
+            srcDoc={emailHtml}
+            style={{ width: '100%', height: '100%', minHeight: '500px', border: 'none', borderRadius: '8px' }}
+            title="Email Preview"
+          />
+        ) : (
+          <pre style={{ margin: 0, fontSize: '0.75rem', color: '#334155', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', minHeight: '500px' }}>
+            {emailHtml}
+          </pre>
+        )}
+      </div>
+
     </>
   )
 }
