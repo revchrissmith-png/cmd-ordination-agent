@@ -1,7 +1,7 @@
 // app/dashboard/council/page.tsx
 // Council member dashboard — view all assigned requirements, filter by status, link to grading
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
@@ -20,7 +20,7 @@ const STATUS_CONFIG: Record<Status, { label: string; colour: string; dot: string
 
 type FilterTab = 'needs_review' | 'all' | 'complete'
 
-export default function CouncilDashboard() {
+function CouncilDashboardContent() {
   const [profile, setProfile] = useState<any>(null)
   const [assignments, setAssignments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -240,5 +240,13 @@ export default function CouncilDashboard() {
       </div>
     </main>
     </div>
+  )
+}
+
+export default function CouncilDashboard() {
+  return (
+    <Suspense>
+      <CouncilDashboardContent />
+    </Suspense>
   )
 }

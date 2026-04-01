@@ -1,7 +1,7 @@
 // app/dashboard/ordinand/page.tsx
 // Ordinand dashboard — view all requirements, statuses, links to submission pages
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
@@ -19,7 +19,7 @@ const STATUS_CONFIG: Record<Status, { label: string; colour: string; dot: string
   complete:          { label: 'Complete',           colour: 'bg-green-100 text-green-700',   dot: 'bg-green-400' },
 }
 
-export default function OrdinandDashboard() {
+function OrdinandDashboardContent() {
   const [profile, setProfile] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
   const [events, setEvents] = useState<any[]>([])
@@ -488,5 +488,13 @@ export default function OrdinandDashboard() {
       </div>
     </main>
     </div>
+  )
+}
+
+export default function OrdinandDashboard() {
+  return (
+    <Suspense>
+      <OrdinandDashboardContent />
+    </Suspense>
   )
 }
