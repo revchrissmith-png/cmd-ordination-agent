@@ -72,6 +72,7 @@ export default function AdminPage() {
   const [newCandidateMentorName, setNewCandidateMentorName] = useState('')
   const [newCandidateMentorEmail, setNewCandidateMentorEmail] = useState('')
   const [isAddingCandidate, setIsAddingCandidate] = useState(false)
+  const [autoAssign, setAutoAssign] = useState(true)
 
   const [archiveTarget, setArchiveTarget] = useState<any>(null)
   const [archiveStep, setArchiveStep] = useState<'action' | 'report' | null>(null)
@@ -207,6 +208,25 @@ export default function AdminPage() {
     setIsAddingCouncil(false)
   }
 
+  async function handleToggleGradingType(member: any, type: string) {
+    if (denyObserver()) return
+    const current: string[] | null = member.grading_types
+    let next: string[] | null
+    if (!current) {
+      // Currently unrestricted — restrict to all except toggled type
+      next = ['book_report', 'paper', 'sermon'].filter(t => t !== type)
+    } else if (current.includes(type)) {
+      const removed = current.filter(t => t !== type)
+      next = removed.length === 0 ? ['book_report', 'paper', 'sermon'] : removed
+    } else {
+      const added = [...current, type]
+      next = added.length === 3 ? null : added
+    }
+    const { error } = await supabase.from('profiles').update({ grading_types: next }).eq('id', member.id)
+    if (error) { flash('Error: ' + error.message, 'error') }
+    else { fetchCouncil() }
+  }
+
   async function handleRemoveCouncil(member: any) {
     if (denyObserver()) return
     const name = `${member.first_name} ${member.last_name}`
@@ -268,10 +288,26 @@ export default function AdminPage() {
     if (!res.ok) { flash('Error: ' + result.error, 'error') }
     else {
       const count = result.requirementsCreated ?? '?'
-      flash(`${newCandidateFirst} ${newCandidateLast} registered with ${count} requirements generated.`, 'success')
       if (result.warning) flash(result.warning, 'error')
       setNewCandidateEmail(''); setNewCandidateFirst(''); setNewCandidateLast(''); setNewCandidateCohort(''); setNewCandidateMentorName(''); setNewCandidateMentorEmail('')
       fetchCandidates()
+
+      if (autoAssign && result.userId) {
+        const { data: { session } } = await supabase.auth.getSession()
+        const assignRes = await fetch('/api/admin/auto-assign-graders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+          body: JSON.stringify({ ordinand_id: result.userId }),
+        })
+        const assignResult = await assignRes.json()
+        if (assignRes.ok) {
+          flash(`${newCandidateFirst || 'Ordinand'} registered with ${count} requirements — ${assignResult.assigned} graders auto-assigned.`, 'success')
+        } else {
+          flash(`${newCandidateFirst || 'Ordinand'} registered with ${count} requirements. Auto-assign failed — assign graders manually.`, 'error')
+        }
+      } else {
+        flash(`${newCandidateFirst} ${newCandidateLast} registered with ${count} requirements generated.`, 'success')
+      }
     }
     setIsAddingCandidate(false)
   }
@@ -494,16 +530,34 @@ export default function AdminPage() {
                     <th className="px-4 sm:px-8 py-3 sm:py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
                   </tr></thead>
                   <tbody className="divide-y divide-slate-100">
-                    {councilMembers.map(m => (
+                    {councilMembers.map(m => {
+                      const gt: string[] | null = m.grading_types
+                      const canGrade = (type: string) => !gt || gt.includes(type)
+                      const typeBtn = (type: string, label: string) => (
+                        <button
+                          key={type}
+                          onClick={() => handleToggleGradingType(m, type)}
+                          title={`Click to ${canGrade(type) ? 'remove' : 'add'} ${label}`}
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold border transition-colors ${canGrade(type) ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-400 border-slate-200 line-through'}`}
+                        >{label}</button>
+                      )
+                      return (
                       <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 sm:px-8 py-3 sm:py-5">
                           <div className="font-bold text-slate-900">{m.first_name} {m.last_name}</div>
                           <div className="text-sm text-slate-400 font-medium md:hidden">{m.email}</div>
                         </td>
                         <td className="px-4 sm:px-8 py-3 sm:py-5 text-slate-500 font-medium hidden md:table-cell">{m.email}</td>
-                        <td className="px-4 sm:px-8 py-3 sm:py-5"><div className="flex flex-wrap gap-1.5">{(m.roles || []).map((r: string) => (
-                          <span key={r} className={`px-2.5 py-1 rounded-full text-xs font-bold ${ROLE_BADGE[r] ?? 'bg-slate-100 text-slate-600'}`}>{r}</span>
-                        ))}</div></td>
+                        <td className="px-4 sm:px-8 py-3 sm:py-5">
+                          <div className="flex flex-wrap gap-1.5 mb-1.5">{(m.roles || []).map((r: string) => (
+                            <span key={r} className={`px-2.5 py-1 rounded-full text-xs font-bold ${ROLE_BADGE[r] ?? 'bg-slate-100 text-slate-600'}`}>{r}</span>
+                          ))}</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {typeBtn('book_report', 'Book Reports')}
+                            {typeBtn('paper', 'Papers')}
+                            {typeBtn('sermon', 'Sermons')}
+                          </div>
+                        </td>
                         <td className="px-4 sm:px-8 py-3 sm:py-5 text-right">
                           <div className="flex items-center justify-end gap-2 sm:gap-4">
                             <Link href={`/dashboard/admin/council/${m.id}`} className="text-blue-500 hover:text-blue-700 font-bold text-sm transition-colors whitespace-nowrap">Manage →</Link>
@@ -511,7 +565,8 @@ export default function AdminPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
                 </div>
@@ -624,6 +679,10 @@ export default function AdminPage() {
                       <div><label className={labelClass}>Mentor Name</label><input className={inputClass} value={newCandidateMentorName} onChange={e => setNewCandidateMentorName(e.target.value)} placeholder="Rev. Jane Smith" /></div>
                       <div><label className={labelClass}>Mentor Email</label><input className={inputClass} type="email" value={newCandidateMentorEmail} onChange={e => setNewCandidateMentorEmail(e.target.value)} placeholder="mentor@church.ca" /></div>
                     </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    <input type="checkbox" id="autoAssignCheck" checked={autoAssign} onChange={e => setAutoAssign(e.target.checked)} style={{ width: '1rem', height: '1rem', cursor: 'pointer' }} />
+                    <label htmlFor="autoAssignCheck" style={{ fontSize: '0.875rem', color: '#64748b', cursor: 'pointer' }}>Auto-assign graders after registration</label>
                   </div>
                   <button type="submit" disabled={isAddingCandidate} style={{ backgroundColor: isAddingCandidate ? '#aaa' : C.deepSea, color: C.white, padding: '0.7rem 1.4rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>{isAddingCandidate ? 'Registering...' : 'Register Ordinand'}</button>
                 </form>
