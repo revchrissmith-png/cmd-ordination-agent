@@ -3,23 +3,25 @@
 // Respects grading_types restrictions, grading_exclusions, and balances
 // workload using pending assignments + 12-month history.
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 
 export async function POST(req: NextRequest) {
-  // Auth check — must be admin
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
+  // Auth check — Bearer token pattern (matches all other admin API routes)
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const token = authHeader.slice(7)
+
+  const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { data: { user }, error: authError } = await admin.auth.getUser(token)
+  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const { data: profile } = await admin
     .from('profiles')
     .select('roles')
     .eq('id', user.id)
@@ -35,12 +37,6 @@ export async function POST(req: NextRequest) {
   if (!ordinand_id) {
     return NextResponse.json({ error: 'ordinand_id required' }, { status: 400 })
   }
-
-  // Use service role for assignment writes
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   // Fetch unassigned requirements for this ordinand
   let reqQuery = admin
