@@ -104,6 +104,13 @@ export default function CandidateDetailPage() {
   const [exclusions, setExclusions] = useState<any[]>([])
   const [isAutoAssigning, setIsAutoAssigning] = useState(false)
 
+  // View as User
+  const [showViewAs, setShowViewAs] = useState(false)
+  const [viewAsSearch, setViewAsSearch] = useState('')
+  const [viewAsOrdinands, setViewAsOrdinands] = useState<any[]>([])
+  const [viewAsCouncil, setViewAsCouncil] = useState<any[]>([])
+  const [viewAsLoading, setViewAsLoading] = useState(false)
+
   const [isObserver, setIsObserver] = useState(false)
 
   function flash(text: string, type: 'success' | 'error') {
@@ -150,6 +157,17 @@ export default function CandidateDetailPage() {
     const { error } = await supabase.from('grading_exclusions').delete().eq('id', exclusionId)
     if (error) { flash('Error: ' + error.message, 'error') }
     else { fetchData(true) }
+  }
+
+  async function fetchViewAsUsers() {
+    if (viewAsOrdinands.length > 0 || viewAsCouncil.length > 0) return
+    setViewAsLoading(true)
+    const { data } = await supabase.from('profiles')
+      .select('id, first_name, last_name, email, roles, status')
+      .neq('status', 'deleted').order('last_name')
+    setViewAsOrdinands((data || []).filter((p: any) => p.roles?.includes('ordinand')))
+    setViewAsCouncil((data || []).filter((p: any) => p.roles?.includes('council')))
+    setViewAsLoading(false)
   }
 
   function openEvalInviteModal(type: 'mentor' | 'church') {
@@ -823,7 +841,8 @@ CMD Ordaining Council`
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Link href="/handbook" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>📖 Handbook</Link>
-          <Link href="/dashboard/admin" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Admin Console</Link>
+          {!isObserver && <button onClick={() => { setShowViewAs(true); setViewAsSearch(''); fetchViewAsUsers() }} style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>👁 View as User</button>}
+          <Link href="/dashboard/admin?tab=candidates" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Admin Console</Link>
         </div>
       </header>
 
@@ -1733,6 +1752,66 @@ CMD Ordaining Council`
 
         </div>
       </main>
+
+      {/* View as User modal */}
+      {showViewAs && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}
+          onClick={() => setShowViewAs(false)}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '16px', width: '100%', maxWidth: '540px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e293b' }}>👁 View as User</span>
+              <button onClick={() => setShowViewAs(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', color: '#94a3b8', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #f1f5f9' }}>
+              <input type="text" placeholder="Search by name or email…" value={viewAsSearch}
+                onChange={e => setViewAsSearch(e.target.value)} autoFocus
+                style={{ width: '100%', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '0.875rem', fontWeight: 500, outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {viewAsLoading && <p style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem' }}>Loading…</p>}
+              {!viewAsLoading && (() => {
+                const q = viewAsSearch.toLowerCase()
+                const filtered = viewAsOrdinands.filter(c => `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
+                if (filtered.length === 0) return null
+                return (
+                  <div>
+                    <p style={{ margin: 0, padding: '0.75rem 1.5rem 0.25rem', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8' }}>Ordinands</p>
+                    {filtered.map((c: any) => (
+                      <button key={c.id} onClick={() => { window.location.href = `/dashboard/ordinand?viewAs=${c.id}` }}
+                        style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '0.75rem 1.5rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #f8fafc' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1e293b' }}>{c.first_name} {c.last_name}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{c.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+              {!viewAsLoading && (() => {
+                const q = viewAsSearch.toLowerCase()
+                const filtered = viewAsCouncil.filter((m: any) => `${m.first_name} ${m.last_name}`.toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q))
+                if (filtered.length === 0) return null
+                return (
+                  <div>
+                    <p style={{ margin: 0, padding: '0.75rem 1.5rem 0.25rem', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8' }}>Council Members</p>
+                    {filtered.map((m: any) => (
+                      <button key={m.id} onClick={() => { window.location.href = `/dashboard/council?viewAs=${m.id}` }}
+                        style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '0.75rem 1.5rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid #f8fafc' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1e293b' }}>{m.first_name} {m.last_name}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{m.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

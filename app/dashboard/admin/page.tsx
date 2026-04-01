@@ -1,7 +1,8 @@
 // Iteration: v2.2 - Alliance Blue design system
 // Tabs: Council Members | Cohorts | Candidates
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../../utils/supabase/client'
 import Link from 'next/link'
 
@@ -23,8 +24,14 @@ const ROLE_BADGE: Record<string, string> = {
   ordinand:'bg-slate-100 text-slate-600',
 }
 
-export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('council')
+const VALID_TABS: Tab[] = ['council', 'cohorts', 'candidates', 'calendar', 'activity']
+
+function AdminPageContent() {
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const t = searchParams?.get('tab')
+    return (t && VALID_TABS.includes(t as Tab)) ? t as Tab : 'council'
+  })
   const [message, setMessage] = useState({ text: '', type: '' })
 
   const [councilMembers, setCouncilMembers] = useState<any[]>([])
@@ -1210,7 +1217,7 @@ export default function AdminPage() {
               {(() => {
                 const q = viewAsSearch.toLowerCase()
                 const filtered = candidates.filter(c =>
-                  c.status == null &&
+                  c.status !== 'deleted' &&
                   (`${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
                 )
                 if (filtered.length === 0) return null
@@ -1261,5 +1268,13 @@ export default function AdminPage() {
 
     </main>
     </div>
+  )
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense>
+      <AdminPageContent />
+    </Suspense>
   )
 }
