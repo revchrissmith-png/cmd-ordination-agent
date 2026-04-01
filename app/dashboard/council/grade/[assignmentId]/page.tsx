@@ -232,17 +232,33 @@ export default function CouncilGradePage() {
       }
 
       if (existingGrade) {
-        await supabase.from('grades').update(gradeData).eq('id', existingGrade.id)
+        await supabase.from('grades').update({
+          ...gradeData,
+          graded_by: assignment.council_member_id,
+        }).eq('id', existingGrade.id)
       } else {
         await supabase.from('grades').insert({
-          submission_id:       submission.id,
+          submission_id:        submission.id,
           grading_assignment_id: assignment.id,
-          graded_by:           assignment.council_member_id,
+          graded_by:            assignment.council_member_id,
           ...gradeData,
         })
       }
       const newStatus = rating === 'insufficient' ? 'revision_required' : 'complete'
-      await supabase.from('ordinand_requirements').update({ status: newStatus }).eq('id', requirement.id)
+      // Update requirement status server-side (service role bypasses RLS)
+      const { data: { session } } = await supabase.auth.getSession()
+      const statusRes = await fetch('/api/council/complete-grade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ requirementId: requirement.id, status: newStatus }),
+      })
+      if (!statusRes.ok) {
+        const err = await statusRes.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to update requirement status')
+      }
       flash('Grade saved successfully.', 'success')
       const { data: { user } } = await supabase.auth.getUser()
       if (user) logActivity(user.id, 'grade_submitted', `/dashboard/council/grade/${assignmentId}`, {

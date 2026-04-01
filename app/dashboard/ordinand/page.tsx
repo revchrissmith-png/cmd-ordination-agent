@@ -2,7 +2,7 @@
 // Ordinand dashboard — view all requirements, statuses, links to submission pages
 'use client'
 import { useEffect, useState, useRef, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 import { logActivity } from '../../../utils/logActivity'
@@ -32,11 +32,12 @@ function OrdinandDashboardContent() {
 
   const searchParams = useSearchParams()
   const viewAsId = searchParams?.get('viewAs') ?? null
+  const router = useRouter()
 
   useEffect(() => {
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) { router.replace('/'); return }
       const targetId = viewAsId || user.id
       const { data: prof } = await supabase
         .from('profiles')
