@@ -5,6 +5,8 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
+import { logActivity } from '../../../utils/logActivity'
+import BetaBanner from '../../components/BetaBanner'
 
 const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
 
@@ -33,6 +35,7 @@ function CouncilDashboardContent() {
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+      if (!viewAsId) logActivity(user.id, 'council_dashboard', '/dashboard/council')
       const targetId = viewAsId || user.id
       const { data: prof } = await supabase.from('profiles').select('full_name, email, roles').eq('id', targetId).single()
       setProfile(prof)
@@ -103,14 +106,7 @@ function CouncilDashboardContent() {
         </div>
       </header>
 
-      {/* ── ALPHA BANNER — remove before public launch ── */}
-      <div style={{ backgroundColor: '#FEF3C7', borderBottom: '1px solid #F59E0B', padding: '0.5rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
-        <span style={{ fontSize: '1rem' }}>⚗️</span>
-        <span style={{ color: '#92400E', fontSize: '0.82rem', fontWeight: '700', letterSpacing: '0.02em' }}>
-          Beta Build · v1.1 · Testing in progress — please report any issues to the District Office
-        </span>
-      </div>
-      {/* ── END ALPHA BANNER ── */}
+      <BetaBanner />
 
       {viewAsId && profile && (
         <div style={{ backgroundColor: '#7c3aed', padding: '0.6rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>

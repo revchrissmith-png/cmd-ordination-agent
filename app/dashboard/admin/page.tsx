@@ -5,6 +5,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../../utils/supabase/client'
 import Link from 'next/link'
+import BetaBanner from '../../components/BetaBanner'
 
 const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
 
@@ -508,14 +509,7 @@ function AdminPageContent() {
         </div>
       </header>
 
-      {/* ── ALPHA BANNER — remove before public launch ── */}
-      <div style={{ backgroundColor: '#FEF3C7', borderBottom: '1px solid #F59E0B', padding: '0.5rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
-        <span style={{ fontSize: '1rem' }}>⚗️</span>
-        <span style={{ color: '#92400E', fontSize: '0.82rem', fontWeight: '700', letterSpacing: '0.02em' }}>
-          Beta Build · v1.1 · Testing in progress — please report any issues to the District Office
-        </span>
-      </div>
-      {/* ── END ALPHA BANNER ── */}
+      <BetaBanner />
 
     <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20 overflow-x-hidden">
       <div className="max-w-5xl mx-auto">

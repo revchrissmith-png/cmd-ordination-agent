@@ -14,6 +14,7 @@ export type EventType =
   | 'grade_submitted'
   | 'process_guide'
   | 'profile_view'
+  | 'feedback_submitted'
 
 export async function logActivity(
   userId: string,
