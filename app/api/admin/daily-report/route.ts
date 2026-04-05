@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
   if (byUser.size === 0) {
     userRows = `<tr><td colspan="3" style="padding:1rem;text-align:center;color:#64748B;font-style:italic;">No portal activity recorded in this period.</td></tr>`
   } else {
-    for (const [, u] of byUser) {
+    for (const u of Array.from(byUser.values())) {
       const eventList = u.events
         .map(ev => `<li style="margin:0.2rem 0;color:#334155;font-size:0.85rem;">${toCST(ev.created_at)} — ${EVENT_LABELS[ev.event_type] ?? ev.event_type}${ev.page ? ` <span style="color:#94A3B8;font-size:0.8rem;">(${ev.page})</span>` : ''}</li>`)
         .join('')
