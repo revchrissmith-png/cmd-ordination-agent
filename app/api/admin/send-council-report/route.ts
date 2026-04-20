@@ -3,6 +3,7 @@
 // Caller must be an authenticated admin.
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { EMAIL_FROM } from '../../../../lib/config'
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'CMD Ordination Portal <noreply@send.canadianmidwest.ca>',
+      from: EMAIL_FROM,
       to: toName ? [`${toName} <${to}>`] : [to],
       subject: subject || 'CMD Ordination Portal — Grading Assignment Update',
       html,

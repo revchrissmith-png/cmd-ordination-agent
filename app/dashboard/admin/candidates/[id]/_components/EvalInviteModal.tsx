@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { supabase } from '../../../../../../utils/supabase/client'
 import { inputClass, labelClass } from '../../../../../../lib/formStyles'
+import { SITE_DOMAIN, ORG_NAME, ORG_PARENT } from '../../../../../../lib/config'
 
 interface EvalInviteModalProps {
   type: 'mentor' | 'church'
@@ -130,7 +131,7 @@ export default function EvalInviteModal({ type, initialName, initialEmail, candi
               </div>
               {/* Preview footer */}
               <div className="bg-slate-50 border-t border-slate-200 py-3 px-5 text-center">
-                <p className="text-xs text-slate-400">Canadian Midwest District &middot; The Alliance Canada &middot; ordination.canadianmidwest.ca</p>
+                <p className="text-xs text-slate-400">{ORG_NAME} &middot; {ORG_PARENT} &middot; {SITE_DOMAIN}</p>
               </div>
             </div>
           </div>

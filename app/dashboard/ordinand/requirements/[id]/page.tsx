@@ -34,39 +34,7 @@ function singleRatingDisplay(r: string): { label: string; colour: string } | nul
 
 // ── Book options per category ─────────────────────────────────────────────────
 
-const BOOK_OPTIONS: Record<string, string[]> = {
-  history: [
-    'All For Jesus — Robert L. Niklaus',
-    'A.B. Simpson and the Making of Modern Evangelicalism — Daryn Henry',
-  ],
-  theology: [
-    'Abide and Go: Missional Theosis in the Gospel of John — Michael J. Gorman',
-    'Rethinking Holiness: A Theological Introduction — Bernie Van De Walle',
-    'Surprised by Hope: Rethinking Heaven, the Resurrection, and the Mission of the Church — N.T. Wright',
-  ],
-  deeper_life: [
-    'Strengthening the Soul of Your Leadership — Ruth Haley Barton',
-    'Hearing God: Developing a Conversational Relationship With God — Dallas Willard',
-  ],
-  missions: [
-    'Completion of the Kairos Course',
-    'Short-term mission trip with the Alliance Canada + On Mission: Why We Go — Ronald Brown',
-    "The Mission of God's People: A Biblical Theology of the Church's Mission — Christopher J.H. Wright",
-  ],
-  holy_scripture: [
-    'God Has Spoken — J.I. Packer',
-    'The Blue Parakeet: Rethinking How You Read The Bible — Scot McKnight',
-  ],
-  anthropology: [
-    'Strange New World: How Thinkers and Activists Redefined Identity and Sparked the Sexual Revolution — Carl R. Trueman',
-    'The Genesis of Gender — Abigail Favale',
-    'Love Thy Body — Nancy Pearcy',
-  ],
-  disciple_making: [
-    "The Great Omission: Reclaiming Jesus' Essential Teachings on Discipleship — Dallas Willard",
-  ],
-  specific_ministry_focus: [], // free text — ordinand enters their own book
-}
+import { BOOK_OPTIONS } from '../../../../../lib/config'
 
 // ── Handbook instructions ─────────────────────────────────────────────────────
 

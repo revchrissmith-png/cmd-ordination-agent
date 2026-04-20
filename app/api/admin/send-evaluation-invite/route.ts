@@ -3,6 +3,7 @@
 // Caller must be an authenticated admin.
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { SITE_URL, SITE_DOMAIN, EMAIL_FROM, ORG_NAME, ORG_PARENT } from '../../../../lib/config'
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -70,7 +71,7 @@ function buildEmailHtml(opts: {
         <tr>
           <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
             <p style="color:#94a3b8;font-size:11px;margin:0 0 4px;">Canadian Midwest District · The Alliance Canada</p>
-            <p style="color:#94a3b8;font-size:11px;margin:0;">ordination.canadianmidwest.ca</p>
+            <p style="color:#94a3b8;font-size:11px;margin:0;">${SITE_DOMAIN}</p>
           </td>
         </tr>
 
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: tokenError?.message ?? 'Token creation failed' }, { status: 500 })
   }
 
-  const evalUrl = `https://ordination.canadianmidwest.ca/eval/${tokenData.token}`
+  const evalUrl = `${SITE_URL}/eval/${tokenData.token}`
   const ordinandFirst = (ordinandName as string).split(' ')[0]
   const isMentor = evalType === 'mentor'
   const html = buildEmailHtml({ recipientName, ordinandName, ordinandFirst, evalUrl, isMentor })
@@ -145,7 +146,7 @@ export async function POST(req: NextRequest) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'CMD Ordination Portal <noreply@send.canadianmidwest.ca>',
+      from: EMAIL_FROM,
       to: [`${recipientName} <${recipientEmail}>`],
       subject: `Ordination Evaluation Request — ${ordinandName}`,
       html,

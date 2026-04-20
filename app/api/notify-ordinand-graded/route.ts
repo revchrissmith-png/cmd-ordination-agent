@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, serviceClient, isValidUUID } from '../../../lib/api-auth'
 import { wrapEmail, emailButton, emailInfoBlock } from '../../../lib/email-templates'
+import { SITE_URL, EMAIL_FROM } from '../../../lib/config'
 
 export async function POST(req: NextRequest) {
   // Auth: only council members or admins can trigger grading notifications
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
   const ordinandName    = [ordinandProfile.first_name, ordinandProfile.last_name].filter(Boolean).join(' ') || 'Ordinand'
   const assignmentTitle = template?.title || 'an assignment'
   const isComplete      = outcome === 'complete'
-  const dashboardUrl    = 'https://ordination.canadianmidwest.ca/dashboard/ordinand'
+  const dashboardUrl    = `${SITE_URL}/dashboard/ordinand`
 
   const outcomeBlock = isComplete
     ? `<div style="background:#f0fdf4;border-left:4px solid #22c55e;border-radius:4px;padding:16px 20px;margin:20px 0;">
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'CMD Ordination Portal <noreply@send.canadianmidwest.ca>',
+      from: EMAIL_FROM,
       to: [ordinandProfile.email],
       subject: `${isComplete ? '✓ Assignment graded' : '⚠ Revision requested'} — ${assignmentTitle}`,
       html: wrapEmail(`

@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../utils/supabase/client'
+import { SITE_DOMAIN, ORG_NAME, ORG_PARENT } from '../../../lib/config'
 
 const RATING_CATEGORIES = [
   'Relationship & rapport with congregation',
@@ -449,7 +450,7 @@ export default function EvalFormPage() {
         </form>
 
         <p className="text-center text-xs text-slate-400 font-medium pb-8">
-          Canadian Midwest District · The Alliance Canada · ordination.canadianmidwest.ca
+          {ORG_NAME} · {ORG_PARENT} · {SITE_DOMAIN}
         </p>
       </main>
     </div>

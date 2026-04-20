@@ -4,6 +4,7 @@
 // Protected by CRON_SECRET — Vercel injects this automatically for cron calls.
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { SITE_URL, SITE_DOMAIN, EMAIL_FROM, ADMIN_EMAIL } from '../../../../lib/config'
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -214,7 +215,7 @@ export async function GET(req: NextRequest) {
   <div style="background:${lightBg};border-top:1px solid ${borderClr};padding:1rem 2rem;text-align:center;">
     <p style="margin:0;font-size:0.78rem;color:#94A3B8;">
       This report is generated automatically each day at 8:00 AM CST.<br>
-      CMD Ordination Portal · <a href="https://ordination.canadianmidwest.ca" style="color:#0077C8;">ordination.canadianmidwest.ca</a>
+      CMD Ordination Portal · <a href="${SITE_URL}" style="color:#0077C8;">${SITE_DOMAIN}</a>
     </p>
   </div>
 
@@ -234,8 +235,8 @@ export async function GET(req: NextRequest) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from:    'CMD Ordination Portal <noreply@send.canadianmidwest.ca>',
-      to:      ['system.admin@canadianmidwest.ca'],
+      from:    EMAIL_FROM,
+      to:      [ADMIN_EMAIL],
       subject: subjectLine,
       html,
     }),
