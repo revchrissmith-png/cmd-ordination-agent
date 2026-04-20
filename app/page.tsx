@@ -17,7 +17,7 @@ export default function Home() {
   // If the user is already signed in (e.g. they clicked a session link),
   // send them to the dashboard immediately.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) router.push('/dashboard')
     })
     return () => subscription.unsubscribe()

@@ -38,13 +38,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'ordinand_id required' }, { status: 400 })
   }
 
-  // Fetch unassigned requirements for this ordinand
-  let reqQuery = admin
-    .from('ordinand_requirements')
-    .select('id, requirement_templates(type)')
-    .eq('ordinand_id', ordinand_id)
-    .is('grading_assignments', null)
-
   // Check which requirements already have assignments
   const { data: allReqs } = await admin
     .from('ordinand_requirements')

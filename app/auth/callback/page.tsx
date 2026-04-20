@@ -16,7 +16,7 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     // The Supabase client automatically reads the session from the URL hash.
     // We just need to wait for it to establish the session, then redirect.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         router.replace('/dashboard')
       }
