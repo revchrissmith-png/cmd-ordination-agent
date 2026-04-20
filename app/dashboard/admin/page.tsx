@@ -201,24 +201,28 @@ function AdminPageContent() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { flash('Session expired — please refresh and try again.', 'error'); setIsAddingCouncil(false); return }
 
-    const res = await fetch('/api/admin/register-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        email: newCouncilEmail,
-        firstName: newCouncilFirst,
-        lastName: newCouncilLast,
-        roles,
-      }),
-    })
-    const result = await res.json()
+    try {
+      const res = await fetch('/api/admin/register-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          email: newCouncilEmail,
+          firstName: newCouncilFirst,
+          lastName: newCouncilLast,
+          roles,
+        }),
+      })
+      const result = await res.json()
 
-    if (!res.ok) { flash('Error: ' + result.error, 'error') }
-    else {
-      const roleDesc = newCouncilRoleMode === 'council_admin' ? 'council + admin' : newCouncilRoleMode === 'admin_only' ? 'admin only' : 'council'
-      flash(`${newCouncilFirst} ${newCouncilLast} added as ${roleDesc}.`, 'success')
-      setNewCouncilEmail(''); setNewCouncilFirst(''); setNewCouncilLast(''); setNewCouncilRoleMode('council')
-      fetchCouncil()
+      if (!res.ok) { flash('Error: ' + result.error, 'error') }
+      else {
+        const roleDesc = newCouncilRoleMode === 'council_admin' ? 'council + admin' : newCouncilRoleMode === 'admin_only' ? 'admin only' : 'council'
+        flash(`${newCouncilFirst} ${newCouncilLast} added as ${roleDesc}.`, 'success')
+        setNewCouncilEmail(''); setNewCouncilFirst(''); setNewCouncilLast(''); setNewCouncilRoleMode('council')
+        fetchCouncil()
+      }
+    } catch {
+      flash('Network error — please check your connection and try again.', 'error')
     }
     setIsAddingCouncil(false)
   }
@@ -317,44 +321,48 @@ function AdminPageContent() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { flash('Session expired — please refresh and try again.', 'error'); setIsAddingCandidate(false); return }
 
-    const res = await fetch('/api/admin/register-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        email: newCandidateEmail,
-        firstName: newCandidateFirst,
-        lastName: newCandidateLast,
-        cohortId: newCandidateCohort,
-        mentorName: newCandidateMentorName.trim() || null,
-        mentorEmail: newCandidateMentorEmail.trim() || null,
-        roles: ['ordinand'],
-      }),
-    })
-    const result = await res.json()
+    try {
+      const res = await fetch('/api/admin/register-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          email: newCandidateEmail,
+          firstName: newCandidateFirst,
+          lastName: newCandidateLast,
+          cohortId: newCandidateCohort,
+          mentorName: newCandidateMentorName.trim() || null,
+          mentorEmail: newCandidateMentorEmail.trim() || null,
+          roles: ['ordinand'],
+        }),
+      })
+      const result = await res.json()
 
-    if (!res.ok) { flash('Error: ' + result.error, 'error') }
-    else {
-      const count = result.requirementsCreated ?? '?'
-      if (result.warning) flash(result.warning, 'error')
-      setNewCandidateEmail(''); setNewCandidateFirst(''); setNewCandidateLast(''); setNewCandidateCohort(''); setNewCandidateMentorName(''); setNewCandidateMentorEmail('')
-      fetchCandidates()
+      if (!res.ok) { flash('Error: ' + result.error, 'error') }
+      else {
+        const count = result.requirementsCreated ?? '?'
+        if (result.warning) flash(result.warning, 'error')
+        setNewCandidateEmail(''); setNewCandidateFirst(''); setNewCandidateLast(''); setNewCandidateCohort(''); setNewCandidateMentorName(''); setNewCandidateMentorEmail('')
+        fetchCandidates()
 
-      if (autoAssign && result.userId) {
-        const { data: { session } } = await supabase.auth.getSession()
-        const assignRes = await fetch('/api/admin/auto-assign-graders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-          body: JSON.stringify({ ordinand_id: result.userId }),
-        })
-        const assignResult = await assignRes.json()
-        if (assignRes.ok) {
-          flash(`${newCandidateFirst || 'Ordinand'} registered with ${count} requirements — ${assignResult.assigned} graders auto-assigned.`, 'success')
+        if (autoAssign && result.userId) {
+          const { data: { session } } = await supabase.auth.getSession()
+          const assignRes = await fetch('/api/admin/auto-assign-graders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+            body: JSON.stringify({ ordinand_id: result.userId }),
+          })
+          const assignResult = await assignRes.json()
+          if (assignRes.ok) {
+            flash(`${newCandidateFirst || 'Ordinand'} registered with ${count} requirements — ${assignResult.assigned} graders auto-assigned.`, 'success')
+          } else {
+            flash(`${newCandidateFirst || 'Ordinand'} registered with ${count} requirements. Auto-assign failed — assign graders manually.`, 'error')
+          }
         } else {
-          flash(`${newCandidateFirst || 'Ordinand'} registered with ${count} requirements. Auto-assign failed — assign graders manually.`, 'error')
+          flash(`${newCandidateFirst} ${newCandidateLast} registered with ${count} requirements generated.`, 'success')
         }
-      } else {
-        flash(`${newCandidateFirst} ${newCandidateLast} registered with ${count} requirements generated.`, 'success')
       }
+    } catch {
+      flash('Network error — please check your connection and try again.', 'error')
     }
     setIsAddingCandidate(false)
   }

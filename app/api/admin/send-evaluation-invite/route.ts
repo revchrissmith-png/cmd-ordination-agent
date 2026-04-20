@@ -4,6 +4,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { SITE_URL, SITE_DOMAIN, EMAIL_FROM, ORG_NAME, ORG_PARENT } from '../../../../lib/config'
+import { fetchWithTimeout } from '../../../../utils/fetchWithTimeout'
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -139,8 +140,9 @@ export async function POST(req: NextRequest) {
   const isMentor = evalType === 'mentor'
   const html = buildEmailHtml({ recipientName, ordinandName, ordinandFirst, evalUrl, isMentor })
 
-  const resendRes = await fetch('https://api.resend.com/emails', {
+  const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
+    timeoutMs: 15_000,
     headers: {
       'Authorization': `Bearer ${resendKey}`,
       'Content-Type': 'application/json',

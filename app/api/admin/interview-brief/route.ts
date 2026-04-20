@@ -399,6 +399,7 @@ export async function POST(req: NextRequest) {
   // Stream the brief
   const stream = new ReadableStream({
     async start(controller) {
+      const encoder = new TextEncoder()
       try {
         const anthropicStream = anthropic.messages.stream({
           model:      'claude-haiku-4-5-20251001',
@@ -408,12 +409,19 @@ export async function POST(req: NextRequest) {
         })
         for await (const event of anthropicStream) {
           if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-            controller.enqueue(new TextEncoder().encode(event.delta.text))
+            controller.enqueue(encoder.encode(event.delta.text))
           }
         }
         controller.close()
-      } catch (err) {
-        controller.error(err)
+      } catch (err: any) {
+        // Send a visible error message into the stream so the client can display it
+        const errMsg = err?.status === 529
+          ? '\n\n[ERROR: The AI service is temporarily overloaded. Please try again in a moment.]'
+          : err?.status === 401
+          ? '\n\n[ERROR: AI service authentication failed. Please contact the administrator.]'
+          : `\n\n[ERROR: Failed to generate interview brief — ${err?.message ?? 'unknown error'}. Please try again.]`
+        try { controller.enqueue(encoder.encode(errMsg)) } catch {}
+        controller.close()
       }
     },
   })

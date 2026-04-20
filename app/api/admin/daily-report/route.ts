@@ -5,6 +5,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { SITE_URL, SITE_DOMAIN, EMAIL_FROM, ADMIN_EMAIL } from '../../../../lib/config'
+import { fetchWithTimeout } from '../../../../utils/fetchWithTimeout'
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -228,8 +229,9 @@ export async function GET(req: NextRequest) {
     ? `Ordination Portal — No Activity ${reportDate}`
     : `Ordination Portal — ${uniqueUsers} user${uniqueUsers !== 1 ? 's' : ''} active · ${reportDate}`
 
-  const resendRes = await fetch('https://api.resend.com/emails', {
+  const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
+    timeoutMs: 15_000,
     headers: {
       'Authorization': `Bearer ${resendKey}`,
       'Content-Type': 'application/json',

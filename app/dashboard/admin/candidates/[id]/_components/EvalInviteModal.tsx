@@ -33,22 +33,26 @@ export default function EvalInviteModal({ type, initialName, initialEmail, candi
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { flash('Session expired — please refresh.', 'error'); setIsSending(false); return }
 
-    const res = await fetch('/api/admin/send-evaluation-invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        ordinandId,
-        ordinandName: `${candidate.first_name} ${candidate.last_name}`,
-        evalType: type,
-        recipientName: name.trim(),
-        recipientEmail: email.trim().toLowerCase(),
-      }),
-    })
-    const result = await res.json()
-    if (!res.ok) { flash('Error: ' + result.error, 'error') }
-    else {
-      flash(`${type === 'mentor' ? 'Mentor' : 'Church board'} evaluation invitation sent to ${name}.`, 'success')
-      onSent()
+    try {
+      const res = await fetch('/api/admin/send-evaluation-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          ordinandId,
+          ordinandName: `${candidate.first_name} ${candidate.last_name}`,
+          evalType: type,
+          recipientName: name.trim(),
+          recipientEmail: email.trim().toLowerCase(),
+        }),
+      })
+      const result = await res.json()
+      if (!res.ok) { flash('Error: ' + result.error, 'error') }
+      else {
+        flash(`${type === 'mentor' ? 'Mentor' : 'Church board'} evaluation invitation sent to ${name}.`, 'success')
+        onSent()
+      }
+    } catch {
+      flash('Network error — please check your connection and try again.', 'error')
     }
     setIsSending(false)
   }

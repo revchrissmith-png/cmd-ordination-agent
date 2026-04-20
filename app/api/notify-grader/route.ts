@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateUser, serviceClient, isValidUUID } from '../../../lib/api-auth'
 import { wrapEmail, emailButton, emailInfoBlock } from '../../../lib/email-templates'
 import { SITE_URL, EMAIL_FROM } from '../../../lib/config'
+import { fetchWithTimeout } from '../../../utils/fetchWithTimeout'
 
 export async function POST(req: NextRequest) {
   // Auth: any logged-in user can trigger (ordinand submits, admin assigns)
@@ -55,8 +56,9 @@ export async function POST(req: NextRequest) {
   const assignmentTitle = template?.title || 'an assignment'
   const gradingUrl      = `${SITE_URL}/dashboard/council/grade/${assignment.id}`
 
-  const resendRes = await fetch('https://api.resend.com/emails', {
+  const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
+    timeoutMs: 15_000,
     headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: EMAIL_FROM,

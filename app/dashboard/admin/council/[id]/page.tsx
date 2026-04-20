@@ -217,14 +217,21 @@ export default function CouncilMemberManagePage() {
 
     // Update email via service-role API if changed
     if (editEmail.trim() && editEmail.trim() !== member?.email) {
-      const res = await fetch('/api/admin/update-user-email', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ userId: id, email: editEmail.trim() }),
-      })
-      if (!res.ok) {
-        const { error } = await res.json()
-        flash('Name saved, but email update failed: ' + error, 'error')
+      try {
+        const res = await fetch('/api/admin/update-user-email', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+          body: JSON.stringify({ userId: id, email: editEmail.trim() }),
+        })
+        if (!res.ok) {
+          const { error } = await res.json()
+          flash('Name saved, but email update failed: ' + error, 'error')
+          setIsSavingProfile(false)
+          fetchData()
+          return
+        }
+      } catch {
+        flash('Name saved, but email update failed — network error.', 'error')
         setIsSavingProfile(false)
         fetchData()
         return

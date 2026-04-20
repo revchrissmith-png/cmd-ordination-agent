@@ -81,19 +81,23 @@ export default function CandidateDetailPage() {
     if (denyObserver()) return
     setIsAutoAssigning(true)
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/auto-assign-graders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ ordinand_id: id }),
-    })
-    const result = await res.json()
-    if (!res.ok) { flash('Auto-assign failed: ' + (result.error ?? 'Unknown error'), 'error') }
-    else {
-      const msg = result.assigned > 0
-        ? `${result.assigned} grader${result.assigned !== 1 ? 's' : ''} assigned.${result.skipped > 0 ? ` ${result.skipped} skipped.` : ''}`
-        : result.skipped > 0 ? `No graders assigned — ${result.skipped} requirement(s) had no eligible grader.` : 'All requirements already have graders.'
-      flash(msg, result.assigned > 0 ? 'success' : 'error')
-      fetchData(true)
+    try {
+      const res = await fetch('/api/admin/auto-assign-graders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ ordinand_id: id }),
+      })
+      const result = await res.json()
+      if (!res.ok) { flash('Auto-assign failed: ' + (result.error ?? 'Unknown error'), 'error') }
+      else {
+        const msg = result.assigned > 0
+          ? `${result.assigned} grader${result.assigned !== 1 ? 's' : ''} assigned.${result.skipped > 0 ? ` ${result.skipped} skipped.` : ''}`
+          : result.skipped > 0 ? `No graders assigned — ${result.skipped} requirement(s) had no eligible grader.` : 'All requirements already have graders.'
+        flash(msg, result.assigned > 0 ? 'success' : 'error')
+        fetchData(true)
+      }
+    } catch {
+      flash('Network error — please check your connection and try again.', 'error')
     }
     setIsAutoAssigning(false)
   }

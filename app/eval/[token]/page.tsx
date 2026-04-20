@@ -109,45 +109,49 @@ export default function EvalFormPage() {
     if (q8 === false && !q8explain.trim()) { setError('Please explain your recommendation in question 8.'); return }
     setSubmitting(true)
 
-    const { error: evalError } = await supabase.from('evaluations').insert({
-      token_id:               tokenData.id,
-      ordinand_id:            tokenData.ordinand_id,
-      eval_type:              tokenData.eval_type,
-      evaluator_name:         evaluatorName.trim(),
-      q1_call:                q1.trim() || null,
-      q2_strengths:           q2.trim() || null,
-      q3_development:         q3.trim() || null,
-      q4_ratings:             Object.keys(q4).length > 0 ? q4 : null,
-      q5a_spiritual_growth:   q5a.trim() || null,
-      q5b_emotional_stability: q5b.trim() || null,
-      q5c_family_relationship: q5c.trim() || null,
-      q6_moral_concern:       q6.trim() || null,
-      q7_fruitfulness:        q7.trim() || null,
-      q8_recommendation:      q8,
-      q8_explanation:         q8 === false ? q8explain.trim() || null : null,
-      additional_comments:    additionalComments.trim() || null,
-      ministry_start_date:    tokenData.eval_type === 'church' ? ministryStartDate || null : null,
-      board_member_position:  tokenData.eval_type === 'church' ? boardPosition.trim() || null : null,
-    })
+    try {
+      const { error: evalError } = await supabase.from('evaluations').insert({
+        token_id:               tokenData.id,
+        ordinand_id:            tokenData.ordinand_id,
+        eval_type:              tokenData.eval_type,
+        evaluator_name:         evaluatorName.trim(),
+        q1_call:                q1.trim() || null,
+        q2_strengths:           q2.trim() || null,
+        q3_development:         q3.trim() || null,
+        q4_ratings:             Object.keys(q4).length > 0 ? q4 : null,
+        q5a_spiritual_growth:   q5a.trim() || null,
+        q5b_emotional_stability: q5b.trim() || null,
+        q5c_family_relationship: q5c.trim() || null,
+        q6_moral_concern:       q6.trim() || null,
+        q7_fruitfulness:        q7.trim() || null,
+        q8_recommendation:      q8,
+        q8_explanation:         q8 === false ? q8explain.trim() || null : null,
+        additional_comments:    additionalComments.trim() || null,
+        ministry_start_date:    tokenData.eval_type === 'church' ? ministryStartDate || null : null,
+        board_member_position:  tokenData.eval_type === 'church' ? boardPosition.trim() || null : null,
+      })
 
-    if (evalError) {
-      setError('There was a problem submitting your evaluation. Please try again or contact the District Office.')
-      setSubmitting(false)
-      return
+      if (evalError) {
+        setError('There was a problem submitting your evaluation. Please try again or contact the District Office.')
+        setSubmitting(false)
+        return
+      }
+
+      const { error: tokenError } = await supabase
+        .from('evaluation_tokens')
+        .update({ status: 'submitted', submitted_at: new Date().toISOString() })
+        .eq('id', tokenData.id)
+
+      if (tokenError) {
+        setError('Your evaluation was saved, but we encountered a secondary error. Please contact the District Office to confirm receipt.')
+        setSubmitting(false)
+        return
+      }
+
+      setSubmitted(true)
+    } catch {
+      setError('A network error occurred. Please check your connection and try again.')
     }
-
-    const { error: tokenError } = await supabase
-      .from('evaluation_tokens')
-      .update({ status: 'submitted', submitted_at: new Date().toISOString() })
-      .eq('id', tokenData.id)
-
-    if (tokenError) {
-      setError('Your evaluation was saved, but we encountered a secondary error. Please contact the District Office to confirm receipt.')
-      setSubmitting(false)
-      return
-    }
-
-    setSubmitted(true)
     setSubmitting(false)
   }
 

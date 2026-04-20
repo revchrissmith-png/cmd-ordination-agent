@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, serviceClient, isValidUUID } from '../../../lib/api-auth'
 import { wrapEmail, emailButton, emailInfoBlock } from '../../../lib/email-templates'
 import { SITE_URL, EMAIL_FROM } from '../../../lib/config'
+import { fetchWithTimeout } from '../../../utils/fetchWithTimeout'
 
 export async function POST(req: NextRequest) {
   // Auth: only council members or admins can trigger grading notifications
@@ -79,8 +80,9 @@ export async function POST(req: NextRequest) {
          <p style="color:#991b1b;font-size:14px;margin:0;">Your grader has requested revisions. Please log in to view their feedback and resubmit when you are ready.</p>
        </div>`
 
-  const resendRes = await fetch('https://api.resend.com/emails', {
+  const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
+    timeoutMs: 15_000,
     headers: {
       'Authorization': `Bearer ${resendKey}`,
       'Content-Type': 'application/json',

@@ -4,6 +4,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { EMAIL_FROM } from '../../../../lib/config'
+import { fetchWithTimeout } from '../../../../utils/fetchWithTimeout'
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,8 +40,9 @@ export async function POST(req: NextRequest) {
   const resendKey = process.env.RESEND_API_KEY
   if (!resendKey) return NextResponse.json({ sent: false, reason: 'RESEND_API_KEY not configured' })
 
-  const resendRes = await fetch('https://api.resend.com/emails', {
+  const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
+    timeoutMs: 15_000,
     headers: {
       'Authorization': `Bearer ${resendKey}`,
       'Content-Type': 'application/json',
