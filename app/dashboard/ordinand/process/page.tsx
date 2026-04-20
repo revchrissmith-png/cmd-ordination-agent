@@ -4,8 +4,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../../../utils/supabase/client'
-
-const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+import { C } from '../../../../lib/theme'
+import { renderMarkdown } from '../../../../utils/markdown'
 
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -63,15 +63,6 @@ export default function OrdinandProcessPage() {
     }
     fetchData()
   }, [])
-
-  function renderMarkdown(text: string): string {
-    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    return escaped
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0077C8;text-decoration:underline;">$1</a>')
-      .replace(/\n/g, '<br/>')
-  }
 
   const cohort = profile?.cohorts
   const dueDate = cohort?.assignment_due_date

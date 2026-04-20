@@ -8,8 +8,7 @@ import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '../../../utils/supabase/client'
 import { WIKI_SECTIONS, getSectionBySlug, getAdjacentSections, type ContentBlock } from '../content'
-
-const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+import { C } from '../../../lib/theme'
 
 function renderBlock(block: ContentBlock, idx: number) {
   switch (block.type) {

@@ -6,8 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../../utils/supabase/client'
 import Link from 'next/link'
 import BetaBanner from '../../components/BetaBanner'
-
-const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+import { C } from '../../../lib/theme'
 
 type Tab = 'council' | 'cohorts' | 'candidates' | 'calendar' | 'activity'
 

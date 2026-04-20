@@ -6,13 +6,7 @@ import { supabase } from '../../utils/supabase/client'
 import { logActivity } from '../../utils/logActivity'
 import Link from 'next/link'
 import BetaBanner from '../components/BetaBanner'
-
-const C = {
-  allianceBlue: '#0077C8',
-  deepSea: '#00426A',
-  cloudGray: '#EAEAEE',
-  white: '#ffffff',
-}
+import { C } from '../../lib/theme'
 
 export default function DashboardHome() {
   const [user, setUser] = useState<any>(null)

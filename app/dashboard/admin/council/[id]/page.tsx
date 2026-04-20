@@ -6,8 +6,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
-
-const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+import { C } from '../../../../../lib/theme'
 
 type Urgency = 'critical' | 'overdue' | 'pending' | 'awaiting' | 'graded'
 

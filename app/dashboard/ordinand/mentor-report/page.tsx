@@ -4,8 +4,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../../../utils/supabase/client'
-
-const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+import { C } from '../../../../lib/theme'
 
 const SECTIONS = [
   {

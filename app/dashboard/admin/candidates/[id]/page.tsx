@@ -6,39 +6,8 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
 import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../utils/selfAssessmentQuestions'
-
-type Rating = 'insufficient' | 'adequate' | 'good' | 'excellent' | 'exceptional'
-type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
-
-const RATING_LABELS: Record<Rating, string> = {
-  insufficient: 'Insufficient',
-  adequate: 'Adequate',
-  good: 'Good',
-  excellent: 'Excellent',
-  exceptional: 'Exceptional',
-}
-
-const STATUS_CONFIG: Record<Status, { label: string; colour: string }> = {
-  not_started:       { label: 'Not Started',      colour: 'bg-slate-100 text-slate-500' },
-  submitted:         { label: 'Submitted',         colour: 'bg-blue-100 text-blue-700' },
-  under_review:      { label: 'Under Review',      colour: 'bg-amber-100 text-amber-700' },
-  revision_required: { label: 'Revision Required', colour: 'bg-red-100 text-red-700' },
-  complete:          { label: 'Complete',           colour: 'bg-green-100 text-green-700' },
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  book_report: 'Book Reports',
-  paper: 'Theological Papers',
-  sermon: 'Sermons',
-}
-
-const TOPIC_LABELS: Record<string, string> = {
-  christ_centred:   'Christ-Centred Life and Ministry',
-  spirit_empowered: 'Spirit-Empowered Life and Ministry',
-  mission_focused:  'Mission-Focused Life and Ministry',
-  scripture:        'The Scriptures',
-  divine_healing:   'Divine Healing',
-}
+import { C, RATING_LABELS, STATUS_CONFIG, TYPE_LABELS, TOPIC_LABELS, type Rating, type Status } from '../../../../../lib/theme'
+import { inputClass, btnPrimary } from '../../../../../lib/formStyles'
 
 export default function CandidateDetailPage() {
   const params = useParams<{ id: string }>()
@@ -815,11 +784,7 @@ CMD Ordaining Council`
     setIsSaving(false)
   }
 
-  const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
   const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5"
-  const btnPrimary = "bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-300 disabled:shadow-none"
-
-  const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>

@@ -4,15 +4,9 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 import { logActivity } from '../../../utils/logActivity'
+import { C } from '../../../lib/theme'
 
 type Message = { role: 'user' | 'assistant'; content: string }
-
-const C = {
-  allianceBlue: '#0077C8',
-  deepSea: '#00426A',
-  cloudGray: '#EAEAEE',
-  white: '#ffffff',
-}
 
 const INTERVIEW_PREP_PROMPT = 'I would like to prepare for my oral interview with the Ordaining Council. Please walk me through the interview questions one at a time, starting from the beginning.'
 

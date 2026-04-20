@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../utils/supabase/client'
 import { useRouter } from 'next/navigation'
-
-const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+import { C } from '../lib/theme'
 
 export default function Home() {
   const [email, setEmail]   = useState('')

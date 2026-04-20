@@ -7,18 +7,8 @@ import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 import { logActivity } from '../../../utils/logActivity'
 import BetaBanner from '../../components/BetaBanner'
-
-const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
-
-type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
-
-const STATUS_CONFIG: Record<Status, { label: string; colour: string; dot: string }> = {
-  not_started:       { label: 'Not Started',      colour: 'bg-slate-100 text-slate-500',   dot: 'bg-slate-300' },
-  submitted:         { label: 'Submitted',         colour: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-400' },
-  under_review:      { label: 'Under Review',      colour: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-400' },
-  revision_required: { label: 'Revision Required', colour: 'bg-red-100 text-red-700',       dot: 'bg-red-400' },
-  complete:          { label: 'Complete',           colour: 'bg-green-100 text-green-700',   dot: 'bg-green-400' },
-}
+import { C, STATUS_CONFIG, type Status } from '../../../lib/theme'
+import { renderMarkdown } from '../../../utils/markdown'
 
 function OrdinandDashboardContent() {
   const [profile, setProfile] = useState<any>(null)
@@ -110,29 +100,6 @@ function OrdinandDashboardContent() {
   const daysUntilDue = cohort?.assignment_due_date
     ? Math.ceil((new Date(cohort.assignment_due_date + 'T12:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null
-
-  function renderMarkdown(text: string): string {
-    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    // Process line by line — group consecutive "- item" lines into a <ul>
-    const lines = escaped.split('\n')
-    let result = ''
-    let inList = false
-    for (const line of lines) {
-      if (line.startsWith('- ')) {
-        if (!inList) { result += '<ul style="list-style-type:disc;padding-left:1.25rem;margin:0.25rem 0;">'; inList = true }
-        result += `<li>${line.slice(2)}</li>`
-      } else {
-        if (inList) { result += '</ul>'; inList = false }
-        result += line + '\n'
-      }
-    }
-    if (inList) result += '</ul>'
-    return result
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0077C8;text-decoration:underline;">$1</a>')
-      .replace(/\n/g, '<br/>')
-  }
 
   function toggleSection(label: string) {
     setOpenSections(prev => {

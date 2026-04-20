@@ -7,8 +7,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../../utils/supabase/client'
-
-const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
+import { C } from '../../../lib/theme'
 
 export default function AuthCallbackPage() {
   const router = useRouter()

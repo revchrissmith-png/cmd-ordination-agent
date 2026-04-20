@@ -7,19 +7,13 @@ import { supabase } from '../../../../../utils/supabase/client'
 import { logActivity } from '../../../../../utils/logActivity'
 import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../utils/selfAssessmentQuestions'
 import { SERMON_RUBRIC_SECTIONS, sectionAverage } from '../../../../../utils/sermonRubric'
-
-type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
+import { C, RATING_COLOUR, type Status } from '../../../../../lib/theme'
+import { inputClass, selectClass, textareaClass, btnPrimary } from '../../../../../lib/formStyles'
+import { useFlash } from '../../../../../hooks/useFlash'
 
 // ── Rating helpers ─────────────────────────────────────────────────────────────
 
 const RATING_NUM: Record<string, number> = { insufficient: 1, adequate: 2, good: 3, excellent: 4, exceptional: 5 }
-const RATING_COLOUR: Record<string, string> = {
-  insufficient: 'bg-red-100 text-red-700',
-  adequate:     'bg-amber-100 text-amber-700',
-  good:         'bg-blue-100 text-blue-700',
-  excellent:    'bg-green-100 text-green-700',
-  exceptional:  'bg-purple-100 text-purple-700',
-}
 
 function avgRatingLabel(ratings: Record<string, string>): { label: string; colour: string } | null {
   const vals = Object.values(ratings).map(r => RATING_NUM[r] || 0).filter(v => v > 0)
@@ -172,7 +166,7 @@ export default function OrdinandRequirementPage() {
   const [submission, setSubmission]     = useState<any>(null)
   const [grade, setGrade]               = useState<any>(null)
   const [loading, setLoading]           = useState(true)
-  const [message, setMessage]           = useState({ text: '', type: '' })
+  const { message, flash }             = useFlash()
   const [file, setFile]                 = useState<File | null>(null)
   const [recordingUrl, setRecordingUrl] = useState('')
   const [selectedBook, setSelectedBook] = useState('')
@@ -186,10 +180,6 @@ export default function OrdinandRequirementPage() {
   const [sectionRatings,  setSectionRatings]  = useState<Record<string, string>>({})
   const [sectionEvidence, setSectionEvidence] = useState<Record<string, string>>({})
 
-  function flash(text: string, type: 'success' | 'error') {
-    setMessage({ text, type })
-    setTimeout(() => setMessage({ text: '', type: '' }), 6000)
-  }
 
   async function fetchData() {
     setLoading(true)
@@ -376,12 +366,6 @@ export default function OrdinandRequirementPage() {
     }
     setIsSubmitting(false)
   }
-
-  const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
-  const inputClass    = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
-  const selectClass   = (disabled: boolean) => `w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:ring-4 focus:ring-blue-100 outline-none transition-all ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`
-  const textareaClass = (disabled: boolean) => `${inputClass} resize-none ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`
-  const btnPrimary    = "bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-300 disabled:shadow-none"
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>

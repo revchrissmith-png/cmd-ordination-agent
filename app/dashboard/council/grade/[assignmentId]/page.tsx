@@ -12,9 +12,9 @@ import {
   suggestRubricGrade,
   type SermonRubricScores,
 } from '../../../../../utils/sermonRubric'
-
-const RATINGS = ['insufficient', 'adequate', 'good', 'excellent', 'exceptional'] as const
-type Rating = typeof RATINGS[number]
+import { C, RATINGS, RATING_COLOUR, type Rating } from '../../../../../lib/theme'
+import { inputClass } from '../../../../../lib/formStyles'
+import { useFlash } from '../../../../../hooks/useFlash'
 
 const RATING_CONFIG: Record<Rating, { colour: string; label: string }> = {
   insufficient: { colour: 'border-red-400 bg-red-50 text-red-700',         label: 'Insufficient' },
@@ -22,14 +22,6 @@ const RATING_CONFIG: Record<Rating, { colour: string; label: string }> = {
   good:         { colour: 'border-blue-400 bg-blue-50 text-blue-700',       label: 'Good' },
   excellent:    { colour: 'border-green-400 bg-green-50 text-green-700',    label: 'Excellent' },
   exceptional:  { colour: 'border-purple-400 bg-purple-50 text-purple-700', label: 'Exceptional' },
-}
-
-const SELF_ASSESSMENT_COLOUR: Record<string, string> = {
-  insufficient: 'bg-red-100 text-red-700',
-  adequate:     'bg-amber-100 text-amber-700',
-  good:         'bg-blue-100 text-blue-700',
-  excellent:    'bg-green-100 text-green-700',
-  exceptional:  'bg-purple-100 text-purple-700',
 }
 
 const SCORE_COLOUR = (n: number, selected: boolean) => {
@@ -49,7 +41,7 @@ export default function CouncilGradePage() {
   const [submission, setSubmission]       = useState<any>(null)
   const [existingGrade, setExistingGrade] = useState<any>(null)
   const [loading, setLoading]             = useState(true)
-  const [message, setMessage]             = useState({ text: '', type: '' })
+  const { message, flash }               = useFlash()
 
   // Grade state
   const [rating, setRating]           = useState<Rating | ''>('')
@@ -63,11 +55,6 @@ export default function CouncilGradePage() {
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null)
   const [isObserver, setIsObserver]   = useState(false)
-
-  function flash(text: string, type: 'success' | 'error') {
-    setMessage({ text, type })
-    setTimeout(() => setMessage({ text: '', type: '' }), 6000)
-  }
 
   function denyObserver(): boolean {
     if (isObserver) { flash('Observer accounts cannot make changes to the portal.', 'error'); return true }
@@ -138,13 +125,11 @@ export default function CouncilGradePage() {
 
   useEffect(() => { fetchData() }, [assignmentId])
 
-  const C = { allianceBlue: '#0077C8', deepSea: '#00426A', cloudGray: '#EAEAEE', white: '#ffffff' }
   const isPaper  = requirement?.requirement_templates?.type === 'paper'
   const isSermon = requirement?.requirement_templates?.type === 'sermon'
   const isBook   = requirement?.requirement_templates?.type === 'book_report'
   const topic    = requirement?.requirement_templates?.topic
   const topicData = topic ? SELF_ASSESSMENT_TOPICS[topic] : null
-  const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-400"
 
   const isNewFormatSA = submission?.self_assessment?.version === 2
   const saSections    = submission?.self_assessment?.sections || {}
@@ -446,7 +431,7 @@ export default function CouncilGradePage() {
                                     <span className="text-blue-500 font-black mr-2">{i + 1}.</span>{q.question}
                                   </p>
                                   {selfRating && (
-                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 capitalize ${SELF_ASSESSMENT_COLOUR[selfRating] || 'bg-slate-100 text-slate-500'}`}>{selfRating}</span>
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 capitalize ${RATING_COLOUR[selfRating] || 'bg-slate-100 text-slate-500'}`}>{selfRating}</span>
                                   )}
                                 </div>
                                 {answer ? (
@@ -486,7 +471,7 @@ export default function CouncilGradePage() {
                                     <span className="text-blue-500 font-black mr-2">{i + 1}.</span>{q.question}
                                   </p>
                                   {qRating ? (
-                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 capitalize ${SELF_ASSESSMENT_COLOUR[qRating] || 'bg-slate-100 text-slate-500'}`}>{qRating}</span>
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 capitalize ${RATING_COLOUR[qRating] || 'bg-slate-100 text-slate-500'}`}>{qRating}</span>
                                   ) : (
                                     <span className="text-xs text-slate-300 font-medium shrink-0">—</span>
                                   )}
@@ -555,7 +540,7 @@ export default function CouncilGradePage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Ordinand Self-Assessment</p>
                                   {selfRating && (
-                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold capitalize ${SELF_ASSESSMENT_COLOUR[selfRating] || 'bg-slate-100 text-slate-500'}`}>{selfRating}</span>
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold capitalize ${RATING_COLOUR[selfRating] || 'bg-slate-100 text-slate-500'}`}>{selfRating}</span>
                                   )}
                                 </div>
                                 {selfEvid ? (
