@@ -640,9 +640,10 @@ CMD Ordaining Council`
     // If the assignment already has a submission, notify the grader immediately
     const req = requirements.find(r => r.id === reqId)
     if (req && req.status !== 'not_started') {
+      const { data: { session } } = await supabase.auth.getSession()
       fetch('/api/notify-grader', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ requirementId: reqId }),
       }).then(r => r.json()).then(r => console.log('[notify-grader on assign]', r)).catch(() => {})
     }

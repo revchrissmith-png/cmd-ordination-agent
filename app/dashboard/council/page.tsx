@@ -35,8 +35,17 @@ function CouncilDashboardContent() {
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
+      // viewAs is admin-only — verify before using
+      let targetId = user.id
+      if (viewAsId && viewAsId !== user.id) {
+        const { data: myProfile } = await supabase.from('profiles').select('roles').eq('id', user.id).single()
+        if (myProfile?.roles?.includes('admin')) {
+          targetId = viewAsId
+        }
+      }
+
       if (!viewAsId) logActivity(user.id, 'council_dashboard', '/dashboard/council')
-      const targetId = viewAsId || user.id
       const { data: prof } = await supabase.from('profiles').select('full_name, email, roles').eq('id', targetId).single()
       setProfile(prof)
       const { data: assigns } = await supabase

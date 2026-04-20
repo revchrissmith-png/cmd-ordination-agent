@@ -31,16 +31,28 @@ export async function PATCH(req: NextRequest) {
   const { userId, email } = await req.json()
   if (!userId || !email) return NextResponse.json({ error: 'Missing userId or email' }, { status: 400 })
 
+  // Basic email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    return NextResponse.json({ error: 'Invalid email address format' }, { status: 400 })
+  }
+
   // Update auth.users
   const { error: authUpdateError } = await serviceClient.auth.admin.updateUserById(userId, { email })
-  if (authUpdateError) return NextResponse.json({ error: authUpdateError.message }, { status: 500 })
+  if (authUpdateError) {
+    console.error('update-user-email auth error:', authUpdateError)
+    return NextResponse.json({ error: 'Failed to update authentication email' }, { status: 500 })
+  }
 
   // Mirror to profiles table
   const { error: profileError } = await serviceClient
     .from('profiles')
     .update({ email })
     .eq('id', userId)
-  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 })
+  if (profileError) {
+    console.error('update-user-email profile error:', profileError)
+    return NextResponse.json({ error: 'Auth email updated but profile sync failed. Contact support.' }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }

@@ -77,6 +77,16 @@ export default function EvalFormPage() {
         .single()
       if (error || !data) { setInvalid(true); setLoading(false); return }
       if (data.status === 'submitted') { setTokenData(data); setSubmitted(true); setLoading(false); return }
+
+      // Double-check: if an evaluation already exists for this token, treat as submitted
+      // (covers edge case where token status update failed but evaluation was saved)
+      const { data: existingEval } = await supabase
+        .from('evaluations')
+        .select('id')
+        .eq('token_id', data.id)
+        .maybeSingle()
+      if (existingEval) { setTokenData(data); setSubmitted(true); setLoading(false); return }
+
       setTokenData(data)
 
       const { data: profile } = await supabase

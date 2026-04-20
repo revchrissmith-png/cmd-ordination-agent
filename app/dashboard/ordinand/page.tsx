@@ -39,7 +39,17 @@ function OrdinandDashboardContent() {
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/'); return }
-      const targetId = viewAsId || user.id
+
+      // viewAs is admin-only — verify before using
+      let targetId = user.id
+      if (viewAsId && viewAsId !== user.id) {
+        const { data: myProfile } = await supabase.from('profiles').select('roles').eq('id', user.id).single()
+        if (myProfile?.roles?.includes('admin')) {
+          targetId = viewAsId
+        }
+        // Non-admins silently fall back to their own data
+      }
+
       const { data: prof } = await supabase
         .from('profiles')
         .select('full_name, email, mentor_name, mentor_email, cohort_id, cohorts(year, season, sermon_topic, assignment_due_date)')

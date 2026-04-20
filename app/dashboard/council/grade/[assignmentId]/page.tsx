@@ -267,10 +267,10 @@ export default function CouncilGradePage() {
         rating,
         outcome: newStatus,
       })
-      // Notify ordinand by email — fire and forget
+      // Notify ordinand by email — authenticated fire and forget
       fetch('/api/notify-ordinand-graded', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({
           requirementId: requirement.id,
           graderId: assignment.council_member_id,

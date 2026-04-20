@@ -43,7 +43,10 @@ export async function POST(req: NextRequest) {
   })
 
   if (authError || !user) {
-    return NextResponse.json({ error: authError?.message ?? 'Failed to create auth user' }, { status: 400 })
+    const msg = authError?.message?.includes('already been registered')
+      ? 'A user with this email already exists'
+      : 'Failed to create user account'
+    return NextResponse.json({ error: msg }, { status: 400 })
   }
 
   // 4. Update the profile the trigger auto-created with our complete data
@@ -64,7 +67,8 @@ export async function POST(req: NextRequest) {
   if (profileError) {
     // Roll back: delete the auth user so we don't leave orphaned accounts
     await serviceClient.auth.admin.deleteUser(user.id)
-    return NextResponse.json({ error: profileError.message }, { status: 400 })
+    console.error('register-user profile upsert error:', profileError)
+    return NextResponse.json({ error: 'Failed to create user profile' }, { status: 400 })
   }
 
   // 5. If this is an ordinand with a cohort, auto-generate their 17 requirements
@@ -99,7 +103,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           userId: user.id,
-          warning: `Profile created but requirements failed: ${reqError.message}`,
+          warning: 'Profile created but requirements could not be generated. Contact support.',
         })
       }
 

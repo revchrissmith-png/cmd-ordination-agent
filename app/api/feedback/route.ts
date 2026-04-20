@@ -26,8 +26,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const { type, title, description, pageUrl } = body
 
-  if (!type || !title?.trim() || !description?.trim()) {
-    return NextResponse.json({ success: false, reason: 'Missing required fields' }, { status: 400 })
+  const validTypes = ['bug', 'feature', 'question', 'other']
+  if (!type || !validTypes.includes(type) || !title?.trim() || !description?.trim()) {
+    return NextResponse.json({ success: false, reason: 'Missing or invalid required fields' }, { status: 400 })
   }
 
   const { error: insertError } = await serviceClient

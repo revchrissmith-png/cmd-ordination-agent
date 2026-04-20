@@ -354,16 +354,17 @@ export default function OrdinandRequirementPage() {
 
       flash('Submitted successfully!', 'success')
 
-      // Notify the grader — always fires, independent of auth state
-      fetch('/api/notify-grader', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requirementId: id }),
-      }).then(r => r.json()).then(r => console.log('[notify-grader]', r)).catch(e => console.error('[notify-grader error]', e))
+      // Notify the grader — authenticated fire-and-forget
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) return
+        fetch('/api/notify-grader', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ requirementId: id }),
+        }).then(r => r.json()).then(r => console.log('[notify-grader]', r)).catch(e => console.error('[notify-grader error]', e))
 
-      // Log activity if user is available (non-critical)
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) logActivity(user.id, 'submission', `/dashboard/ordinand/requirements/${id}`, {
+        // Log activity (non-critical)
+        logActivity(session.user.id, 'submission', `/dashboard/ordinand/requirements/${id}`, {
           title: requirement?.requirement_templates?.title,
           type: requirement?.requirement_templates?.type,
         })

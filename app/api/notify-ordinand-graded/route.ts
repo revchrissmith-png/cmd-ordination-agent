@@ -1,20 +1,23 @@
 // app/api/notify-ordinand-graded/route.ts
-// Sends an email to the ordinand when their assignment has been graded
-import { createClient } from '@supabase/supabase-js'
+// Sends an email to the ordinand when their assignment has been graded.
+// Requires authentication — caller must be council or admin.
 import { NextRequest, NextResponse } from 'next/server'
-
-const serviceClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { requireRole, serviceClient, isValidUUID } from '../../../lib/api-auth'
 
 export async function POST(req: NextRequest) {
+  // Auth: only council members or admins can trigger grading notifications
+  const auth = await requireRole(req, 'council')
+  if (auth.error) return auth.error
+
   const body = await req.json().catch(() => ({}))
   const { requirementId, graderId, outcome } = body
-  // outcome: 'complete' | 'revision_required'
 
-  if (!requirementId) {
-    return NextResponse.json({ sent: false, reason: 'Missing requirementId' })
+  if (!requirementId || !isValidUUID(requirementId)) {
+    return NextResponse.json({ sent: false, reason: 'Missing or invalid requirementId' })
+  }
+
+  if (outcome && !['complete', 'revision_required'].includes(outcome)) {
+    return NextResponse.json({ sent: false, reason: 'Invalid outcome value' })
   }
 
   // 1. Requirement row

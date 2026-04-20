@@ -1,44 +1,48 @@
 // app/api/council/complete-grade/route.ts
 // Updates ordinand_requirements.status after a council member finalizes a grade.
 // Runs server-side with the service role client so it bypasses RLS.
-import { createClient } from '@supabase/supabase-js'
+// Verifies the caller owns the grading assignment for this requirement.
 import { NextRequest, NextResponse } from 'next/server'
-
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { requireRole, serviceClient, isValidUUID } from '../../../../lib/api-auth'
 
 export async function POST(req: NextRequest) {
   // Verify the caller is an authenticated council (or admin) member
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  const token = authHeader.slice(7)
-  const { data: { user }, error: authError } = await admin.auth.getUser(token)
-  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await admin.from('profiles').select('roles').eq('id', user.id).single()
-  const roles: string[] = profile?.roles ?? []
-  if (!roles.includes('council') && !roles.includes('admin')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const auth = await requireRole(req, 'council')
+  if (auth.error) return auth.error
 
   const body = await req.json().catch(() => ({}))
   const { requirementId, status } = body
 
-  if (!requirementId || !['complete', 'revision_required'].includes(status)) {
+  if (!requirementId || !isValidUUID(requirementId)) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { error: updateError } = await admin
+  if (!['complete', 'revision_required'].includes(status)) {
+    return NextResponse.json({ error: 'Invalid status value' }, { status: 400 })
+  }
+
+  // Verify the caller owns this grading assignment (admins bypass)
+  if (!auth.roles.includes('admin')) {
+    const { data: assignment } = await serviceClient
+      .from('grading_assignments')
+      .select('id')
+      .eq('ordinand_requirement_id', requirementId)
+      .eq('council_member_id', auth.user.id)
+      .maybeSingle()
+
+    if (!assignment) {
+      return NextResponse.json({ error: 'You are not assigned to grade this requirement' }, { status: 403 })
+    }
+  }
+
+  const { error: updateError } = await serviceClient
     .from('ordinand_requirements')
     .update({ status })
     .eq('id', requirementId)
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 })
+    console.error('complete-grade update error:', updateError)
+    return NextResponse.json({ error: 'Failed to update requirement status' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })

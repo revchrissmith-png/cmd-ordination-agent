@@ -1,18 +1,19 @@
 // app/api/notify-grader/route.ts
-import { createClient } from '@supabase/supabase-js'
+// Sends an email to the assigned grader when a submission is ready for review.
+// Requires authentication — caller must be an ordinand, council, or admin.
 import { NextRequest, NextResponse } from 'next/server'
-
-const serviceClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { authenticateUser, serviceClient, isValidUUID } from '../../../lib/api-auth'
 
 export async function POST(req: NextRequest) {
+  // Auth: any logged-in user can trigger (ordinand submits, admin assigns)
+  const auth = await authenticateUser(req)
+  if (auth.error) return auth.error
+
   const body = await req.json().catch(() => ({}))
   const { requirementId } = body
 
-  if (!requirementId) {
-    return NextResponse.json({ sent: false, reason: 'Missing requirementId' })
+  if (!requirementId || !isValidUUID(requirementId)) {
+    return NextResponse.json({ sent: false, reason: 'Missing or invalid requirementId' })
   }
 
   // 1. Requirement
