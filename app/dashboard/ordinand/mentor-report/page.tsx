@@ -1,7 +1,7 @@
 // app/dashboard/ordinand/mentor-report/page.tsx
 // Monthly ordinand report — fillable form that compiles into a pre-filled email to mentor
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../../../utils/supabase/client'
 import { C } from '../../../../lib/theme'
@@ -74,21 +74,65 @@ export default function MentorReportPage() {
   // answers keyed by "sectionIndex-questionIndex"
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+  const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const currentMonth = useRef<string>(new Date().toISOString().slice(0, 7)) // "YYYY-MM"
+  const userId = useRef<string | null>(null)
+  const initialLoad = useRef(true)
 
   useEffect(() => {
     async function fetchProfile() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
+      userId.current = user.id
       const { data: prof } = await supabase
         .from('profiles')
         .select('full_name, mentor_name, mentor_email')
         .eq('id', user.id)
         .single()
       setProfile(prof)
+
+      // Load existing draft for this month
+      const { data: existing } = await supabase
+        .from('mentor_reports')
+        .select('answers, is_draft, submitted_at')
+        .eq('ordinand_id', user.id)
+        .eq('month', currentMonth.current)
+        .maybeSingle()
+      if (existing?.answers) {
+        setAnswers(existing.answers as Record<string, string>)
+        if (!existing.is_draft) setSubmitted(true)
+      }
+      initialLoad.current = false
       setLoading(false)
     }
     fetchProfile()
   }, [])
+
+  // Auto-save draft to DB after 3 seconds of inactivity
+  const saveDraft = useCallback(async () => {
+    if (!userId.current || submitted) return
+    const hasContent = Object.values(answers).some(v => v.trim().length > 0)
+    if (!hasContent) return
+    setSavedStatus('saving')
+    await supabase
+      .from('mentor_reports')
+      .upsert({
+        ordinand_id: userId.current,
+        month: currentMonth.current,
+        answers,
+        is_draft: true,
+      }, { onConflict: 'ordinand_id,month' })
+    setSavedStatus('saved')
+    setTimeout(() => setSavedStatus('idle'), 2000)
+  }, [answers, submitted])
+
+  useEffect(() => {
+    if (initialLoad.current || loading) return
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(saveDraft, 3000)
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current) }
+  }, [answers, saveDraft, loading])
 
   // Warn before leaving with unsaved answers
   const hasUnsavedWork = Object.values(answers).some(v => v.trim().length > 0) && !submitted
@@ -173,10 +217,20 @@ export default function MentorReportPage() {
         <div className="max-w-3xl mx-auto">
 
           <div className="mb-8">
-            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mb-1">Canadian Midwest District</p>
-            <h1 className="text-4xl font-black" style={{ color: C.deepSea }}>Monthly Ordinand Report</h1>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mb-1">Canadian Midwest District</p>
+                <h1 className="text-4xl font-black" style={{ color: C.deepSea }}>Monthly Ordinand Report</h1>
+              </div>
+              {savedStatus !== 'idle' && (
+                <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 mt-2 ${savedStatus === 'saving' ? 'bg-slate-100 text-slate-400' : 'bg-green-100 text-green-700'}`}>
+                  {savedStatus === 'saving' ? 'Saving...' : '✓ Draft saved'}
+                </span>
+              )}
+            </div>
             <p className="text-slate-500 font-medium mt-2 leading-relaxed">
               Fill in your responses below, then click <strong>Submit Monthly Report</strong> to open a pre-addressed email to your mentor. You are expected to answer <strong>at least one question from each section</strong> — you do not need to answer every question every month.
+              Your progress is saved automatically.
             </p>
           </div>
 
@@ -272,7 +326,19 @@ export default function MentorReportPage() {
               {canSubmit ? (
                 <a
                   href={buildMailto()}
-                  onClick={() => setSubmitted(true)}
+                  onClick={async () => {
+                    setSubmitted(true)
+                    // Mark as submitted in DB
+                    if (userId.current) {
+                      await supabase.from('mentor_reports').upsert({
+                        ordinand_id: userId.current,
+                        month: currentMonth.current,
+                        answers,
+                        is_draft: false,
+                        submitted_at: new Date().toISOString(),
+                      }, { onConflict: 'ordinand_id,month' })
+                    }
+                  }}
                   className="inline-flex items-center gap-2 text-sm font-black px-6 py-3 rounded-xl whitespace-nowrap flex-shrink-0"
                   style={{ backgroundColor: C.deepSea, color: C.white }}
                 >

@@ -1,6 +1,6 @@
 // app/dashboard/council/grade/[assignmentId]/page.tsx
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
@@ -118,6 +118,55 @@ export default function CouncilGradePage() {
   }
 
   useEffect(() => { fetchData() }, [assignmentId])
+
+  // Auto-save draft after 5 seconds of inactivity (debounced)
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasEdits = useRef(false)
+
+  const triggerAutoSave = useCallback(() => {
+    if (!hasEdits.current || !submission || isObserver) return
+    hasEdits.current = false
+    // Silently save draft without UI flash
+    const now = new Date().toISOString()
+    const draftData: any = {
+      overall_rating:   rating || null,
+      overall_comments: comments,
+      graded_at:        now,
+      is_draft:         true,
+    }
+    if (requirement?.requirement_templates?.type === 'sermon') {
+      draftData.sermon_rubric = rubricScores
+      draftData.sermon_section_comments = sectionComments
+    }
+    if (requirement?.requirement_templates?.type === 'paper' && submission?.self_assessment?.version === 2) {
+      draftData.paper_assessment = {
+        version: 2,
+        sections: { ...paperFeedback },
+        section_ratings: { ...paperSectionRatings },
+      }
+    }
+    if (existingGrade) {
+      supabase.from('grades').update(draftData).eq('id', existingGrade.id).then(() => setDraftSavedAt(now))
+    } else {
+      supabase.from('grades').insert({
+        submission_id:        submission.id,
+        grading_assignment_id: assignment?.id,
+        graded_by:            assignment?.council_member_id,
+        ...draftData,
+      }).select().single().then(({ data }) => {
+        if (data) { setExistingGrade(data); setDraftSavedAt(now) }
+      })
+    }
+  }, [submission, existingGrade, assignment, rating, comments, rubricScores, sectionComments, paperFeedback, paperSectionRatings, requirement, isObserver])
+
+  // Mark edits and schedule auto-save
+  useEffect(() => {
+    if (loading) return
+    hasEdits.current = true
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(triggerAutoSave, 5000)
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current) }
+  }, [rating, comments, rubricScores, sectionComments, paperFeedback, paperSectionRatings, triggerAutoSave, loading])
 
   const isPaper  = requirement?.requirement_templates?.type === 'paper'
   const isSermon = requirement?.requirement_templates?.type === 'sermon'
