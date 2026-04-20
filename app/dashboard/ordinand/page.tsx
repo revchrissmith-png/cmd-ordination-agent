@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 import { logActivity } from '../../../utils/logActivity'
 import BetaBanner from '../../components/BetaBanner'
+import { PageSkeleton } from '../../components/Skeleton'
 import { C, STATUS_CONFIG, type Status } from '../../../lib/theme'
 import { renderMarkdown } from '../../../utils/markdown'
 
@@ -111,11 +112,7 @@ function OrdinandDashboardContent() {
   }
 
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
-      Loading your dashboard...
-    </div>
-  )
+  if (loading) return <PageSkeleton rows={6} />
 
   return (
     <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>

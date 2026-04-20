@@ -6,6 +6,7 @@ import { supabase } from '../../utils/supabase/client'
 import { logActivity } from '../../utils/logActivity'
 import Link from 'next/link'
 import BetaBanner from '../components/BetaBanner'
+import { PageSkeleton } from '../components/Skeleton'
 import { C } from '../../lib/theme'
 
 export default function DashboardHome() {
@@ -56,11 +57,7 @@ export default function DashboardHome() {
     loadData()
   }, [])
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
-      Initializing Portal...
-    </div>
-  )
+  if (loading) return <PageSkeleton rows={3} />
 
   const roles: string[] = profile?.roles ?? []
   const isAdmin    = roles.includes('admin')

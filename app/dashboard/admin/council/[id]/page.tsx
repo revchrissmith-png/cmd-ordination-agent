@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
 import { C } from '../../../../../lib/theme'
+import { PageSkeleton } from '../../../../components/Skeleton'
 import ViewAsUserModal from '../../../../components/ViewAsUserModal'
 
 type Urgency = 'critical' | 'overdue' | 'pending' | 'awaiting' | 'graded'
@@ -403,11 +404,7 @@ export default function CouncilMemberManagePage() {
   const inputStyle: React.CSSProperties = { width: '100%', padding: '0.65rem 1rem', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', fontFamily: 'Arial, sans-serif', boxSizing: 'border-box', outline: 'none' }
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8', marginBottom: '5px' }
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
-      Loading…
-    </div>
-  )
+  if (loading) return <PageSkeleton rows={5} />
 
   if (!member) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: '#666' }}>

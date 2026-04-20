@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../../../utils/supabase/client'
+import { PageSkeleton } from '../../../components/Skeleton'
 import { C } from '../../../../lib/theme'
 
 export default function OrdinandProfilePage() {
@@ -55,11 +56,7 @@ export default function OrdinandProfilePage() {
     setSaving(false)
   }
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
-      Loading your profile…
-    </div>
-  )
+  if (loading) return <PageSkeleton rows={4} />
 
   const sermonTopicLabel: Record<string, string> = {
     christ_centred:   'Christ-Centred Life and Ministry',

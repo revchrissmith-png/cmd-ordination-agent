@@ -12,6 +12,7 @@ import {
   type SermonRubricScores,
 } from '../../../../../utils/sermonRubric'
 import { C, RATINGS, type Rating } from '../../../../../lib/theme'
+import { PageSkeleton } from '../../../../components/Skeleton'
 import { inputClass } from '../../../../../lib/formStyles'
 import { useFlash } from '../../../../../hooks/useFlash'
 import SermonRubric from './_components/SermonRubric'
@@ -260,11 +261,7 @@ export default function CouncilGradePage() {
     setIsSaving(false)
   }
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
-      Loading assignment...
-    </div>
-  )
+  if (loading) return <PageSkeleton rows={8} />
   if (!assignment || !requirement) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: '#666' }}>
       Assignment not found.

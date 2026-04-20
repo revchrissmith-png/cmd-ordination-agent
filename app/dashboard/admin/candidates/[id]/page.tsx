@@ -8,6 +8,8 @@ import { supabase } from '../../../../../utils/supabase/client'
 import { C, RATING_LABELS, STATUS_CONFIG, TYPE_LABELS, TOPIC_LABELS, type Rating, type Status } from '../../../../../lib/theme'
 import { inputClass, labelClass, btnPrimary } from '../../../../../lib/formStyles'
 import { useFlash } from '../../../../../hooks/useFlash'
+import { PageSkeleton } from '../../../../components/Skeleton'
+import UploadProgress from '../../../../components/UploadProgress'
 import ViewAsUserModal from '../../../../components/ViewAsUserModal'
 import GradeModal from './_components/GradeModal'
 import SelfAssessmentModal from './_components/SelfAssessmentModal'
@@ -401,11 +403,7 @@ CMD Ordaining Council`
   }
 
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
-      Loading ordinand...
-    </div>
-  )
+  if (loading) return <PageSkeleton rows={8} />
   if (!candidate) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: '#666' }}>
       Ordinand not found.
@@ -697,24 +695,25 @@ CMD Ordaining Council`
                                     />
                                   </div>
                                 )}
+                                {isUploading ? (
+                                  <UploadProgress message="Uploading file..." />
+                                ) : (
                                 <div className="flex items-center gap-2">
-                                  <label className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${isUploading ? 'bg-slate-200 text-slate-400' : 'bg-teal-600 text-white hover:bg-teal-700'}`}>
-                                    {isUploading ? 'Uploading…' : '↑ Choose File'}
+                                  <label className="px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer bg-teal-600 text-white hover:bg-teal-700">
+                                    ↑ Choose File
                                     <input
                                       type="file"
                                       accept=".pdf,.doc,.docx"
                                       className="hidden"
-                                      disabled={isUploading}
                                       onChange={e => {
                                         const file = e.target.files?.[0]
                                         if (file) handleAdminUpload(req, file, uploadDate, uploadRecordingUrl)
                                       }}
                                     />
                                   </label>
-                                  {!isUploading && (
-                                    <button onClick={() => setUploadingReqId(null)} className="text-xs text-slate-400 hover:text-slate-600 font-bold">Cancel</button>
-                                  )}
+                                  <button onClick={() => setUploadingReqId(null)} className="text-xs text-slate-400 hover:text-slate-600 font-bold">Cancel</button>
                                 </div>
+                                )}
                               </div>
                             ) : (
                               <button

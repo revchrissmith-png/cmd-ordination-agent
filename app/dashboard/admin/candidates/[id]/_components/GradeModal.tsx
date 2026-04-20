@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { supabase } from '../../../../../../utils/supabase/client'
 import { RATING_LABELS, type Rating, type Status } from '../../../../../../lib/theme'
 import { inputClass, labelClass, btnPrimary } from '../../../../../../lib/formStyles'
+import ModalWrapper from '../../../../../components/ModalWrapper'
 
 interface GradeModalProps {
   req: any
@@ -68,8 +69,7 @@ export default function GradeModal({ req, candidate, councilMembers, initialRati
   }
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 space-y-6">
+    <ModalWrapper onClose={onClose} ariaLabel="Grade assignment" maxWidth="max-w-lg" innerClassName="p-8 space-y-6">
         <div className="flex justify-between items-start">
           <div>
             <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Grade Assignment</p>
@@ -132,7 +132,6 @@ export default function GradeModal({ req, candidate, councilMembers, initialRati
             Cancel
           </button>
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   )
 }

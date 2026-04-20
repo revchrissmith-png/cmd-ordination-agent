@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../../../../utils/supabase/client'
 import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../../utils/selfAssessmentQuestions'
+import ModalWrapper from '../../../../../components/ModalWrapper'
 
 const RATINGS = ['insufficient', 'adequate', 'good', 'excellent', 'exceptional']
 
@@ -74,8 +75,7 @@ export default function SelfAssessmentModal({ req, candidate, isObserver, onClos
   const topicDef = SELF_ASSESSMENT_TOPICS[topic]
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8">
+    <ModalWrapper onClose={onClose} ariaLabel="Ordinand self-assessment" maxWidth="max-w-2xl" innerClassName="max-h-[90vh] overflow-y-auto p-8">
         <div className="flex justify-between items-start mb-6">
           <div>
             <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">Ordinand Self-Assessment</p>
@@ -157,7 +157,6 @@ export default function SelfAssessmentModal({ req, candidate, isObserver, onClos
             Cancel
           </button>
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   )
 }

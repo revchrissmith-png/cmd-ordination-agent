@@ -2,7 +2,7 @@
 // Shared "View as User" modal used on admin pages.
 // Lets admins preview the portal as any ordinand or council member.
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface User {
   id: string
@@ -23,6 +23,15 @@ export default function ViewAsUserModal({ onClose, ordinands, councilMembers, lo
   const [search, setSearch] = useState('')
   const q = search.toLowerCase()
 
+  // Escape key to close + body scroll lock
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', handleKey); document.body.style.overflow = prev }
+  }, [onClose])
+
   const filteredOrdinands = ordinands.filter(c =>
     c.status !== 'deleted' &&
     (`${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
@@ -33,6 +42,9 @@ export default function ViewAsUserModal({ onClose, ordinands, councilMembers, lo
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="View as user"
       style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}
       onClick={onClose}
     >

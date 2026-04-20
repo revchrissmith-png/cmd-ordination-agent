@@ -24,13 +24,24 @@ export default function PardingtonPage() {
   const [input, setInput]                 = useState('')
   const [isLoading, setIsLoading]         = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const [sessionStale, setSessionStale]   = useState(false)
   const bottomRef   = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const lastActivity = useRef<number>(Date.now())
 
   // Session identity — stable for the lifetime of this page load.
   const sessionId  = useRef<string>(crypto.randomUUID())
   const startedAt  = useRef<string>(new Date().toISOString())
   const ordinandId = useRef<string | null>(null)
+
+  // Stale session warning — after 45 minutes of inactivity, warn that session may have expired
+  useEffect(() => {
+    const STALE_MS = 45 * 60 * 1000
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivity.current >= STALE_MS) setSessionStale(true)
+    }, 60_000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Plain-text history summary injected into the system prompt each turn.
   // Built once from older sessions; never changes during a session.
@@ -150,6 +161,8 @@ export default function PardingtonPage() {
 
   async function sendMessage(text: string) {
     if (!text.trim() || isLoading) return
+    lastActivity.current = Date.now()
+    setSessionStale(false)
     const userMessage: Message = { role: 'user', content: text.trim() }
     const updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
@@ -246,6 +259,21 @@ export default function PardingtonPage() {
           Pardington is here to help you <span style={{ textDecoration: 'underline' }}>think and study</span> — he will not write your papers, sermons, or assignments for you.
         </p>
       </div>
+
+      {/* Stale session warning */}
+      {sessionStale && (
+        <div style={{ backgroundColor: '#FEF2F2', borderBottom: '1px solid #FECACA', padding: '0.6rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', flexShrink: 0 }}>
+          <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 'bold', color: '#991B1B' }}>
+            Your session may have expired after being idle.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ background: '#991B1B', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.25rem 0.75rem', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            Refresh
+          </button>
+        </div>
+      )}
 
       {/* Chat area */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '1.2rem 1rem' }}>

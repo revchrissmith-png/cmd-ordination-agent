@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { supabase } from '../../../../../../utils/supabase/client'
 import { inputClass, labelClass } from '../../../../../../lib/formStyles'
 import { SITE_DOMAIN, ORG_NAME, ORG_PARENT } from '../../../../../../lib/config'
+import ModalWrapper from '../../../../../components/ModalWrapper'
 
 interface EvalInviteModalProps {
   type: 'mentor' | 'church'
@@ -60,8 +61,7 @@ export default function EvalInviteModal({ type, initialName, initialEmail, candi
   const typeLabel = type === 'mentor' ? 'Mentor Evaluation' : 'Church Board Evaluation'
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden">
+    <ModalWrapper onClose={onClose} ariaLabel={`Send ${typeLabel} invitation`}>
         <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-start">
           <div>
             <p className="text-xs font-black text-[#0077C8] uppercase tracking-widest mb-1">{typeLabel}</p>
@@ -155,7 +155,6 @@ export default function EvalInviteModal({ type, initialName, initialEmail, candi
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   )
 }

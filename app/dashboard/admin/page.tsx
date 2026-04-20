@@ -7,6 +7,7 @@ import { supabase } from '../../../utils/supabase/client'
 import Link from 'next/link'
 import BetaBanner from '../../components/BetaBanner'
 import ViewAsUserModal from '../../components/ViewAsUserModal'
+import { CardSkeleton, TableSkeleton } from '../../components/Skeleton'
 import { C } from '../../../lib/theme'
 
 type Tab = 'council' | 'cohorts' | 'candidates' | 'calendar' | 'activity'
@@ -566,7 +567,7 @@ function AdminPageContent() {
               <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Current Council ({councilMembers.length})</h2>
               </div>
-              {councilLoading ? <p className="px-5 sm:px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
+              {councilLoading ? <CardSkeleton rows={4} />
               : councilMembers.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No council members added yet.</p>
               : (
                 <div className="overflow-x-auto">
@@ -659,7 +660,7 @@ function AdminPageContent() {
               <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">All Cohorts ({cohorts.length})</h2>
               </div>
-              {cohortsLoading ? <p className="px-5 sm:px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
+              {cohortsLoading ? <CardSkeleton rows={3} />
               : cohorts.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No cohorts created yet.</p>
               : (
                 <div className="divide-y divide-slate-100">
@@ -783,7 +784,7 @@ function AdminPageContent() {
               <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Registered Ordinands ({candidates.length})</h2>
               </div>
-              {candidatesLoading ? <p className="px-5 sm:px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
+              {candidatesLoading ? <TableSkeleton rows={5} cols={4} />
               : candidates.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No ordinands registered yet.</p>
               : (
                 <div className="overflow-x-auto">
@@ -1064,7 +1065,7 @@ function AdminPageContent() {
               <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">All Scheduled Events ({events.length})</h2>
               </div>
-              {eventsLoading ? <p className="px-8 py-12 text-slate-400 text-center font-medium">Loading...</p>
+              {eventsLoading ? <CardSkeleton rows={3} />
               : events.length === 0 ? <p className="px-8 py-12 text-slate-400 text-center font-medium">No events scheduled yet.</p>
               : (
                 <div className="divide-y divide-slate-100">
@@ -1121,7 +1122,7 @@ function AdminPageContent() {
             </div>
 
             {activityLoading ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 font-medium text-sm">Loading activity…</div>
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden"><CardSkeleton rows={4} /></div>
             ) : activityLogs.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 font-medium text-sm">No activity recorded yet.</div>
             ) : (

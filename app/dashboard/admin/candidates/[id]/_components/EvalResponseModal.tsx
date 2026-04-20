@@ -3,6 +3,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../../../../utils/supabase/client'
+import ModalWrapper from '../../../../../components/ModalWrapper'
 
 interface EvalResponseModalProps {
   evalToken: any
@@ -25,8 +26,7 @@ export default function EvalResponseModal({ evalToken, candidate, onClose }: Eva
   }, [evalToken.id])
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+    <ModalWrapper onClose={onClose} ariaLabel="Evaluation response" maxWidth="max-w-2xl" innerClassName="max-h-[85vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-slate-100 px-8 py-5 flex justify-between items-start rounded-t-3xl">
           <div>
             <p className="text-xs font-black text-[#0077C8] uppercase tracking-widest mb-1">
@@ -113,7 +113,6 @@ export default function EvalResponseModal({ evalToken, candidate, onClose }: Eva
             <p className="text-slate-400 text-center font-medium py-8">Could not load evaluation response.</p>
           )}
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   )
 }

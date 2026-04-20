@@ -8,6 +8,8 @@ import { logActivity } from '../../../../../utils/logActivity'
 import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../utils/selfAssessmentQuestions'
 import { SERMON_RUBRIC_SECTIONS, sectionAverage } from '../../../../../utils/sermonRubric'
 import { C, RATING_COLOUR, type Status } from '../../../../../lib/theme'
+import { PageSkeleton } from '../../../../components/Skeleton'
+import UploadProgress from '../../../../components/UploadProgress'
 import { inputClass, selectClass, textareaClass, btnPrimary } from '../../../../../lib/formStyles'
 import { useFlash } from '../../../../../hooks/useFlash'
 
@@ -335,11 +337,7 @@ export default function OrdinandRequirementPage() {
     setIsSubmitting(false)
   }
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
-      Loading requirement...
-    </div>
-  )
+  if (loading) return <PageSkeleton rows={6} />
   if (!requirement) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: '#666' }}>
       Requirement not found.
@@ -727,18 +725,24 @@ export default function OrdinandRequirementPage() {
           {/* ── Submit button ─────────────────────────────────────────────────── */}
 
           {canEdit && (
+            isSubmitting ? (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+                <UploadProgress fileName={file?.name} message="Submitting your assignment..." />
+              </div>
+            ) : (
             <div className="flex items-center gap-4">
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || (isPaper && !allAnswered) || (!file && !submission?.file_url)}
                 className={btnPrimary}
               >
-                {isSubmitting ? 'Submitting...' : status === 'revision_required' ? 'Resubmit' : 'Submit'}
+                {status === 'revision_required' ? 'Resubmit' : 'Submit'}
               </button>
               {isPaper && !allAnswered && (
                 <p className="text-xs text-amber-600 font-bold">Please complete all self-assessment sections to submit</p>
               )}
             </div>
+            )
           )}
 
           {!canEdit && (
