@@ -13,3 +13,6 @@ export const textareaClass = (disabled = false) =>
 
 export const btnPrimary =
   'bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 disabled:bg-slate-300 disabled:shadow-none'
+
+export const labelClass =
+  'block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5'

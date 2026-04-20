@@ -5,12 +5,15 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
-import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../utils/selfAssessmentQuestions'
 import { C, RATING_LABELS, STATUS_CONFIG, TYPE_LABELS, TOPIC_LABELS, type Rating, type Status } from '../../../../../lib/theme'
-import { inputClass, btnPrimary } from '../../../../../lib/formStyles'
+import { inputClass, labelClass, btnPrimary } from '../../../../../lib/formStyles'
 import { useFlash } from '../../../../../hooks/useFlash'
 import ViewAsUserModal from '../../../../components/ViewAsUserModal'
-import { generateBriefPDF } from '../../../../../utils/generateBriefPDF'
+import GradeModal from './_components/GradeModal'
+import SelfAssessmentModal from './_components/SelfAssessmentModal'
+import EvalInviteModal from './_components/EvalInviteModal'
+import EvalResponseModal from './_components/EvalResponseModal'
+import InterviewBriefSection from './_components/InterviewBriefSection'
 
 export default function CandidateDetailPage() {
   const params = useParams<{ id: string }>()
@@ -34,10 +37,6 @@ export default function CandidateDetailPage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false)
 
   // Grading state
-  const [selectedReq, setSelectedReq] = useState<any>(null)
-  const [rating, setRating] = useState<Rating | ''>('')
-  const [comments, setComments] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
   const [reassigningId, setReassigningId] = useState<string | null>(null)
   const [confirmReset, setConfirmReset] = useState<{ id: string; mode: 'unsubmitted' | 'submitted' } | null>(null)
   const [isResetting, setIsResetting] = useState(false)
@@ -50,27 +49,16 @@ export default function CandidateDetailPage() {
 
   // Self-assessment modal state
   const [saReq, setSaReq] = useState<any | null>(null)
-  const [saQuestionRatings, setSaQuestionRatings] = useState<Record<string, string>>({})
-  const [saCompletenessEvidence, setSaCompletenessEvidence] = useState('')
-  const [saRatings, setSaRatings] = useState<Record<string, string>>({})
-  const [saEvidence, setSaEvidence] = useState<Record<string, string>>({})
-  const [isSavingSA, setIsSavingSA] = useState(false)
 
-  // Grader selector inside grade modal
-  const [modalGraderId, setModalGraderId] = useState<string>('')
+  // Grading state (modal internal state handled by GradeModal)
+  const [selectedReqForGrade, setSelectedReqForGrade] = useState<any>(null)
+  const [gradeInitialRating, setGradeInitialRating] = useState<Rating | ''>('')
+  const [gradeInitialComments, setGradeInitialComments] = useState('')
 
   // External evaluation tokens
   const [evalTokens, setEvalTokens]           = useState<any[]>([])
   const [evalInviteModal, setEvalInviteModal] = useState<{ type: 'mentor' | 'church'; name: string; email: string } | null>(null)
-  const [isSendingEval, setIsSendingEval]     = useState(false)
   const [viewingEval, setViewingEval]         = useState<any>(null)
-  const [evalDetail, setEvalDetail]           = useState<any>(null)
-  const [loadingEvalDetail, setLoadingEvalDetail] = useState(false)
-
-  // AI Interview Brief
-  const [showBrief, setShowBrief]             = useState(false)
-  const [briefContent, setBriefContent]       = useState('')
-  const [isGeneratingBrief, setIsGeneratingBrief] = useState(false)
 
   // Grader exclusions
   const [exclusions, setExclusions] = useState<any[]>([])
@@ -144,78 +132,6 @@ export default function CandidateDetailPage() {
     })
   }
 
-  async function handleSendEvalInvite() {
-    if (denyObserver()) return
-    if (!evalInviteModal) return
-    if (!evalInviteModal.name.trim() || !evalInviteModal.email.trim()) {
-      flash('Recipient name and email address are required.', 'error')
-      return
-    }
-    setIsSendingEval(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { flash('Session expired — please refresh.', 'error'); setIsSendingEval(false); return }
-
-    const res = await fetch('/api/admin/send-evaluation-invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        ordinandId:     id,
-        ordinandName:   `${candidate.first_name} ${candidate.last_name}`,
-        evalType:       evalInviteModal.type,
-        recipientName:  evalInviteModal.name.trim(),
-        recipientEmail: evalInviteModal.email.trim().toLowerCase(),
-      }),
-    })
-    const result = await res.json()
-    if (!res.ok) { flash('Error: ' + result.error, 'error') }
-    else {
-      flash(`${evalInviteModal.type === 'mentor' ? 'Mentor' : 'Church board'} evaluation invitation sent to ${evalInviteModal.name}.`, 'success')
-      setEvalInviteModal(null)
-      fetchData(true)
-    }
-    setIsSendingEval(false)
-  }
-
-  async function handleDownloadPDF() {
-    await generateBriefPDF(candidate, briefContent)
-  }
-
-  async function handleGenerateBrief() {
-    setShowBrief(true)
-    setBriefContent('')
-    setIsGeneratingBrief(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { setBriefContent('Session expired — please refresh the page.'); setIsGeneratingBrief(false); return }
-    try {
-      const res = await fetch('/api/admin/interview-brief', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ ordinandId: id }),
-      })
-      if (!res.ok || !res.body) { setBriefContent('Error generating brief — please try again.'); setIsGeneratingBrief(false); return }
-      const reader  = res.body.getReader()
-      const decoder = new TextDecoder()
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        setBriefContent(prev => prev + decoder.decode(value, { stream: true }))
-      }
-    } catch {
-      setBriefContent('Error generating brief — please try again.')
-    }
-    setIsGeneratingBrief(false)
-  }
-
-  async function loadEvalDetail(evalTokenId: string) {
-    setLoadingEvalDetail(true)
-    const { data } = await supabase
-      .from('evaluations')
-      .select('*')
-      .eq('token_id', evalTokenId)
-      .single()
-    setEvalDetail(data)
-    setLoadingEvalDetail(false)
-  }
 
   async function fetchData(silent = false) {
     if (!silent) setLoading(true)
@@ -477,92 +393,9 @@ CMD Ordaining Council`
   }
 
   function openSelfAssessmentModal(req: any) {
-    const submission = Array.isArray(req.submissions) ? req.submissions[0] : req.submissions
-    if (submission?.self_assessment?.version === 2) {
-      const s = submission.self_assessment.sections || {}
-      setSaQuestionRatings(s.completeness?.question_ratings || {})
-      setSaCompletenessEvidence(s.completeness?.evidence || '')
-      const ratings: Record<string, string> = {}
-      const evidence: Record<string, string> = {}
-      PAPER_SECTIONS.filter(p => p.id !== 'completeness').forEach(section => {
-        ratings[section.id] = s[section.id]?.rating || ''
-        evidence[section.id] = s[section.id]?.evidence || ''
-      })
-      setSaRatings(ratings)
-      setSaEvidence(evidence)
-    } else {
-      setSaQuestionRatings({})
-      setSaCompletenessEvidence('')
-      setSaRatings({})
-      setSaEvidence({})
-    }
     setSaReq(req)
   }
 
-  async function handleSaveSelfAssessment() {
-    if (denyObserver()) return
-    if (!saReq) return
-    const submission = Array.isArray(saReq.submissions) ? saReq.submissions[0] : saReq.submissions
-    if (!submission?.id) { flash('No submission found — upload the file first.', 'error'); return }
-    setIsSavingSA(true)
-    const sectionData: Record<string, any> = {
-      completeness: { question_ratings: saQuestionRatings, evidence: saCompletenessEvidence },
-    }
-    PAPER_SECTIONS.filter(s => s.id !== 'completeness').forEach(section => {
-      sectionData[section.id] = { rating: saRatings[section.id] || '', evidence: saEvidence[section.id] || '' }
-    })
-    const { error } = await supabase
-      .from('submissions')
-      .update({ self_assessment: { version: 2, sections: sectionData } })
-      .eq('id', submission.id)
-    if (error) {
-      flash('Failed to save self-assessment: ' + error.message, 'error')
-    } else {
-      flash('Self-assessment saved', 'success')
-      setSaReq(null)
-      fetchData()
-    }
-    setIsSavingSA(false)
-  }
-
-  async function handleSaveGrade() {
-    if (denyObserver()) return
-    if (!selectedReq || !rating) return
-    setIsSaving(true)
-    const gaId = Array.isArray(selectedReq.grading_assignments) ? selectedReq.grading_assignments[0]?.id : selectedReq.grading_assignments?.id
-    const submission = Array.isArray(selectedReq.submissions) ? selectedReq.submissions[0] : selectedReq.submissions
-    if (!submission?.id) { flash('No submission found to grade.', 'error'); setIsSaving(false); return }
-    const { data: currentUser } = await supabase.auth.getUser()
-    const gradedBy = modalGraderId || currentUser.user?.id
-
-    // grading_assignment_id is NOT NULL in grades — always ensure one exists
-    let resolvedGaId = gaId
-    if (modalGraderId && gaId) {
-      // Update existing assignment to the chosen grader
-      await supabase.from('grading_assignments').update({ council_member_id: modalGraderId, reassigned_at: new Date().toISOString() }).eq('id', gaId)
-    } else if (!resolvedGaId || modalGraderId) {
-      // Create a new assignment (either no existing one, or a specific grader was chosen)
-      const { data: newGa } = await supabase.from('grading_assignments').insert({
-        ordinand_requirement_id: selectedReq.id,
-        council_member_id: gradedBy,
-        assigned_by: currentUser.user?.id,
-      }).select('id').single()
-      resolvedGaId = newGa?.id
-    }
-
-    if (!resolvedGaId) { flash('Could not create grading assignment.', 'error'); setIsSaving(false); return }
-
-    const { error: gradeError } = await supabase.from('grades').upsert({ submission_id: submission.id, grading_assignment_id: resolvedGaId, overall_rating: rating, overall_comments: comments, graded_by: gradedBy, graded_at: new Date().toISOString() }, { onConflict: 'submission_id' })
-    if (gradeError) { flash('Error saving grade: ' + gradeError.message, 'error'); setIsSaving(false); return }
-    const newStatus: Status = rating === 'insufficient' ? 'revision_required' : 'complete'
-    await supabase.from('ordinand_requirements').update({ status: newStatus }).eq('id', selectedReq.id)
-    flash('Grade saved.', 'success')
-    setSelectedReq(null); setRating(''); setComments(''); setModalGraderId('')
-    fetchData()
-    setIsSaving(false)
-  }
-
-  const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5"
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: C.cloudGray, fontFamily: 'Arial, sans-serif', color: C.allianceBlue, fontWeight: 'bold' }}>
@@ -913,7 +746,7 @@ CMD Ordaining Council`
                           })()}
                           {(status === 'submitted' || status === 'under_review') && (
                             <button
-                              onClick={() => { setSelectedReq(req); setRating(grade?.overall_rating ?? ''); setComments(grade?.overall_comments ?? '') }}
+                              onClick={() => { setSelectedReqForGrade(req); setGradeInitialRating(grade?.overall_rating ?? ''); setGradeInitialComments(grade?.overall_comments ?? '') }}
                               className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-sm"
                             >
                               Grade →
@@ -921,7 +754,7 @@ CMD Ordaining Council`
                           )}
                           {status === 'complete' && grade && (
                             <button
-                              onClick={() => { setSelectedReq(req); setRating(grade.overall_rating); setComments(grade.overall_comments ?? '') }}
+                              onClick={() => { setSelectedReqForGrade(req); setGradeInitialRating(grade.overall_rating); setGradeInitialComments(grade.overall_comments ?? '') }}
                               className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
                             >
                               View Grade
@@ -1022,7 +855,7 @@ CMD Ordaining Council`
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {tok?.status === 'submitted' ? (
                         <button
-                          onClick={() => { setViewingEval(tok); loadEvalDetail(tok.id) }}
+                          onClick={() => setViewingEval(tok)}
                           className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
                         >
                           View Response
@@ -1049,449 +882,57 @@ CMD Ordaining Council`
             </div>
           </div>
 
-          {/* AI Interview Brief */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mt-6">
-            <div className="px-8 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">AI Interview Brief</h2>
-                <p className="text-xs text-slate-400 font-medium mt-1">
-                  Synthesizes grades, feedback, self-assessments, Pardington sessions, and evaluations into a council-ready briefing document.
-                </p>
-              </div>
-              <button
-                onClick={handleGenerateBrief}
-                disabled={isGeneratingBrief}
-                className="px-5 py-2.5 text-white rounded-xl text-sm font-bold transition-all flex-shrink-0"
-                style={{ backgroundColor: isGeneratingBrief ? '#94a3b8' : '#00426A' }}
-              >
-                {isGeneratingBrief ? '⏳ Generating…' : '✨ Generate Brief'}
-              </button>
-            </div>
-            <div className="px-8 py-4 text-xs text-slate-400 font-medium leading-relaxed">
-              Use this before an oral interview. The brief draws on all available data — the more complete the record, the richer the output. It does not make a pass/fail recommendation; it helps the council have a more informed, personal conversation.
-            </div>
-          </div>
+          <InterviewBriefSection candidate={candidate} ordinandId={id} />
 
-          {/* AI Interview Brief modal */}
-          {showBrief && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl flex flex-col" style={{ maxHeight: '90vh' }}>
-                {/* Header */}
-                <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-widest mb-0.5" style={{ color: '#0077C8' }}>AI Interview Brief</p>
-                    <h3 className="text-lg font-black text-slate-900">
-                      {candidate.first_name} {candidate.last_name}
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {briefContent && !isGeneratingBrief && (
-                      <button
-                        onClick={handleDownloadPDF}
-                        className="px-4 py-2 text-white rounded-xl text-xs font-bold transition-all"
-                        style={{ backgroundColor: '#00426A' }}
-                      >
-                        ↓ Download PDF
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setShowBrief(false)}
-                      className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 transition-all text-lg font-bold"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-                {/* Content */}
-                <div className="overflow-y-auto flex-1 px-8 py-6">
-                  {isGeneratingBrief && briefContent === '' && (
-                    <div className="flex items-center gap-3 text-slate-400">
-                      <span className="animate-spin text-xl">⏳</span>
-                      <span className="font-medium text-sm">Gathering data and composing brief…</span>
-                    </div>
-                  )}
-                  {briefContent && (
-                    <pre style={{
-                      whiteSpace: 'pre-wrap',
-                      fontFamily: 'Georgia, "Times New Roman", serif',
-                      fontSize: '0.875rem',
-                      lineHeight: '1.75',
-                      color: '#1e293b',
-                    }}>
-                      {briefContent}
-                      {isGeneratingBrief && <span className="animate-pulse">▍</span>}
-                    </pre>
-                  )}
-                </div>
-                {/* Footer */}
-                <div className="px-8 py-4 border-t border-slate-100 flex-shrink-0">
-                  <p className="text-xs text-slate-400 font-medium">
-                    Confidential — for council use only. Generated by AI from available portal data; exercise pastoral judgment in interpretation.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Send evaluation invitation modal */}
+          {/* Evaluation invitation modal */}
           {evalInviteModal && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden">
-                <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-start">
-                  <div>
-                    <p className="text-xs font-black text-[#0077C8] uppercase tracking-widest mb-1">
-                      {evalInviteModal.type === 'mentor' ? 'Mentor Evaluation' : 'Church Board Evaluation'}
-                    </p>
-                    <h3 className="text-lg font-black text-slate-900">Send Invitation</h3>
-                    <p className="text-sm text-slate-400 font-medium mt-0.5">{candidate?.first_name} {candidate?.last_name}</p>
-                  </div>
-                  <button onClick={() => setEvalInviteModal(null)} className="text-slate-400 hover:text-slate-700 font-black text-xl mt-1">✕</button>
-                </div>
-
-                <div className="px-8 py-6 space-y-5">
-                  {/* Recipient fields */}
-                  <div>
-                    <label className={labelClass}>
-                      {evalInviteModal.type === 'mentor' ? 'Mentor Name' : 'Recipient Name'}
-                    </label>
-                    <input
-                      className={inputClass}
-                      value={evalInviteModal.name}
-                      onChange={e => setEvalInviteModal(m => m ? { ...m, name: e.target.value } : m)}
-                      placeholder="Full name"
-                    />
-                    {evalInviteModal.type === 'mentor' && !candidate?.mentor_name && (
-                      <p className="text-xs text-amber-600 font-medium mt-1">⚠ No mentor name on file — add it in the profile section above.</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className={labelClass}>
-                      {evalInviteModal.type === 'mentor' ? 'Mentor Email Address' : 'Recipient Email Address'}
-                    </label>
-                    <input
-                      className={inputClass}
-                      type="email"
-                      value={evalInviteModal.email}
-                      onChange={e => setEvalInviteModal(m => m ? { ...m, email: e.target.value } : m)}
-                      placeholder="email@example.com"
-                    />
-                    {evalInviteModal.type === 'mentor' && !candidate?.mentor_email && (
-                      <p className="text-xs text-amber-600 font-medium mt-1">⚠ No mentor email on file — add it in the profile section above.</p>
-                    )}
-                  </div>
-
-                  {/* Email preview */}
-                  <div>
-                    <label className={labelClass}>Email Preview</label>
-                    <div className="border border-slate-200 rounded-2xl overflow-hidden text-sm">
-                      {/* Preview header */}
-                      <div style={{ background: '#00426A', borderBottom: '3px solid #0077C8', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <img src="/cmd-logo.png" style={{ height: '24px' }} alt="CMD" />
-                        <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '12px', letterSpacing: '0.05em' }}>CMD ORDINATION PORTAL</span>
-                      </div>
-                      {/* Preview body */}
-                      <div className="p-5 bg-white space-y-3 text-slate-600 leading-relaxed">
-                        <p>Dear <strong className="text-slate-800">{evalInviteModal.name || '[Recipient Name]'}</strong>,</p>
-                        <p className="text-xs">
-                          {evalInviteModal.type === 'mentor'
-                            ? `You are receiving this message because you have been serving as the ministry mentor for `
-                            : `You are receiving this message as a representative of the Board of Elders for the church where `
-                          }
-                          <strong className="text-slate-800">{candidate?.first_name} {candidate?.last_name}</strong>
-                          {evalInviteModal.type === 'mentor' ? '.' : ' serves in ministry.'}
-                        </p>
-                        <p className="text-xs">
-                          As {candidate?.first_name} approaches the final stage of the ordination process with the Canadian Midwest District,
-                          the Ordaining Council is gathering evaluations from those who know them best in ministry context.
-                          Your honest and thoughtful response is an important part of this process.
-                        </p>
-                        <div className="py-1">
-                          <span className="inline-block bg-[#00426A] text-white px-5 py-2.5 rounded-lg font-bold text-xs">Complete the Evaluation →</span>
-                        </div>
-                        <p className="text-xs text-slate-400">This link is personal to you and expires after a single submission. The form takes approximately 15–20 minutes to complete.</p>
-                      </div>
-                      {/* Preview footer */}
-                      <div className="bg-slate-50 border-t border-slate-200 py-3 px-5 text-center">
-                        <p className="text-xs text-slate-400">Canadian Midwest District · The Alliance Canada · ordination.canadianmidwest.ca</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-3 pt-1">
-                    <button
-                      onClick={handleSendEvalInvite}
-                      disabled={isSendingEval || !evalInviteModal.name.trim() || !evalInviteModal.email.trim()}
-                      className="px-6 py-3 rounded-xl font-black text-sm text-white transition-all disabled:opacity-50"
-                      style={{ backgroundColor: isSendingEval ? '#aaa' : '#00426A', cursor: isSendingEval ? 'not-allowed' : 'pointer' }}
-                    >
-                      {isSendingEval ? 'Sending…' : 'Send Invitation'}
-                    </button>
-                    <button onClick={() => setEvalInviteModal(null)} className="px-6 py-3 rounded-xl font-bold text-sm text-slate-500 hover:text-slate-800 transition-colors">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <EvalInviteModal
+              type={evalInviteModal.type}
+              initialName={evalInviteModal.name}
+              initialEmail={evalInviteModal.email}
+              candidate={candidate}
+              ordinandId={id}
+              isObserver={isObserver}
+              onClose={() => setEvalInviteModal(null)}
+              onSent={() => { setEvalInviteModal(null); fetchData(true) }}
+              flash={flash}
+            />
           )}
 
           {/* Evaluation response modal */}
           {viewingEval && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
-                <div className="sticky top-0 bg-white border-b border-slate-100 px-8 py-5 flex justify-between items-start rounded-t-3xl">
-                  <div>
-                    <p className="text-xs font-black text-[#0077C8] uppercase tracking-widest mb-1">
-                      {viewingEval.eval_type === 'mentor' ? 'Mentor Evaluation' : 'Church Board Evaluation'}
-                    </p>
-                    <h3 className="text-lg font-black text-slate-900">{candidate?.first_name} {candidate?.last_name}</h3>
-                    {evalDetail?.evaluator_name && <p className="text-sm text-slate-400 font-medium mt-0.5">Submitted by {evalDetail.evaluator_name}</p>}
-                  </div>
-                  <button onClick={() => { setViewingEval(null); setEvalDetail(null) }} className="text-slate-400 hover:text-slate-700 font-black text-xl">✕</button>
-                </div>
-                <div className="px-8 py-6 space-y-6">
-                  {loadingEvalDetail ? (
-                    <p className="text-slate-400 text-center font-medium py-8">Loading response…</p>
-                  ) : evalDetail ? (
-                    <>
-                      {viewingEval.eval_type === 'church' && evalDetail.ministry_start_date && (
-                        <div>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Ministry Commenced</p>
-                          <p className="text-sm font-medium text-slate-800">{new Date(evalDetail.ministry_start_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-                        </div>
-                      )}
-                      {viewingEval.eval_type === 'church' && evalDetail.board_member_position && (
-                        <div>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Board Position</p>
-                          <p className="text-sm font-medium text-slate-800">{evalDetail.board_member_position}</p>
-                        </div>
-                      )}
-                      {[
-                        { key: 'q1_call', label: "1. God's Call" },
-                        { key: 'q2_strengths', label: '2. Ministry Strengths' },
-                        { key: 'q3_development', label: '3. Areas for Development' },
-                      ].map(({ key, label }) => evalDetail[key] && (
-                        <div key={key}>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-                          <p className="text-sm font-medium text-slate-800 whitespace-pre-wrap">{evalDetail[key]}</p>
-                        </div>
-                      ))}
-                      {evalDetail.q4_ratings && Object.keys(evalDetail.q4_ratings).length > 0 && (
-                        <div>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">4. General Evaluation Ratings</p>
-                          <div className="space-y-2">
-                            {Object.entries(evalDetail.q4_ratings).map(([cat, rating]) => (
-                              <div key={cat} className="flex items-center justify-between gap-4 py-1 border-b border-slate-50">
-                                <p className="text-xs font-medium text-slate-600">{cat}</p>
-                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold shrink-0 ${
-                                  rating === 'exceptional' ? 'bg-emerald-100 text-emerald-700' :
-                                  rating === 'excellent'   ? 'bg-blue-100 text-blue-700' :
-                                  rating === 'good'        ? 'bg-slate-100 text-slate-700' :
-                                  rating === 'adequate'    ? 'bg-amber-100 text-amber-700' :
-                                  'bg-red-100 text-red-700'
-                                }`}>{String(rating).charAt(0).toUpperCase() + String(rating).slice(1)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {[
-                        { key: 'q5a_spiritual_growth',    label: '5a. Spiritual Growth & Maturity' },
-                        { key: 'q5b_emotional_stability', label: '5b. Emotional Stability' },
-                        { key: 'q5c_family_relationship', label: '5c. Family Relationship' },
-                        { key: 'q6_moral_concern',        label: '6. Moral Life' },
-                        { key: 'q7_fruitfulness',         label: '7. Fruitfulness' },
-                      ].map(({ key, label }) => evalDetail[key] && (
-                        <div key={key}>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-                          <p className="text-sm font-medium text-slate-800 whitespace-pre-wrap">{evalDetail[key]}</p>
-                        </div>
-                      ))}
-                      <div>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">8. Ordination Recommendation</p>
-                        <p className={`text-sm font-black ${evalDetail.q8_recommendation ? 'text-green-700' : 'text-red-700'}`}>
-                          {evalDetail.q8_recommendation ? '✓ Recommends for ordination' : '✕ Does not recommend for ordination'}
-                        </p>
-                        {evalDetail.q8_explanation && <p className="text-sm font-medium text-slate-700 mt-1 whitespace-pre-wrap">{evalDetail.q8_explanation}</p>}
-                      </div>
-                      {evalDetail.additional_comments && (
-                        <div>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Additional Comments</p>
-                          <p className="text-sm font-medium text-slate-800 whitespace-pre-wrap">{evalDetail.additional_comments}</p>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-slate-400 text-center font-medium py-8">Could not load evaluation response.</p>
-                  )}
-                </div>
-              </div>
-            </div>
+            <EvalResponseModal
+              evalToken={viewingEval}
+              candidate={candidate}
+              onClose={() => setViewingEval(null)}
+            />
           )}
 
           {/* Self-assessment modal */}
-          {saReq && (() => {
-            const topic = saReq.requirement_templates?.topic as string
-            const topicDef = SELF_ASSESSMENT_TOPICS[topic]
-            const RATINGS = ['insufficient', 'adequate', 'good', 'excellent', 'exceptional']
-            return (
-              <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">Ordinand Self-Assessment</p>
-                      <h3 className="text-xl font-black text-slate-900">{saReq.requirement_templates?.title}</h3>
-                      <p className="text-sm text-slate-400 font-medium mt-1">{candidate.first_name} {candidate.last_name}</p>
-                    </div>
-                    <button onClick={() => setSaReq(null)} className="text-slate-300 hover:text-slate-500 text-2xl font-black leading-none">×</button>
-                  </div>
-
-                  <p className="text-xs text-slate-500 font-medium mb-6 bg-slate-50 rounded-xl p-3 border border-slate-100">
-                    Enter the ordinand&apos;s self-assessment responses as submitted in Moodle. For each section, record their rating and the evidence they cited from their paper.
-                  </p>
-
-                  <div className="space-y-6">
-                    {/* Section 1: Completeness — per-question ratings */}
-                    <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
-                      <h4 className="text-sm font-black text-slate-800 mb-1">Completeness</h4>
-                      <p className="text-xs text-slate-500 mb-4">Have you addressed each of the key questions as outlined in the assignment guide?</p>
-                      {topicDef?.questions.map(q => (
-                        <div key={q.id} className="mb-3">
-                          <p className="text-xs text-slate-600 font-medium mb-1.5 leading-relaxed">{q.question}</p>
-                          <select
-                            value={saQuestionRatings[q.id] || ''}
-                            onChange={e => setSaQuestionRatings(prev => ({ ...prev, [q.id]: e.target.value }))}
-                            className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-indigo-100 outline-none w-full"
-                          >
-                            <option value="">Select rating…</option>
-                            {RATINGS.map(r => <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
-                          </select>
-                        </div>
-                      ))}
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5 mt-4">Evidence from their paper</label>
-                      <textarea
-                        value={saCompletenessEvidence}
-                        onChange={e => setSaCompletenessEvidence(e.target.value)}
-                        rows={3}
-                        placeholder="Where and how does the paper address completeness?"
-                        className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-indigo-100 outline-none resize-none"
-                      />
-                    </div>
-
-                    {/* Sections 2–6: single rating + evidence */}
-                    {PAPER_SECTIONS.filter(s => s.id !== 'completeness').map(section => (
-                      <div key={section.id} className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
-                        <h4 className="text-sm font-black text-slate-800 mb-1">{section.title}</h4>
-                        <p className="text-xs text-slate-500 mb-3 leading-relaxed">{section.prompt}</p>
-                        <select
-                          value={saRatings[section.id] || ''}
-                          onChange={e => setSaRatings(prev => ({ ...prev, [section.id]: e.target.value }))}
-                          className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-indigo-100 outline-none w-full mb-3"
-                        >
-                          <option value="">Select rating…</option>
-                          {RATINGS.map(r => <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
-                        </select>
-                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5">Evidence from their paper</label>
-                        <textarea
-                          value={saEvidence[section.id] || ''}
-                          onChange={e => setSaEvidence(prev => ({ ...prev, [section.id]: e.target.value }))}
-                          rows={3}
-                          placeholder="Where and how does the paper address this criterion?"
-                          className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-indigo-100 outline-none resize-none"
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-3 mt-8">
-                    <button
-                      onClick={handleSaveSelfAssessment}
-                      disabled={isSavingSA}
-                      className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-black hover:bg-indigo-700 transition-all disabled:opacity-50"
-                    >
-                      {isSavingSA ? 'Saving…' : 'Save Self-Assessment'}
-                    </button>
-                    <button
-                      onClick={() => setSaReq(null)}
-                      className="px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })()}
+          {saReq && (
+            <SelfAssessmentModal
+              req={saReq}
+              candidate={candidate}
+              isObserver={isObserver}
+              onClose={() => setSaReq(null)}
+              onSaved={() => { setSaReq(null); fetchData() }}
+              flash={flash}
+            />
+          )}
 
           {/* Grade modal */}
-          {selectedReq && (
-            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 space-y-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Grade Assignment</p>
-                    <h3 className="text-xl font-black text-slate-900">{selectedReq.requirement_templates?.title}</h3>
-                    <p className="text-sm text-slate-400 font-medium mt-1">{candidate.first_name} {candidate.last_name}</p>
-                  </div>
-                  <button
-                    onClick={() => { setSelectedReq(null); setRating(''); setComments(''); setModalGraderId(''); fetchData() }}
-                    className="text-slate-400 hover:text-slate-700 font-black text-xl transition-colors"
-                  >✕</button>
-                </div>
-                <div>
-                  <label className={labelClass}>Graded By</label>
-                  <select
-                    className={inputClass}
-                    value={modalGraderId}
-                    onChange={e => setModalGraderId(e.target.value)}
-                  >
-                    <option value="">Select council member…</option>
-                    {councilMembers.map(m => (
-                      <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-slate-400 font-medium mt-1">Required for migration. Leave blank to record as your own grade.</p>
-                </div>
-                <div>
-                  <label className={labelClass}>Rating</label>
-                  <div className="grid grid-cols-5 gap-2">
-                    {(Object.keys(RATING_LABELS) as Rating[]).map(r => (
-                      <button
-                        key={r}
-                        onClick={() => setRating(r)}
-                        className={`py-2 px-1 rounded-xl text-xs font-bold transition-all border-2 ${rating === r ? (r === 'insufficient' ? 'bg-red-500 text-white border-red-500' : 'bg-blue-600 text-white border-blue-600') : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}
-                      >
-                        {RATING_LABELS[r]}
-                      </button>
-                    ))}
-                  </div>
-                  {rating === 'insufficient' && <p className="text-xs text-red-500 font-bold mt-2">⚠ Insufficient will mark this as Revision Required</p>}
-                  {rating && rating !== 'insufficient' && <p className="text-xs text-green-600 font-bold mt-2">✓ This rating will mark the assignment as Complete</p>}
-                </div>
-                <div>
-                  <label className={labelClass}>Feedback Comments</label>
-                  <textarea
-                    className={`${inputClass} resize-none`}
-                    rows={4}
-                    value={comments}
-                    onChange={e => setComments(e.target.value)}
-                    placeholder="Provide feedback for the ordinand…"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={handleSaveGrade} disabled={!rating || isSaving} className={btnPrimary}>
-                    {isSaving ? 'Saving…' : 'Save Grade'}
-                  </button>
-                  <button
-                    onClick={() => { setSelectedReq(null); setRating(''); setComments(''); setModalGraderId(''); fetchData() }}
-                    className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:text-slate-800 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
+          {selectedReqForGrade && (
+            <GradeModal
+              req={selectedReqForGrade}
+              candidate={candidate}
+              councilMembers={councilMembers}
+              initialRating={gradeInitialRating}
+              initialComments={gradeInitialComments}
+              isObserver={isObserver}
+              onClose={() => { setSelectedReqForGrade(null); fetchData() }}
+              onSaved={() => { setSelectedReqForGrade(null); fetchData() }}
+              flash={flash}
+            />
           )}
 
         </div>
