@@ -253,6 +253,15 @@ export default function OrdinandRequirementPage() {
 
   useEffect(() => { fetchData() }, [id])
 
+  // Auto-select the only book option for required-book categories
+  const autoBookCategory = requirement?.requirement_templates?.book_category ?? ''
+  const autoBookOptions  = BOOK_OPTIONS[autoBookCategory] ?? []
+  useEffect(() => {
+    if (autoBookOptions.length === 1 && !selectedBook) {
+      setSelectedBook(autoBookOptions[0])
+    }
+  }, [autoBookOptions.length, selectedBook])
+
   const isPaper      = requirement?.requirement_templates?.type === 'paper'
   const isSermon     = requirement?.requirement_templates?.type === 'sermon'
   const isBook       = requirement?.requirement_templates?.type === 'book_report'

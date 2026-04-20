@@ -91,6 +91,16 @@ export default function MentorReportPage() {
     fetchProfile()
   }, [])
 
+  // Warn before leaving with unsaved answers
+  const hasUnsavedWork = Object.values(answers).some(v => v.trim().length > 0) && !submitted
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedWork) { e.preventDefault(); e.returnValue = '' }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [hasUnsavedWork])
+
   function setAnswer(si: number, qi: number, value: string) {
     setAnswers(prev => ({ ...prev, [`${si}-${qi}`]: value }))
   }
