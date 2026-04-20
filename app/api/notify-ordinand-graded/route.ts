@@ -3,6 +3,7 @@
 // Requires authentication — caller must be council or admin.
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, serviceClient, isValidUUID } from '../../../lib/api-auth'
+import { wrapEmail, emailButton, emailInfoBlock } from '../../../lib/email-templates'
 
 export async function POST(req: NextRequest) {
   // Auth: only council members or admins can trigger grading notifications
@@ -87,29 +88,18 @@ export async function POST(req: NextRequest) {
       from: 'CMD Ordination Portal <noreply@send.canadianmidwest.ca>',
       to: [ordinandProfile.email],
       subject: `${isComplete ? '✓ Assignment graded' : '⚠ Revision requested'} — ${assignmentTitle}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-          <div style="background:#00426A;padding:24px 32px;border-bottom:4px solid #0077C8;">
-            <span style="color:#fff;font-weight:bold;font-size:16px;letter-spacing:0.05em;">CMD ORDINATION PORTAL</span>
-          </div>
-          <div style="padding:32px;">
+      html: wrapEmail(`
             <p style="color:#333;font-size:16px;margin:0 0 8px;">Hello ${ordinandName},</p>
             <p style="color:#555;font-size:15px;line-height:1.6;margin:16px 0;">
               Your submission has been reviewed by <strong style="color:#00426A;">${graderName}</strong>:
             </p>
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:16px 20px;margin:20px 0;">
-              <p style="color:#00426A;font-weight:bold;font-size:15px;margin:0;">${assignmentTitle}</p>
-            </div>
+            ${emailInfoBlock(assignmentTitle)}
             ${outcomeBlock}
-            <a href="${dashboardUrl}" style="display:inline-block;background:#00426A;color:#fff;text-decoration:none;font-weight:bold;font-size:14px;padding:14px 28px;border-radius:6px;margin:8px 0 24px;">
-              VIEW MY DASHBOARD →
-            </a>
+            ${emailButton(dashboardUrl, 'VIEW MY DASHBOARD →')}
             <p style="color:#888;font-size:13px;line-height:1.6;border-top:1px solid #eee;padding-top:20px;margin-top:8px;">
               You're receiving this because an assignment in your CMD ordination process has been graded.<br/>
               If you have questions, please contact the CMD District Office.
-            </p>
-          </div>
-        </div>`,
+            </p>`),
     }),
   })
 

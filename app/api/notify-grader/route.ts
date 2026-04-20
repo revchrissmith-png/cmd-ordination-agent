@@ -3,6 +3,7 @@
 // Requires authentication — caller must be an ordinand, council, or admin.
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateUser, serviceClient, isValidUUID } from '../../../lib/api-auth'
+import { wrapEmail, emailButton, emailInfoBlock } from '../../../lib/email-templates'
 
 export async function POST(req: NextRequest) {
   // Auth: any logged-in user can trigger (ordinand submits, admin assigns)
@@ -60,28 +61,17 @@ export async function POST(req: NextRequest) {
       from: 'CMD Ordination Portal <noreply@send.canadianmidwest.ca>',
       to: [graderProfile.email],
       subject: `New submission ready to grade — ${ordinandName}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: #00426A; padding: 24px 32px; border-bottom: 4px solid #0077C8;">
-            <span style="color: #fff; font-weight: bold; font-size: 16px; letter-spacing: 0.05em;">CMD ORDINATION PORTAL</span>
-          </div>
-          <div style="padding: 32px;">
-            <p style="color: #333; font-size: 16px; margin: 0 0 8px;">Hello ${graderName},</p>
-            <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 16px 0;">
-              <strong style="color: #00426A;">${ordinandName}</strong> has submitted an assignment assigned to you for grading:
+      html: wrapEmail(`
+            <p style="color:#333;font-size:16px;margin:0 0 8px;">Hello ${graderName},</p>
+            <p style="color:#555;font-size:15px;line-height:1.6;margin:16px 0;">
+              <strong style="color:#00426A;">${ordinandName}</strong> has submitted an assignment assigned to you for grading:
             </p>
-            <div style="background: #f0f7ff; border-left: 4px solid #0077C8; border-radius: 4px; padding: 16px 20px; margin: 20px 0;">
-              <p style="color: #00426A; font-weight: bold; font-size: 15px; margin: 0;">${assignmentTitle}</p>
-            </div>
-            <a href="${gradingUrl}" style="display: inline-block; background: #0077C8; color: #fff; text-decoration: none; font-weight: bold; font-size: 14px; padding: 14px 28px; border-radius: 6px; margin: 8px 0 24px;">
-              OPEN GRADING PAGE →
-            </a>
-            <p style="color: #888; font-size: 13px; line-height: 1.6; border-top: 1px solid #eee; padding-top: 20px; margin-top: 8px;">
+            ${emailInfoBlock(assignmentTitle)}
+            ${emailButton(gradingUrl, 'OPEN GRADING PAGE →')}
+            <p style="color:#888;font-size:13px;line-height:1.6;border-top:1px solid #eee;padding-top:20px;margin-top:8px;">
               You're receiving this because you are the assigned grader for this submission.<br/>
               If you have questions, please contact the CMD District Office.
-            </p>
-          </div>
-        </div>`,
+            </p>`),
     }),
   })
 
