@@ -157,7 +157,7 @@ export default function CandidateDetailPage() {
 
     const { data: council } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, grading_types')
+      .select('id, first_name, last_name, email, grading_types')
       .contains('roles', ['council'])
       .order('last_name')
     setCouncilMembers(council || [])
@@ -876,7 +876,11 @@ CMD Ordaining Council`
             </div>
           </div>
 
-          <InterviewBriefSection candidate={candidate} ordinandId={id} />
+          <InterviewBriefSection
+            candidate={candidate}
+            ordinandId={id}
+            councilMembers={councilMembers.map(m => ({ id: m.id, full_name: `${m.first_name} ${m.last_name}`, email: m.email }))}
+          />
 
           {/* Evaluation invitation modal */}
           {evalInviteModal && (
