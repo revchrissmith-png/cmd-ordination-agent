@@ -149,14 +149,21 @@ export default function CouncilMemberManagePage() {
         ordinand_requirements(
           id, status,
           requirement_templates(title, type),
-          profiles!ordinand_id(full_name, email),
+          profiles!ordinand_id(full_name, email, status),
           submissions(submitted_at, grades(graded_at, overall_rating))
         )
       `)
       .eq('council_member_id', id)
 
-    if (gas) {
-      const mapped: Assignment[] = gas.map((ga: any) => {
+    // Filter out assignments for deleted ordinands
+    const activeGas = (gas || []).filter((ga: any) => {
+      const req = ga.ordinand_requirements
+      const profile = Array.isArray(req?.profiles) ? req.profiles[0] : req?.profiles
+      return profile && profile.status !== 'deleted'
+    })
+
+    if (activeGas) {
+      const mapped: Assignment[] = activeGas.map((ga: any) => {
         const req = ga.ordinand_requirements
         const tmpl = req?.requirement_templates
         const ordinand = req?.profiles

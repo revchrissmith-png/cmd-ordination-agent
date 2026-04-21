@@ -415,13 +415,41 @@ function AdminPageContent() {
     if (denyObserver()) return
     if (!archiveTarget || !archiveMode) return
     setIsArchiving(true)
-    const { error } = await supabase.from('profiles')
-      .update({ status: archiveMode === 'delete' ? 'deleted' : 'completed', status_changed_at: new Date().toISOString() })
-      .eq('id', archiveTarget.id)
-    setIsArchiving(false)
-    if (error) { flash('Error: ' + error.message, 'error'); return }
     const name = `${archiveTarget.first_name} ${archiveTarget.last_name}`
-    flash(archiveMode === 'delete' ? `${name} has been removed from the system.` : `${name} has been marked as complete.`, 'success')
+
+    if (archiveMode === 'delete') {
+      // Full deletion — removes all related records (assignments, grades, submissions, etc.)
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/admin/delete-ordinand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ ordinandId: archiveTarget.id }),
+      })
+      setIsArchiving(false)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+        flash('Error: ' + (err.error || res.statusText), 'error')
+        return
+      }
+      const result = await res.json()
+      const counts = result.deleted
+      const details = [
+        counts.grading_assignments && `${counts.grading_assignments} assignments`,
+        counts.grades && `${counts.grades} grades`,
+        counts.submissions && `${counts.submissions} submissions`,
+        counts.evaluations && `${counts.evaluations} evaluations`,
+      ].filter(Boolean).join(', ')
+      flash(`${name} and all related records removed.${details ? ` Cleaned up: ${details}.` : ''}`, 'success')
+    } else {
+      // Archive (mark complete) — keep all data for historical reference
+      const { error } = await supabase.from('profiles')
+        .update({ status: 'completed', status_changed_at: new Date().toISOString() })
+        .eq('id', archiveTarget.id)
+      setIsArchiving(false)
+      if (error) { flash('Error: ' + error.message, 'error'); return }
+      flash(`${name} has been marked as complete.`, 'success')
+    }
+
     setArchiveTarget(null); setArchiveMode(null)
     fetchCandidates()
   }

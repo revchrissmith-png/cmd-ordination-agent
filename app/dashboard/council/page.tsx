@@ -44,12 +44,18 @@ function CouncilDashboardContent() {
           ordinand_requirements(
             id, status,
             requirement_templates(id, type, topic, title),
-            profiles!ordinand_id(full_name, email),
+            profiles!ordinand_id(full_name, email, status),
             cohorts(year, season),
             submissions(submitted_at)
           )`)
         .eq('council_member_id', targetId)
-      setAssignments(assigns || [])
+      // Filter out assignments for deleted ordinands
+      const activeAssigns = (assigns || []).filter((a: any) => {
+        const req = a.ordinand_requirements
+        const profile = Array.isArray(req?.profiles) ? req.profiles[0] : req?.profiles
+        return profile && profile.status !== 'deleted'
+      })
+      setAssignments(activeAssigns)
       setLoading(false)
     }
     fetchData()
