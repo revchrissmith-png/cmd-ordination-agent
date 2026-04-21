@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../utils/supabase/client'
 import { logActivity } from '../../../../../utils/logActivity'
-import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS } from '../../../../../utils/selfAssessmentQuestions'
+import { SELF_ASSESSMENT_TOPICS, PAPER_SECTIONS, convertV1ToV2 } from '../../../../../utils/selfAssessmentQuestions'
 import {
   TOTAL_RUBRIC_CRITERIA,
   suggestRubricGrade,
@@ -174,10 +174,16 @@ export default function CouncilGradePage() {
   const topic    = requirement?.requirement_templates?.topic
   const topicData = topic ? SELF_ASSESSMENT_TOPICS[topic] : null
 
-  const isNewFormatSA = submission?.self_assessment?.version === 2
-  const saSections    = submission?.self_assessment?.sections || {}
-  const oldAnswers: Record<string, string>  = submission?.self_assessment?.answers         || {}
-  const oldRatings: Record<string, string>  = submission?.self_assessment?.self_assessments || {}
+  // Convert v1 self-assessment to v2 shape in memory (read-only — DB is not mutated)
+  const rawSA = submission?.self_assessment
+  const isNativeV2 = rawSA?.version === 2
+  const convertedSA = (!isNativeV2 && rawSA?.answers && topicData)
+    ? convertV1ToV2(rawSA.answers, rawSA.self_assessments || {}, topicData.questions)
+    : null
+  const isNewFormatSA = isNativeV2 || !!convertedSA
+  const saSections    = isNativeV2 ? (rawSA?.sections || {}) : (convertedSA?.sections || {})
+  const oldAnswers: Record<string, string>  = rawSA?.answers         || {}
+  const oldRatings: Record<string, string>  = rawSA?.self_assessments || {}
 
   // Sermon rubric validation
   const scoredCount     = Object.values(rubricScores).filter(v => v > 0).length
@@ -393,6 +399,7 @@ export default function CouncilGradePage() {
                   <PaperAssessment
                     topicData={topicData}
                     isNewFormatSA={isNewFormatSA}
+                    isConverted={!!convertedSA}
                     saSections={saSections}
                     oldAnswers={oldAnswers}
                     oldRatings={oldRatings}

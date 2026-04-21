@@ -16,6 +16,7 @@ const RATING_CONFIG: Record<Rating, { colour: string; label: string }> = {
 interface PaperAssessmentProps {
   topicData: { title: string; questions: { id: string; question: string }[] }
   isNewFormatSA: boolean
+  isConverted?: boolean
   saSections: Record<string, any>
   oldAnswers: Record<string, string>
   oldRatings: Record<string, string>
@@ -28,7 +29,7 @@ interface PaperAssessmentProps {
 }
 
 export default function PaperAssessment({
-  topicData, isNewFormatSA, saSections, oldAnswers, oldRatings,
+  topicData, isNewFormatSA, isConverted, saSections, oldAnswers, oldRatings,
   activeQuestion, setActiveQuestion,
   paperFeedback, setPaperFeedback,
   paperSectionRatings, setPaperSectionRatings,
@@ -81,6 +82,12 @@ export default function PaperAssessment({
       {/* New v2 format — section-by-section review */}
       {isNewFormatSA && (
         <div className="space-y-8">
+          {isConverted && (
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+              <p className="text-sm font-bold text-blue-700 mb-1">Upgraded from earlier format</p>
+              <p className="text-sm text-blue-600 font-medium">This submission used a previous self-assessment format. The ordinand&apos;s per-question responses and ratings have been mapped into the Completeness section. Sections 2–6 will not have self-assessment data from the ordinand — please assess those areas based on the paper itself.</p>
+            </div>
+          )}
 
           {/* Section 1: Completeness */}
           <div className="bg-slate-50 rounded-2xl border border-slate-100 p-6">

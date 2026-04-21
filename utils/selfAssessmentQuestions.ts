@@ -68,6 +68,51 @@ export const PAPER_SECTIONS: PaperSectionDef[] = [
   },
 ]
 
+/**
+ * Convert a v1 self-assessment to v2 shape (in-memory only — does not mutate the DB).
+ * v1 stores per-question text answers and per-question ratings.
+ * v2 groups feedback into 6 standard sections (completeness, theological_depth, etc.).
+ *
+ * Mapping:
+ *  - v1 per-question ratings → v2 completeness.question_ratings
+ *  - v1 per-question answers → v2 completeness.evidence (concatenated with Q numbers)
+ *  - Sections 2-6 have no v1 equivalent and remain empty.
+ */
+export function convertV1ToV2(
+  answers: Record<string, string>,
+  selfAssessments: Record<string, string>,
+  topicQuestions: { id: string; question: string }[],
+): { version: 2; sections: Record<string, any> } {
+  const questionRatings: Record<string, string> = {}
+  for (const q of topicQuestions) {
+    if (selfAssessments[q.id]) {
+      questionRatings[q.id] = selfAssessments[q.id]
+    }
+  }
+
+  const evidenceParts: string[] = []
+  topicQuestions.forEach((q, i) => {
+    if (answers[q.id]) {
+      evidenceParts.push(`Q${i + 1}: ${answers[q.id]}`)
+    }
+  })
+
+  return {
+    version: 2,
+    sections: {
+      completeness: {
+        question_ratings: questionRatings,
+        evidence: evidenceParts.join('\n\n') || '',
+      },
+      theological_depth: { rating: '', evidence: '' },
+      scripture: { rating: '', evidence: '' },
+      personal_reflection: { rating: '', evidence: '' },
+      sources: { rating: '', evidence: '' },
+      grammar: { rating: '', evidence: '' },
+    },
+  }
+}
+
 export const SELF_ASSESSMENT_TOPICS: Record<string, SelfAssessmentTopic> = {
 
   christ_centred: {
