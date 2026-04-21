@@ -411,19 +411,7 @@ CMD Ordaining Council`
   )
 
   return (
-    <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
-
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-        <a href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', textDecoration: 'none', cursor: 'pointer' }}>
-          <img src="/cmd-logo.png" alt="CMD Logo" style={{ height: '35px' }} />
-          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
-        </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/handbook" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>📖 Handbook</Link>
-          {!isObserver && <button onClick={() => { setShowViewAs(true); fetchViewAsUsers() }} style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>👁 View as User</button>}
-          <Link href="/dashboard/admin?tab=candidates" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Admin Console</Link>
-        </div>
-      </header>
+    <div style={{ fontFamily: 'Arial, sans-serif' }}>
 
       <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
         <div className="max-w-5xl mx-auto">
@@ -444,6 +432,9 @@ CMD Ordaining Council`
               )}
             </div>
             <div className="flex gap-3 flex-wrap">
+              {!isObserver && (
+                <button onClick={() => { setShowViewAs(true); fetchViewAsUsers() }} className="px-4 py-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all">👁 View as User</button>
+              )}
               {!editingProfile && (
                 <button
                   onClick={() => setEditingProfile(true)}

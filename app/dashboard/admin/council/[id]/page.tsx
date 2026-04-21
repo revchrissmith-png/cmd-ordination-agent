@@ -413,20 +413,7 @@ export default function CouncilMemberManagePage() {
   )
 
   return (
-    <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
-
-      {/* Header */}
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <a href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', textDecoration: 'none', cursor: 'pointer' }}>
-          <img src="/cmd-logo.png" alt="CMD Logo" style={{ height: '35px' }} />
-          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
-        </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/handbook" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>📖 Handbook</Link>
-          {!isObserver && <button onClick={() => { setShowViewAs(true); fetchViewAsUsers() }} style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>👁 View as User</button>}
-          <Link href="/dashboard/admin?tab=council" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Admin Console</Link>
-        </div>
-      </header>
+    <div style={{ fontFamily: 'Arial, sans-serif' }}>
 
       {/* Flash message */}
       {message.text && (
@@ -445,6 +432,7 @@ export default function CouncilMemberManagePage() {
             <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: 500 }}>{member.email}</p>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {!isObserver && <button onClick={() => { setShowViewAs(true); fetchViewAsUsers() }} style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem', border: '1.5px solid #e2e8f0', backgroundColor: C.white, color: '#94a3b8', cursor: 'pointer' }}>👁 View as User</button>}
             <button onClick={() => setEditingProfile(!editingProfile)} style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: '1.5px solid #e2e8f0', backgroundColor: C.white, color: '#475569', cursor: 'pointer' }}>
               {editingProfile ? 'Cancel Edit' : '✏️ Edit Profile'}
             </button>

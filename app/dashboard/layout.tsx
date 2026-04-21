@@ -1,8 +1,8 @@
-// Iteration: v1.0
-// Location: GitHub -> app/dashboard/layout.tsx
-// Purpose: Provides the consistent layout for all pages inside /dashboard
+// app/dashboard/layout.tsx
+// Provides the consistent layout for all pages inside /dashboard
 
 import React from 'react'
+import NavBar from '../components/NavBar'
 
 export default function DashboardLayout({
   children,
@@ -11,17 +11,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation Bar */}
-      <nav className="bg-white border-b px-8 py-4 shadow-sm">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <a href="/dashboard" className="font-bold text-blue-900 tracking-tight" style={{ textDecoration: 'none' }}>CMD Ordination Portal</a>
-          <div className="flex gap-4 text-sm font-medium text-gray-600">
-             {/* We can add logout or profile links here later */}
-          </div>
-        </div>
-      </nav>
-
-      {/* Page Content */}
+      <NavBar />
       <div className="py-6">
         {children}
       </div>

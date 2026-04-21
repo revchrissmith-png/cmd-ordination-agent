@@ -225,33 +225,26 @@ export default function PardingtonPage() {
   }
 
   return (
-    <div style={{ backgroundColor: C.cloudGray, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ backgroundColor: C.cloudGray, height: 'calc(100vh - 3.5rem)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
 
-      {/* Header */}
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <a href="/dashboard" style={{ display: 'flex', cursor: 'pointer' }}><img src="/cmd-logo.png" alt="CMD Logo" style={{ height: '35px' }} /></a>
-          <div style={{ width: '1px', height: '28px', backgroundColor: 'rgba(255,255,255,0.2)' }} />
-          <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '38px' }} />
+      {/* Pardington sub-header */}
+      <div style={{ backgroundColor: C.deepSea, borderBottom: `3px solid ${C.allianceBlue}`, padding: '0.5rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '30px' }} />
           <div>
-            <div style={{ color: C.white, fontWeight: '900', fontSize: '1rem', letterSpacing: '0.05em', lineHeight: 1.1 }}>PARDINGTON</div>
-            <div style={{ color: '#90C8F0', fontSize: '0.65rem', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ordination Study Partner</div>
+            <div style={{ color: C.white, fontWeight: '900', fontSize: '0.85rem', letterSpacing: '0.05em', lineHeight: 1.1 }}>PARDINGTON</div>
+            <div style={{ color: '#90C8F0', fontSize: '0.6rem', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ordination Study Partner</div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {messages.length > 0 && (
-            <button
-              onClick={startNewConversation}
-              style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', background: 'none', border: '1px solid rgba(144,200,240,0.4)', borderRadius: '6px', padding: '0.3rem 0.75rem', cursor: 'pointer' }}
-            >
-              + New conversation
-            </button>
-          )}
-          <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>
-            ← Dashboard
-          </Link>
-        </div>
-      </header>
+        {messages.length > 0 && (
+          <button
+            onClick={startNewConversation}
+            style={{ color: '#90C8F0', fontSize: '0.78rem', fontWeight: 'bold', background: 'none', border: '1px solid rgba(144,200,240,0.4)', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}
+          >
+            + New conversation
+          </button>
+        )}
+      </div>
 
       {/* Integrity banner */}
       <div style={{ backgroundColor: '#FFF8E1', borderBottom: '1px solid #F0D060', padding: '0.6rem 1.2rem', textAlign: 'center' }}>

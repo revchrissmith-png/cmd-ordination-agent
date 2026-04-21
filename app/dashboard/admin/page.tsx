@@ -502,27 +502,17 @@ function AdminPageContent() {
   const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-widest mb-1.5"
 
   return (
-    <div style={{ backgroundColor: C.cloudGray, minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
-
-      {/* Brand header */}
-      <header style={{ backgroundColor: C.deepSea, borderBottom: `4px solid ${C.allianceBlue}`, padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-        <a href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', textDecoration: 'none', cursor: 'pointer' }}>
-          <img src="/cmd-logo.png" alt="CMD Logo" style={{ height: '35px' }} />
-          <span style={{ color: C.white, fontWeight: 'bold', fontSize: '1rem', letterSpacing: '0.05em' }}>CMD PORTAL</span>
-        </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/handbook" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>📖 Handbook</Link>
-          <button onClick={() => setShowViewAs(true)} style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>👁 View as User</button>
-          <Link href="/dashboard" style={{ color: '#90C8F0', fontSize: '0.8rem', fontWeight: 'bold', textDecoration: 'none' }}>← Dashboard</Link>
-        </div>
-      </header>
+    <div style={{ fontFamily: 'Arial, sans-serif' }}>
 
       <BetaBanner />
 
     <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20 overflow-x-hidden">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
-          <h1 className="text-2xl font-black mt-1" style={{ color: C.deepSea }}>Admin Console</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-black mt-1" style={{ color: C.deepSea }}>Admin Console</h1>
+            <button onClick={() => setShowViewAs(true)} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-100 transition-all">👁 View as User</button>
+          </div>
           {message.text && (
             <div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
               {message.text}
