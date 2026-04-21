@@ -293,6 +293,11 @@ function AdminPageContent() {
     if (denyObserver()) return
     if (!editingCohortId) return
     setIsSavingCohort(true)
+
+    // Detect sermon topic change before saving
+    const oldCohort = cohorts.find(c => c.id === editingCohortId)
+    const topicChanged = oldCohort && oldCohort.sermon_topic !== editCohortSermonTopic
+
     const { error } = await supabase.from('cohorts').update({
       name: editCohortName.trim(),
       year: parseInt(editCohortYear),
@@ -300,9 +305,48 @@ function AdminPageContent() {
       sermon_topic: editCohortSermonTopic,
       assignment_due_date: editCohortDueDate || null,
     }).eq('id', editingCohortId)
-    if (error) { flash('Error: ' + error.message, 'error') }
-    else { flash('Cohort updated.', 'success'); setEditingCohortId(null); fetchCohorts() }
+
+    if (error) {
+      flash('Error: ' + error.message, 'error')
+    } else {
+      if (topicChanged) {
+        // Offer to regenerate requirements
+        const proceed = confirm(
+          `Sermon topic changed. Regenerate paper/sermon requirements for all ordinands in this cohort?\n\nThis will only affect not-started requirements — any in-progress or completed work will be preserved.`
+        )
+        if (proceed) {
+          await handleRegenerateRequirements(editingCohortId)
+        } else {
+          flash('Cohort updated. Requirements were not regenerated.', 'success')
+        }
+      } else {
+        flash('Cohort updated.', 'success')
+      }
+      setEditingCohortId(null)
+      fetchCohorts()
+    }
     setIsSavingCohort(false)
+  }
+
+  async function handleRegenerateRequirements(cohortId: string) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { flash('Session expired.', 'error'); return }
+    try {
+      const res = await fetch('/api/admin/regenerate-requirements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ cohortId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        const msg = `Requirements regenerated for ${data.ordinandCount} ordinand${data.ordinandCount !== 1 ? 's' : ''}: ${data.totalAdded} added, ${data.totalRemoved} removed.`
+        flash(data.totalSkipped > 0 ? `${msg} (${data.totalSkipped} in-progress items preserved)` : msg, 'success')
+      } else {
+        flash(data.error || 'Failed to regenerate requirements.', 'error')
+      }
+    } catch {
+      flash('Network error during regeneration.', 'error')
+    }
   }
 
   async function handleDeleteCohort(id: string) {
@@ -672,7 +716,7 @@ function AdminPageContent() {
                             <select className={inputClass} value={editCohortSermonTopic} onChange={e => setEditCohortSermonTopic(e.target.value)}>
                               {TOPICS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                             </select>
-                            <p className="text-xs text-amber-600 font-medium mt-1.5">⚠️ Changing the sermon topic does not update requirements already generated for ordinands in this cohort.</p>
+                            <p className="text-xs text-slate-400 font-medium mt-1.5">Changing the sermon topic will prompt you to regenerate requirements for ordinands in this cohort. Only not-started requirements are affected.</p>
                           </div>
                           <div className="flex gap-3 pt-1">
                             <button onClick={handleSaveCohort} disabled={isSavingCohort} style={{ backgroundColor: isSavingCohort ? '#aaa' : C.deepSea, color: C.white, padding: '0.6rem 1.2rem', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>{isSavingCohort ? 'Saving...' : 'Save Changes'}</button>
@@ -701,6 +745,7 @@ function AdminPageContent() {
                             </div>
                             <div className="flex gap-2">
                               <button onClick={() => startEditCohort(c)} className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-all">✏️ Edit</button>
+                              <button onClick={() => { if (confirm('Regenerate paper/sermon requirements for all ordinands in this cohort? Only not-started requirements are affected.')) handleRegenerateRequirements(c.id) }} className="px-3 py-1.5 text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-lg hover:border-amber-300 hover:text-amber-600 transition-all">⚡ Regenerate</button>
                               <button onClick={() => setDeletingCohortId(c.id)} className="px-3 py-1.5 text-xs font-bold text-red-500 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-all">🗑 Delete</button>
                             </div>
                           </div>
