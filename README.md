@@ -128,27 +128,60 @@ git push origin main
 app/
   page.tsx                          Login page (email OTP)
   auth/callback/page.tsx            Auth callback handler
+  components/
+    ErrorBoundary.tsx               React error boundary for section isolation
+    ModalWrapper.tsx                Accessible modal (focus trap, Escape, ARIA)
+    Skeleton.tsx                    Skeleton loading primitives (Page, Card, Table)
+    UploadProgress.tsx              Indeterminate upload progress indicator
+    ViewAsUserModal.tsx             Shared admin "View as User" modal
+    BetaBanner.tsx                  Portal-wide beta notification banner
   api/
+    notify-grader/route.ts          Email grader when submission arrives
+    notify-ordinand-graded/route.ts Email ordinand when grade is posted
     study-agent/route.ts            Pardington AI backend (streaming, auth-gated)
+    feedback/route.ts               Bug/feature feedback submission
+    council/complete-grade/route.ts Server-side grade finalisation
     admin/
       register-user/route.ts        User creation + requirement generation
+      auto-assign-graders/route.ts  Algorithmic grader assignment
       interview-brief/route.ts      AI Interview Brief (streaming)
-      send-council-report/route.ts  Council report email via Resend
+      daily-report/route.ts         Vercel cron — daily activity digest email
+      send-council-report/route.ts  Council progress report email via Resend
       send-evaluation-invite/route.ts  Tokenised external evaluator invitations
       update-user-email/route.ts    Service-role email update for council members
       council-member-info/route.ts  Last sign-in lookup
   dashboard/
+    error.tsx                       Route-level error boundary (all /dashboard/*)
     page.tsx                        Role-based router
     admin/                          Admin console + ordinand/council detail pages
-    council/                        Council grading queue + grading detail
-    ordinand/                       Ordinand dashboard, profile, requirements, process guide
+      candidates/[id]/_components/  Co-located modal subcomponents (Grade, SA, Eval, Brief)
+    council/
+      grade/[assignmentId]/         Grading detail with auto-save drafts
+        _components/                SermonRubric, PaperAssessment
+    ordinand/                       Dashboard, profile, requirements, process guide, mentor report
     study/                          Pardington chat interface
-  eval/[token]/page.tsx             Public external evaluation form (no auth)
+  eval/
+    error.tsx                       Route-level error boundary (public eval form)
+    [token]/page.tsx                Public external evaluation form (no auth)
   handbook/                         Wiki landing page, section viewer, content data
+lib/
+  api-auth.ts                       Shared API route authentication middleware
+  config.ts                         Centralised config (URLs, email, org names)
+  email-templates.ts                Branded email HTML builder (wrapEmail, emailButton)
+  theme.ts                          Design tokens, types, status/rating configs
+  formStyles.ts                     Shared Tailwind class strings for forms
+hooks/
+  useFlash.ts                       Flash message hook (success/error toasts)
 utils/
   supabase/client.ts                Browser Supabase client (cookie-based sessions)
+  fetchWithTimeout.ts               AbortController-based fetch with configurable timeout
+  generateBriefPDF.ts               Interview brief PDF generation (jsPDF)
+  markdown.ts                       Lightweight markdown-to-HTML renderer
   selfAssessmentQuestions.ts        Self-assessment question sets by theological topic
   sermonRubric.ts                   21-criterion sermon evaluation rubric
+  logActivity.ts                    Client-side activity logging helper
+supabase/
+  migrations/                       SQL migrations (managed via Supabase CLI)
 middleware.ts                       Edge middleware — refreshes auth cookies
 ```
 
@@ -163,6 +196,71 @@ middleware.ts                       Edge middleware — refreshes auth cookies
 **No local dev server against production data.** Supabase environment variables are stored in Vercel only. Run `npm run dev` to work on UI components in isolation, but all data-dependent features must be tested against the live Vercel deployment.
 
 **Sessions are cookie-based.** The Edge middleware uses `@supabase/ssr`'s `createServerClient`, which reads sessions from cookies. Always use `createBrowserClient` from `@supabase/ssr` (not `createClient` from `@supabase/supabase-js`) so sessions are visible to the middleware.
+
+---
+
+## Development
+
+### Database Migrations
+
+Schema changes are managed with the [Supabase CLI](https://supabase.com/docs/guides/cli). The CLI is linked to the production project and the full migration history is tracked.
+
+```bash
+# Create a new migration
+supabase migration new my_migration_name
+
+# Edit the generated file in supabase/migrations/
+
+# Push all pending migrations to the remote database
+supabase db push
+```
+
+> **Important:** Never apply migrations by pasting SQL into the Supabase dashboard. Always use `supabase db push` so the migration history stays in sync between the CLI and the remote project. If a migration is applied outside the CLI, you will need to repair the history with `supabase migration repair --status applied <timestamp>`.
+
+### Shared Architecture
+
+The codebase uses a set of shared modules to avoid duplication. When building new features, use these rather than inlining equivalents:
+
+| Module | What it provides |
+|--------|-----------------|
+| `lib/theme.ts` | Colour constants, `Rating`/`Status` types, status config objects, display labels |
+| `lib/formStyles.ts` | Tailwind class strings: `inputClass`, `selectClass`, `textareaClass`, `btnPrimary`, `labelClass` |
+| `lib/config.ts` | `SITE_URL`, `SITE_DOMAIN`, `EMAIL_FROM`, `ADMIN_EMAIL`, `ORG_NAME`, `BOOK_OPTIONS` |
+| `lib/email-templates.ts` | `wrapEmail()` branded HTML wrapper, `emailButton()`, `emailInfoBlock()` |
+| `lib/api-auth.ts` | `requireAuth(request)` — returns `{ user, supabase }` or a 401 response |
+| `hooks/useFlash.ts` | `useFlash()` — `{ flash, showFlash }` for success/error toasts |
+| `utils/fetchWithTimeout.ts` | `fetchWithTimeout(url, options, timeoutMs)` — AbortController-based fetch |
+| `utils/markdown.ts` | `renderMarkdown(text)` — lightweight markdown-to-HTML for display |
+| `app/components/Skeleton.tsx` | `PageSkeleton`, `CardSkeleton`, `TableSkeleton` — animated loading states |
+| `app/components/ModalWrapper.tsx` | Accessible modal shell (focus trap, Escape, ARIA, backdrop, scroll lock) |
+| `app/components/UploadProgress.tsx` | Indeterminate progress bar for file uploads |
+| `app/components/ErrorBoundary.tsx` | React error boundary for isolating section crashes |
+
+### Error Handling Conventions
+
+- **API routes:** Wrap handler logic in try-catch; return sanitised JSON error messages (never expose stack traces or internal IDs).
+- **Email sends:** Use `fetchWithTimeout` with a 15-second timeout on all Resend calls.
+- **Client pages:** Wrap fetch calls in try-catch with user-visible error feedback via `useFlash`. Use `PageSkeleton` / `CardSkeleton` for loading states.
+- **Route boundaries:** `error.tsx` files in `/dashboard` and `/eval` catch unhandled errors at the route level.
+- **Section isolation:** Wrap risky UI sections in `<ErrorBoundary>` so a crash in one panel doesn't take down the whole page.
+
+### Code Change Protocol
+
+After any code change:
+
+```bash
+# 1. Verify the build compiles
+npm run build
+
+# 2. Commit with a descriptive message
+git add <changed-files>
+git commit -m "description of change"
+
+# 3. Push so Vercel auto-deploys
+git push origin main
+```
+
+Never leave uncommitted changes in the working tree. The build step is the pre-commit check — a change is not done until it is pushed.
 
 ---
 
