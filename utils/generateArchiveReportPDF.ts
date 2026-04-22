@@ -37,6 +37,7 @@ export async function generateArchiveReportPDF(data: ArchiveReportData) {
   })
 
   const PW = 612, PH = 792
+  const PM = 18              // page margin — keeps chrome inside printable area
   const ML = 60, MR = 60
   const CW = PW - ML - MR
   const HEADER_H = 50, FOOTER_H = 32
@@ -47,37 +48,38 @@ export async function generateArchiveReportPDF(data: ArchiveReportData) {
 
   function drawPageHeader() {
     doc.setFillColor(0, 66, 106)
-    doc.rect(0, 0, PW, HEADER_H, 'F')
+    doc.roundedRect(PM, PM, PW - 2 * PM, HEADER_H, 4, 4, 'F')
     doc.setFillColor(0, 119, 200)
-    doc.rect(0, HEADER_H - 2, PW, 2, 'F')
+    doc.rect(PM, PM + HEADER_H - 2, PW - 2 * PM, 2, 'F')
     if (logoData) {
-      doc.addImage(logoData, 'PNG', 14, 9, 32, 32)
+      doc.addImage(logoData, 'PNG', PM + 10, PM + 9, 32, 32)
     }
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9.5)
-    doc.text('CMD ORDINATION PORTAL', ML, 28)
+    doc.text('CMD ORDINATION PORTAL', ML, PM + 28)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
-    doc.text('Canadian Midwest District · The Alliance Canada', PW - MR, 28, { align: 'right' })
-    y = HEADER_H + 44
+    doc.text('Canadian Midwest District · The Alliance Canada', PW - MR, PM + 28, { align: 'right' })
+    y = PM + HEADER_H + 36
   }
 
   function drawPageFooter(pageNum: number, pageCount: number) {
+    const footerTop = PH - PM - FOOTER_H
     doc.setFillColor(241, 245, 249)
-    doc.rect(0, PH - FOOTER_H, PW, FOOTER_H, 'F')
+    doc.roundedRect(PM, footerTop, PW - 2 * PM, FOOTER_H, 4, 4, 'F')
     doc.setDrawColor(203, 213, 225)
     doc.setLineWidth(0.5)
-    doc.line(0, PH - FOOTER_H, PW, PH - FOOTER_H)
+    doc.line(PM, footerTop, PW - PM, footerTop)
     doc.setTextColor(100, 116, 139)
     doc.setFont('helvetica', 'italic')
     doc.setFontSize(7.5)
-    doc.text('CONFIDENTIAL — For CMD District Records Only', ML, PH - 12)
-    doc.text(`Page ${pageNum} of ${pageCount}`, PW - MR, PH - 12, { align: 'right' })
+    doc.text('CONFIDENTIAL — For CMD District Records Only', ML, PH - PM - 10)
+    doc.text(`Page ${pageNum} of ${pageCount}`, PW - MR, PH - PM - 10, { align: 'right' })
   }
 
   function checkBreak(needed: number) {
-    if (y + needed > PH - FOOTER_H - 16) {
+    if (y + needed > PH - PM - FOOTER_H - 16) {
       doc.addPage()
       drawPageHeader()
     }
