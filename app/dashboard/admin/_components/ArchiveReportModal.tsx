@@ -29,14 +29,35 @@ export default function ArchiveReportModal({ target, mode, onClose, onArchive, i
   const [aiSummary, setAiSummary] = useState('')
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
 
-  // Manual fields for the archive record
+  // Interview fields — auto-populated from oral_interviews when available
   const [interviewDate, setInterviewDate] = useState('')
-  const [interviewResult, setInterviewResult] = useState<'pass' | 'conditional' | 'fail' | ''>('')
+  const [interviewResult, setInterviewResult] = useState<'sustained' | 'conditional' | 'deferred' | 'not_sustained' | ''>('')
   const [interviewNotes, setInterviewNotes] = useState('')
   const [ordinationDate, setOrdinationDate] = useState('')
   const [officiant, setOfficiant] = useState('')
+  const [interviewLoaded, setInterviewLoaded] = useState(false)
 
   const summaryRef = useRef<HTMLDivElement>(null)
+
+  async function fetchInterviewData() {
+    if (interviewLoaded) return
+    const { data } = await supabase
+      .from('oral_interviews')
+      .select('interview_date, scheduled_date, result, notes, decision_notes, ordination_date, officiant')
+      .eq('ordinand_id', target.id)
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data) {
+      setInterviewDate(data.interview_date || data.scheduled_date || '')
+      setInterviewResult((data.result as any) || '')
+      setInterviewNotes([data.notes, data.decision_notes].filter(Boolean).join('\n\n') || '')
+      setOrdinationDate(data.ordination_date || '')
+      setOfficiant(data.officiant || '')
+    }
+    setInterviewLoaded(true)
+  }
 
   async function fetchRequirements() {
     setLoadingReqs(true)
@@ -52,6 +73,7 @@ export default function ArchiveReportModal({ target, mode, onClose, onArchive, i
   function handleGenerateReport() {
     setStep('report')
     fetchRequirements()
+    fetchInterviewData()
   }
 
   async function handleGenerateAI() {
@@ -290,9 +312,10 @@ export default function ArchiveReportModal({ target, mode, onClose, onArchive, i
                 <select value={interviewResult} onChange={e => setInterviewResult(e.target.value as any)}
                   className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100 bg-white">
                   <option value="">Not recorded</option>
-                  <option value="pass">Pass</option>
-                  <option value="conditional">Conditional</option>
-                  <option value="fail">Fail</option>
+                  <option value="sustained">Sustained</option>
+                  <option value="conditional">Conditionally Sustained</option>
+                  <option value="deferred">Deferred</option>
+                  <option value="not_sustained">Not Sustained</option>
                 </select>
               </div>
               <div>

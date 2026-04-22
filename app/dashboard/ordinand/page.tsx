@@ -19,6 +19,7 @@ function OrdinandDashboardContent() {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['Book Reports', 'Theological Papers', 'Sermons']))
   const [cohortMembers, setCohortMembers] = useState<any[]>([])
   const [showCohortPopover, setShowCohortPopover] = useState(false)
+  const [interview, setInterview] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -75,6 +76,17 @@ function OrdinandDashboardContent() {
           .order('last_name')
         setCohortMembers(members || [])
       }
+
+      // Fetch active oral interview (if any)
+      const { data: ivData } = await supabase
+        .from('oral_interviews')
+        .select('id, scheduled_date, status, result, ordination_date, officiant')
+        .eq('ordinand_id', targetId)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setInterview(ivData)
 
       if (!viewAsId) logActivity(user.id, 'ordinand_dashboard', '/dashboard/ordinand')
       setLoading(false)
@@ -214,6 +226,54 @@ function OrdinandDashboardContent() {
             </div>
           )}
         </div>
+
+        {/* Interview status banner */}
+        {interview && (
+          <div className={`rounded-3xl border shadow-sm px-8 py-6 mb-8 ${
+            interview.status === 'decided' && interview.result === 'sustained'
+              ? 'bg-green-50 border-green-200'
+              : interview.status === 'decided'
+              ? 'bg-blue-50 border-blue-200'
+              : 'bg-amber-50 border-amber-200'
+          }`}>
+            <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: C.allianceBlue }}>
+              {interview.status === 'decided' ? 'Interview Complete' : 'Oral Interview'}
+            </p>
+            {interview.status === 'scheduled' && (
+              <div>
+                <p className="text-lg font-black text-slate-900">
+                  Your oral interview is scheduled for{' '}
+                  <span style={{ color: C.deepSea }}>
+                    {new Date(interview.scheduled_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </p>
+                <p className="text-sm text-slate-500 font-medium mt-2">
+                  Prepare using Pardington&apos;s interview preparation mode and review the interview questions in Appendix A.5 of the handbook.
+                </p>
+              </div>
+            )}
+            {interview.status === 'in_progress' && (
+              <p className="text-lg font-black text-amber-800">Your oral interview is currently in progress.</p>
+            )}
+            {interview.status === 'decided' && interview.result === 'sustained' && (
+              <div>
+                <p className="text-lg font-black text-green-800">🎉 Congratulations! Your interview has been sustained.</p>
+                {interview.ordination_date && (
+                  <p className="text-sm text-green-700 font-medium mt-2">
+                    Ordination service: {new Date(interview.ordination_date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    {interview.officiant ? ` — officiated by ${interview.officiant}` : ''}
+                  </p>
+                )}
+              </div>
+            )}
+            {interview.status === 'decided' && interview.result === 'conditional' && (
+              <p className="text-lg font-black text-blue-800">Your interview has been conditionally sustained. The council will provide further details.</p>
+            )}
+            {interview.status === 'decided' && interview.result === 'deferred' && (
+              <p className="text-lg font-black text-amber-800">Your interview has been deferred. The council will be in touch about next steps.</p>
+            )}
+          </div>
+        )}
 
         {/* Mentor block */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm px-8 py-6 mb-8">

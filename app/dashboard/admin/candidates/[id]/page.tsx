@@ -16,6 +16,7 @@ import SelfAssessmentModal from './_components/SelfAssessmentModal'
 import EvalInviteModal from './_components/EvalInviteModal'
 import EvalResponseModal from './_components/EvalResponseModal'
 import InterviewBriefSection from './_components/InterviewBriefSection'
+import InterviewSection from './_components/InterviewSection'
 
 export default function CandidateDetailPage() {
   const params = useParams<{ id: string }>()
@@ -875,6 +876,14 @@ CMD Ordaining Council`
               })}
             </div>
           </div>
+
+          <InterviewSection
+            ordinandId={id}
+            candidate={candidate}
+            councilMembers={councilMembers}
+            isObserver={isObserver}
+            onUpdate={() => fetchData()}
+          />
 
           <InterviewBriefSection
             candidate={candidate}
