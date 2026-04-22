@@ -218,14 +218,28 @@ export default function InterviewConsolePage() {
     setIsSaving(false)
   }
 
-  // ── Toggle council attendance ──────────────────────────────────────
+  // ── Toggle council attendance (auto-saves) ─────────────────────────
   function toggleCouncil(id: string) {
     setSelectedCouncil(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
+      saveCouncilPresent(Array.from(next))
       return next
     })
+  }
+
+  async function saveCouncilPresent(ids: string[]) {
+    setSaveStatus('saving')
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setSaveStatus('error'); return }
+
+    const res = await fetch(`/api/admin/interviews/${interviewId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ council_present: ids }),
+    })
+    setSaveStatus(res.ok ? 'saved' : 'error')
   }
 
   // ── Save section assignments ────────────────────────────────────────

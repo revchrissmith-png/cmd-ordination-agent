@@ -59,6 +59,9 @@ export default function CouncilInterviewConsolePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
+  // Role
+  const [isAdmin, setIsAdmin] = useState(false)
+
   // UI
   const [activeTab, setActiveTab] = useState<Tab>('brief')
 
@@ -81,6 +84,7 @@ export default function CouncilInterviewConsolePage() {
         setLoading(false)
         return
       }
+      if (roles.includes('admin')) setIsAdmin(true)
 
       // Fetch interview
       const { data: iv, error: ivErr } = await supabase
@@ -232,6 +236,14 @@ export default function CouncilInterviewConsolePage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {isAdmin && (
+            <Link
+              href={`/dashboard/admin/interview/${interviewId}`}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
+            >
+              Chair Console →
+            </Link>
+          )}
           <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusCfg.style}`}>
             {statusCfg.label}
           </span>
