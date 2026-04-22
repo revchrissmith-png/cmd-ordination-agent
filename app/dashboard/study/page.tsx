@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 import { logActivity } from '../../../utils/logActivity'
 import { C } from '../../../lib/theme'
+import ModalWrapper from '../../components/ModalWrapper'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
@@ -25,6 +26,7 @@ export default function PardingtonPage() {
   const [isLoading, setIsLoading]         = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const [sessionStale, setSessionStale]   = useState(false)
+  const [consentStatus, setConsentStatus] = useState<'loading' | 'needed' | 'granted'>('loading')
   const bottomRef   = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lastActivity = useRef<number>(Date.now())
@@ -92,9 +94,23 @@ export default function PardingtonPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { setIsLoadingHistory(false); return }
+      if (!user) { setIsLoadingHistory(false); setConsentStatus('granted'); return }
       ordinandId.current = user.id
       logActivity(user.id, 'pardington', '/dashboard/study')
+
+      // Check whether the ordinand has already accepted the Pardington disclaimer.
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('pardington_consent_at')
+        .eq('id', user.id)
+        .single()
+
+      if (!profile?.pardington_consent_at) {
+        setConsentStatus('needed')
+        setIsLoadingHistory(false)
+        return // Don't load chat history until consent is given
+      }
+      setConsentStatus('granted')
 
       // Fetch recent sessions — most recent first.
       // Index 0 = resume candidate; indices 1–5 = history for system prompt.
@@ -124,6 +140,41 @@ export default function PardingtonPage() {
       setIsLoadingHistory(false)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Record consent and load chat history
+  async function acceptConsent() {
+    if (!ordinandId.current) return
+    await supabase
+      .from('profiles')
+      .update({ pardington_consent_at: new Date().toISOString() })
+      .eq('id', ordinandId.current)
+
+    setConsentStatus('granted')
+    setIsLoadingHistory(true)
+
+    // Now load chat history (same logic as above)
+    const { data: logs } = await supabase
+      .from('pardington_logs')
+      .select('session_id, messages, started_at')
+      .eq('ordinand_id', ordinandId.current)
+      .order('started_at', { ascending: false })
+      .limit(6)
+
+    if (logs && logs.length > 0) {
+      const latest = logs[0] as { session_id: string; messages: Message[]; started_at: string }
+      if (latest.messages && latest.messages.length > 0) {
+        setMessages(latest.messages)
+        sessionId.current = latest.session_id
+        startedAt.current = latest.started_at
+      }
+      if (logs.length > 1) {
+        const older = logs.slice(1) as Array<{ messages: Message[]; started_at: string }>
+        studyHistory.current = buildHistorySummary(older)
+      }
+    }
+
+    setIsLoadingHistory(false)
+  }
 
   // Start a completely fresh conversation (new session row, empty chat)
   function startNewConversation() {
@@ -378,6 +429,58 @@ export default function PardingtonPage() {
         </div>
         <p style={{ maxWidth: '800px', margin: '0.4rem auto 0', fontSize: '0.72rem', color: '#999', paddingLeft: '2px' }}>Enter to send · Shift+Enter for new line</p>
       </div>
+
+      {/* Pardington consent disclaimer — shown once on first use */}
+      {consentStatus === 'needed' && (
+        <ModalWrapper
+          onClose={() => {}} // Cannot dismiss without accepting
+          ariaLabel="Pardington usage disclaimer"
+          maxWidth="max-w-lg"
+          closeOnBackdrop={false}
+        >
+          <div style={{ padding: '2rem 1.8rem 1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.2rem' }}>
+              <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '40px' }} />
+              <div>
+                <div style={{ fontWeight: '900', color: C.deepSea, fontSize: '1.05rem', letterSpacing: '0.03em' }}>Before You Begin</div>
+                <div style={{ color: C.allianceBlue, fontSize: '0.7rem', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Pardington Study Partner</div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.88rem', lineHeight: 1.65, color: '#333' }}>
+              <p style={{ margin: '0 0 0.8rem' }}>
+                Pardington is part of your ordination support team — alongside your mentor, your cohort, and the Ordaining Council. He is here to help you think deeply, study well, and grow in your theological understanding as you prepare for ministry.
+              </p>
+              <p style={{ margin: '0 0 0.8rem' }}>
+                As part of that support, Pardington will be asked to provide a summary assessment of your engagement — including your strengths, areas of growth, and development over time — to help the Council prepare for your final interview.
+              </p>
+              <p style={{ margin: '0 0 0.8rem', fontWeight: '600', color: C.deepSea }}>
+                No one on the Council reads your specific conversation transcripts. Only a summarized overview of themes and progress will be shared.
+              </p>
+              <p style={{ margin: '0' }}>
+                By continuing, you acknowledge and consent to this use of your conversations with Pardington.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <a
+                href="/dashboard/ordinand"
+                style={{ flex: 1, display: 'block', textAlign: 'center', padding: '0.7rem 1rem', borderRadius: '8px', fontSize: '0.88rem', fontWeight: '600', color: '#666', backgroundColor: '#f1f1f1', textDecoration: 'none', cursor: 'pointer' }}
+              >
+                Go Back
+              </a>
+              <button
+                onClick={acceptConsent}
+                style={{ flex: 2, padding: '0.7rem 1rem', borderRadius: '8px', fontSize: '0.88rem', fontWeight: 'bold', color: C.white, backgroundColor: C.deepSea, border: 'none', cursor: 'pointer' }}
+                onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = C.allianceBlue }}
+                onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = C.deepSea }}
+              >
+                I Understand — Continue
+              </button>
+            </div>
+          </div>
+        </ModalWrapper>
+      )}
 
       <style>{`
         @keyframes bounce {

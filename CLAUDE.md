@@ -202,7 +202,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 
 ## 4. Database Schema Quick Reference
 
-**Profiles columns:** `id, full_name, first_name, last_name, email, cohort_id, roles (text[]), role (enum), cohort_year, mentor_name, mentor_email, sermon_topic, status, status_changed_at, grading_types (text[]), created_at, updated_at`
+**Profiles columns:** `id, full_name, first_name, last_name, email, cohort_id, roles (text[]), role (enum), cohort_year, mentor_name, mentor_email, sermon_topic, status, status_changed_at, grading_types (text[]), pardington_consent_at, created_at, updated_at`
 ⚠️ `status` column: `null` = active, `'deleted'` = soft-deleted, `'completed'` = archived. Filter active ordinands with `.is('status', null)`.
 ⚠️ `grading_types`: `null` = unrestricted (can grade all types). Non-null = hard restriction to listed types only. Valid values: `'book_report'`, `'paper'`, `'sermon'`.
 
@@ -234,6 +234,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 **Pardington logs columns:** `id, session_id (uuid, unique — client-generated per page load), ordinand_id, messages (jsonb — [{role, content}] array), message_count, started_at, last_message_at, created_at`
 ⚠️ One row per conversation session. Upsert on `session_id` so multiple exchanges in the same session update the same row. A new `session_id` is generated each time the study page mounts. Admins can SELECT all logs (for the AI Interview Brief); ordinands can only read/write their own.
 ⚠️ `saveSession()` is fire-and-forget — errors are swallowed so logging never interrupts the conversation.
+⚠️ **Pardington consent:** `profiles.pardington_consent_at` must be non-null before chat loads. A consent modal is shown on first visit to the study page, explaining that summarized conversation data will be shared with the Council for the final interview. Consent is one-time; once the timestamp is set the modal never appears again.
 
 **Grades columns:** `id, submission_id, grading_assignment_id, overall_rating, overall_comments, graded_by, graded_at, paper_assessment (jsonb), sermon_section_comments (jsonb)`
 ⚠️ Grades have NO direct FK to `ordinand_requirements`. The chain is:
