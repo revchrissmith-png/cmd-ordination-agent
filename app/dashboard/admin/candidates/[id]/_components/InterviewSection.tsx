@@ -91,14 +91,15 @@ export default function InterviewSection({ ordinandId, candidate, councilMembers
       fetchInterviews()
       onUpdate?.()
 
+      // TODO: Re-enable council email notifications after testing
       // Fire-and-forget: notify all council members via email
-      if (newInterview?.id) {
-        fetch('/api/admin/notify-interview-scheduled', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ interviewId: newInterview.id }),
-        }).catch(() => {}) // non-blocking
-      }
+      // if (newInterview?.id) {
+      //   fetch('/api/admin/notify-interview-scheduled', {
+      //     method: 'POST',
+      //     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      //     body: JSON.stringify({ interviewId: newInterview.id }),
+      //   }).catch(() => {}) // non-blocking
+      // }
     } else {
       const err = await res.json().catch(() => ({}))
       setSchedError(err.error ?? 'Failed to schedule')
