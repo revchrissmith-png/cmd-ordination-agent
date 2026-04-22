@@ -21,10 +21,25 @@ interface ArchiveReportData {
 export async function generateArchiveReportPDF(data: ArchiveReportData) {
   const { jsPDF } = await import('jspdf')
 
+  // Load logo before drawing
+  const logoData = await new Promise<string | null>((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (ctx) { ctx.drawImage(img, 0, 0); resolve(canvas.toDataURL('image/png')) }
+      else resolve(null)
+    }
+    img.onerror = () => resolve(null)
+    img.src = '/cmd-logo.png'
+  })
+
   const PW = 612, PH = 792
   const ML = 60, MR = 60
   const CW = PW - ML - MR
-  const HEADER_H = 40, FOOTER_H = 32
+  const HEADER_H = 50, FOOTER_H = 32
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
 
@@ -35,13 +50,16 @@ export async function generateArchiveReportPDF(data: ArchiveReportData) {
     doc.rect(0, 0, PW, HEADER_H, 'F')
     doc.setFillColor(0, 119, 200)
     doc.rect(0, HEADER_H - 2, PW, 2, 'F')
+    if (logoData) {
+      doc.addImage(logoData, 'PNG', 14, 9, 32, 32)
+    }
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9.5)
-    doc.text('CMD ORDINATION PORTAL', ML, 25)
+    doc.text('CMD ORDINATION PORTAL', ML, 28)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
-    doc.text('Canadian Midwest District · The Alliance Canada', PW - MR, 25, { align: 'right' })
+    doc.text('Canadian Midwest District · The Alliance Canada', PW - MR, 28, { align: 'right' })
     y = HEADER_H + 44
   }
 
