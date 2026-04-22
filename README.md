@@ -296,6 +296,10 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-04-22 (evening)
+- **Archive report PDF fix**: Unicode bullet characters (✓, ○) broke jsPDF font metrics causing stretched letter-spacing on every requirement line — replaced with colored dot indicators
+- **Cohort display fix**: archive report showed "undefined undefined Cohort" because admin page query omitted season/year fields from cohorts join
+
 ### 2026-04-22
 - **Grade validation**: decision modal now requires all 10 section grades before confirming — shows X/10 counter with amber warning
 - **Conditions follow-up workflow**: due date field on decision modal; candidate detail page shows follow-up panel with status (Pending/Overdue/Approved) and "Mark Conditions as Met" button; prominent banner at top of page when conditions are outstanding
