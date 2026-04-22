@@ -325,12 +325,21 @@ export default function InterviewConsolePage() {
             </button>
           )}
           {(isActive || isDecided) && (
-            <button
-              onClick={() => window.open(`/dashboard/admin/interview/${interviewId}/aggregate`, 'aggregate', 'width=1200,height=900')}
-              className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
-            >
-              📊 Aggregate View
-            </button>
+            <>
+              <Link
+                href={`/dashboard/council/interview/${interviewId}`}
+                target="_blank"
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-blue-200 text-blue-600 hover:bg-blue-50 transition-all"
+              >
+                ✏️ My Scores
+              </Link>
+              <button
+                onClick={() => window.open(`/dashboard/admin/interview/${interviewId}/aggregate`, 'aggregate', 'width=1200,height=900')}
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+              >
+                📊 Aggregate View
+              </button>
+            </>
           )}
           {isActive && (
             <button
