@@ -84,11 +84,21 @@ export default function InterviewSection({ ordinandId, candidate, councilMembers
       }),
     })
     if (res.ok) {
+      const { interview: newInterview } = await res.json().catch(() => ({}))
       setShowSchedule(false)
       setSchedDate('')
       setSchedConductedBy('')
       fetchInterviews()
       onUpdate?.()
+
+      // Fire-and-forget: notify all council members via email
+      if (newInterview?.id) {
+        fetch('/api/admin/notify-interview-scheduled', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ interviewId: newInterview.id }),
+        }).catch(() => {}) // non-blocking
+      }
     } else {
       const err = await res.json().catch(() => ({}))
       setSchedError(err.error ?? 'Failed to schedule')

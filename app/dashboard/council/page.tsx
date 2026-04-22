@@ -12,9 +12,22 @@ import { C, STATUS_CONFIG, type Status } from '../../../lib/theme'
 
 type FilterTab = 'needs_review' | 'all' | 'complete'
 
+interface UpcomingInterview {
+  id: string
+  ordinand_id: string
+  scheduled_date: string | null
+  interview_date: string | null
+  status: string
+  result: string | null
+  conducted_by: string | null
+  ordinand_name?: string
+  lead_name?: string
+}
+
 function CouncilDashboardContent() {
   const [profile, setProfile] = useState<any>(null)
   const [assignments, setAssignments] = useState<any[]>([])
+  const [upcomingInterviews, setUpcomingInterviews] = useState<UpcomingInterview[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterTab>('needs_review')
 
@@ -56,6 +69,35 @@ function CouncilDashboardContent() {
         return profile && profile.status !== 'deleted'
       })
       setAssignments(activeAssigns)
+
+      // Fetch upcoming / recent interviews (RLS allows council SELECT)
+      const { data: interviews } = await supabase
+        .from('oral_interviews')
+        .select('id, ordinand_id, scheduled_date, interview_date, status, result, conducted_by')
+        .in('status', ['scheduled', 'in_progress', 'decided'])
+        .order('scheduled_date', { ascending: false })
+        .limit(10)
+
+      if (interviews && interviews.length > 0) {
+        // Resolve ordinand + lead names in bulk
+        const ordinandIds = Array.from(new Set(interviews.map(iv => iv.ordinand_id)))
+        const leadIds = Array.from(new Set(interviews.map(iv => iv.conducted_by).filter(Boolean))) as string[]
+        const allIds = Array.from(new Set(ordinandIds.concat(leadIds)))
+
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .in('id', allIds)
+
+        const profileMap = new Map((profiles ?? []).map(p => [p.id, `${p.first_name} ${p.last_name}`.trim()]))
+
+        setUpcomingInterviews(interviews.map(iv => ({
+          ...iv,
+          ordinand_name: profileMap.get(iv.ordinand_id) || 'Unknown',
+          lead_name: iv.conducted_by ? profileMap.get(iv.conducted_by) || undefined : undefined,
+        })))
+      }
+
       setLoading(false)
     }
     fetchData()
@@ -120,6 +162,85 @@ function CouncilDashboardContent() {
             <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Complete</p>
           </div>
         </div>
+
+        {/* Upcoming Interviews */}
+        {upcomingInterviews.length > 0 && (() => {
+          const upcoming = upcomingInterviews.filter(iv => iv.status === 'scheduled' || iv.status === 'in_progress')
+          const recentDecisions = upcomingInterviews.filter(iv => iv.status === 'decided')
+          const INTERVIEW_STATUS: Record<string, { label: string; badge: string; icon: string }> = {
+            scheduled:   { label: 'Scheduled',   badge: 'bg-blue-100 text-blue-700',   icon: '📅' },
+            in_progress: { label: 'In Progress', badge: 'bg-amber-100 text-amber-700', icon: '🎙️' },
+            decided:     { label: 'Decided',     badge: 'bg-green-100 text-green-700', icon: '✅' },
+          }
+          const RESULT_BADGE: Record<string, string> = {
+            sustained:     'bg-green-50 text-green-700 border-green-200',
+            conditional:   'bg-blue-50 text-blue-700 border-blue-200',
+            deferred:      'bg-amber-50 text-amber-700 border-amber-200',
+            not_sustained: 'bg-red-50 text-red-700 border-red-200',
+          }
+          const RESULT_LABEL: Record<string, string> = {
+            sustained: 'Sustained', conditional: 'Conditionally Sustained',
+            deferred: 'Deferred', not_sustained: 'Not Sustained',
+          }
+          const formatDate = (d: string | null) => d
+            ? new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })
+            : '—'
+
+          return (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Oral Interviews</p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {upcoming.map(iv => {
+                  const cfg = INTERVIEW_STATUS[iv.status]
+                  return (
+                    <Link key={iv.id} href={`/dashboard/council/interview/${iv.id}`}
+                      className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-all group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-lg">{cfg?.icon}</span>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors">{iv.ordinand_name}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-xs text-slate-500 font-medium">{formatDate(iv.scheduled_date)}</span>
+                            {iv.lead_name && (
+                              <><span className="text-slate-200 font-bold">·</span><span className="text-xs text-slate-400 font-medium">Lead: {iv.lead_name}</span></>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${cfg?.badge}`}>{cfg?.label}</span>
+                        <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold">→</span>
+                      </div>
+                    </Link>
+                  )
+                })}
+                {recentDecisions.map(iv => {
+                  const cfg = INTERVIEW_STATUS[iv.status]
+                  const rBadge = iv.result ? RESULT_BADGE[iv.result] : ''
+                  const rLabel = iv.result ? RESULT_LABEL[iv.result] : ''
+                  return (
+                    <Link key={iv.id} href={`/dashboard/council/interview/${iv.id}`}
+                      className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-all group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-lg">{cfg?.icon}</span>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors">{iv.ordinand_name}</p>
+                          <span className="text-xs text-slate-500 font-medium">{formatDate(iv.interview_date || iv.scheduled_date)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                        {rLabel && <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${rBadge}`}>{rLabel}</span>}
+                        <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold">→</span>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Overdue alert banner */}
         {criticalAssignments.length > 0 && (
