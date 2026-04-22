@@ -959,6 +959,7 @@ function AdminPageContent() {
               <ArchiveReportModal
                 target={archiveTarget}
                 mode={archiveMode}
+                councilMembers={councilMembers}
                 onClose={() => { setArchiveTarget(null); setArchiveMode(null) }}
                 onArchive={handleArchiveAction}
                 isArchiving={isArchiving}
