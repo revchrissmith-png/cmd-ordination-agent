@@ -9,6 +9,7 @@ import { supabase } from '../../../../../utils/supabase/client'
 import { C } from '../../../../../lib/theme'
 import { inputClass } from '../../../../../lib/formStyles'
 import ModalWrapper from '../../../../components/ModalWrapper'
+import { INTERVIEW_SECTIONS } from '../../../../../utils/interviewQuestions'
 
 interface Interview {
   id: string
@@ -63,6 +64,10 @@ export default function InterviewConsolePage() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved')
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Section assignments state
+  const [sectionAssignments, setSectionAssignments] = useState<Record<string, string>>({})
+  const [assignSaveStatus, setAssignSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+
   // Decision state
   const [showDecision, setShowDecision] = useState(false)
   const [result, setResult] = useState('')
@@ -96,6 +101,7 @@ export default function InterviewConsolePage() {
       setOfficiant(iv.officiant || '')
       setResult(iv.result || '')
       setSelectedCouncil(new Set(iv.council_present || []))
+      setSectionAssignments(iv.section_assignments || {})
       setCouncilMembers(cmRes.data ?? [])
       setLoading(false)
     }
@@ -220,6 +226,32 @@ export default function InterviewConsolePage() {
       else next.add(id)
       return next
     })
+  }
+
+  // ── Save section assignments ────────────────────────────────────────
+  async function saveSectionAssignments(updated: Record<string, string>) {
+    setAssignSaveStatus('saving')
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setAssignSaveStatus('idle'); return }
+
+    const res = await fetch(`/api/admin/interviews/${interviewId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ section_assignments: updated }),
+    })
+    setAssignSaveStatus(res.ok ? 'saved' : 'idle')
+    if (res.ok) setTimeout(() => setAssignSaveStatus('idle'), 2000)
+  }
+
+  function handleAssignSection(sectionId: string, memberId: string) {
+    const updated = { ...sectionAssignments }
+    if (memberId === '') {
+      delete updated[sectionId]
+    } else {
+      updated[sectionId] = memberId
+    }
+    setSectionAssignments(updated)
+    saveSectionAssignments(updated)
   }
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -402,6 +434,37 @@ export default function InterviewConsolePage() {
                 ))}
               </div>
             </div>
+
+            {/* Section assignments — assign question groups to council members */}
+            {(isActive || isScheduled) && councilMembers.length > 0 && (
+              <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Section Assignments</p>
+                  {assignSaveStatus === 'saving' && <span className="text-xs text-slate-400 font-medium">Saving…</span>}
+                  {assignSaveStatus === 'saved' && <span className="text-xs text-green-500 font-bold">✓ Saved</span>}
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {INTERVIEW_SECTIONS.map(section => (
+                    <div key={section.id} className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-slate-600 w-36 truncate flex-shrink-0" title={section.title}>
+                        {section.title}
+                      </span>
+                      <select
+                        value={sectionAssignments[section.id] || ''}
+                        onChange={e => handleAssignSection(section.id, e.target.value)}
+                        className="flex-1 text-xs font-medium text-slate-700 border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-100 bg-white"
+                      >
+                        <option value="">— unassigned —</option>
+                        {councilMembers.filter(m => selectedCouncil.has(m.id)).map(m => (
+                          <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-300 font-medium mt-2">Assigns which council member leads each question group. Only present members shown.</p>
+              </div>
+            )}
 
             {/* Decision summary (shown after decided) */}
             {isDecided && (
