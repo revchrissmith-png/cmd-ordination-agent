@@ -97,6 +97,7 @@ export default function InterviewConsolePage() {
 
   // Conditions (conditional / deferred outcomes)
   const [conditions, setConditions] = useState('')
+  const [conditionsDueDate, setConditionsDueDate] = useState('')
 
   // ── Fetch interview + council ──────────────────────────────────────
   useEffect(() => {
@@ -125,6 +126,7 @@ export default function InterviewConsolePage() {
       setSectionAssignments(iv.section_assignments || {})
       setFinalScores(iv.final_scores || {})
       setConditions(iv.conditions || '')
+      setConditionsDueDate(iv.conditions_due_date || '')
       setCouncilMembers(cmRes.data ?? [])
       setLoading(false)
     }
@@ -244,8 +246,11 @@ export default function InterviewConsolePage() {
   }
 
   // ── Record decision ────────────────────────────────────────────────
+  const allSectionsGraded = INTERVIEW_SECTIONS.every(s => finalScores[s.id] && finalScores[s.id] !== '')
+  const gradedCount = INTERVIEW_SECTIONS.filter(s => finalScores[s.id] && finalScores[s.id] !== '').length
+
   async function handleRecordDecision() {
-    if (!result) return
+    if (!result || !allSectionsGraded) return
     setIsSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { setIsSaving(false); return }
@@ -261,6 +266,7 @@ export default function InterviewConsolePage() {
         council_present: Array.from(selectedCouncil),
         final_scores: finalScores,
         conditions: conditions || '',
+        conditions_due_date: conditionsDueDate || null,
       }),
     })
     if (res.ok) {
@@ -662,6 +668,18 @@ export default function InterviewConsolePage() {
                   className="w-full px-3 py-2 text-sm border border-amber-200 bg-amber-50/50 rounded-xl outline-none focus:ring-2 focus:ring-amber-100 resize-none"
                   placeholder="e.g., Complete revised paper on Sanctification by Sept 30…"
                 />
+                <div className="mt-3">
+                  <label className="text-xs font-bold text-slate-500 block mb-1">Conditions Due Date</label>
+                  <p className="text-xs text-slate-400 font-medium mb-2">
+                    When must these conditions be fulfilled?
+                  </p>
+                  <input
+                    type="date"
+                    value={conditionsDueDate}
+                    onChange={e => setConditionsDueDate(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
               </div>
             )}
 
@@ -731,21 +749,28 @@ export default function InterviewConsolePage() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={handleRecordDecision}
-                disabled={!result || isSaving}
-                className="px-6 py-2.5 text-white rounded-xl text-sm font-bold transition-all"
-                style={{ backgroundColor: !result || isSaving ? '#94a3b8' : C.deepSea, cursor: !result ? 'not-allowed' : 'pointer' }}
-              >
-                {isSaving ? 'Saving…' : 'Confirm Decision'}
-              </button>
-              <button
-                onClick={() => setShowDecision(false)}
-                className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all"
-              >
-                Cancel
-              </button>
+            <div className="space-y-2 pt-2">
+              {!allSectionsGraded && (
+                <p className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  All 10 section grades are required — {gradedCount}/10 entered.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleRecordDecision}
+                  disabled={!result || !allSectionsGraded || isSaving}
+                  className="px-6 py-2.5 text-white rounded-xl text-sm font-bold transition-all"
+                  style={{ backgroundColor: !result || !allSectionsGraded || isSaving ? '#94a3b8' : C.deepSea, cursor: !result || !allSectionsGraded ? 'not-allowed' : 'pointer' }}
+                >
+                  {isSaving ? 'Saving…' : 'Confirm Decision'}
+                </button>
+                <button
+                  onClick={() => setShowDecision(false)}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </ModalWrapper>

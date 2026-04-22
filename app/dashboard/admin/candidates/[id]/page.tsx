@@ -74,6 +74,7 @@ export default function CandidateDetailPage() {
   const [viewAsLoading, setViewAsLoading] = useState(false)
 
   const [isObserver, setIsObserver] = useState(false)
+  const [activeInterview, setActiveInterview] = useState<any>(null)
 
   function denyObserver(): boolean {
     if (isObserver) { flash('Observer accounts cannot make changes to the portal.', 'error'); return true }
@@ -479,6 +480,36 @@ CMD Ordaining Council`
               </div>
             )}
           </div>
+
+          {/* Conditional / deferred follow-up banner */}
+          {activeInterview && (activeInterview.result === 'conditional' || activeInterview.result === 'deferred') && !activeInterview.conditions_met_at && (() => {
+            const isOverdue = activeInterview.conditions_due_date && new Date(activeInterview.conditions_due_date + 'T23:59:59') < new Date()
+            const dueLabel = activeInterview.conditions_due_date
+              ? new Date(activeInterview.conditions_due_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
+              : null
+            return (
+              <div className={`rounded-2xl border-2 px-6 py-4 mb-6 ${isOverdue ? 'bg-red-50 border-red-300' : 'bg-amber-50 border-amber-300'}`}>
+                <div className="flex items-start gap-3">
+                  <span className="text-xl flex-shrink-0">{isOverdue ? '🚨' : '⚠️'}</span>
+                  <div>
+                    <p className={`text-sm font-black ${isOverdue ? 'text-red-800' : 'text-amber-800'}`}>
+                      {isOverdue ? 'Overdue: ' : ''}Follow-Up Required — {activeInterview.result === 'deferred' ? 'Deferred' : 'Conditionally Sustained'}
+                    </p>
+                    {activeInterview.conditions && (
+                      <p className={`text-sm font-medium mt-1 ${isOverdue ? 'text-red-700' : 'text-amber-700'}`}>
+                        {activeInterview.conditions}
+                      </p>
+                    )}
+                    {dueLabel && (
+                      <p className={`text-xs font-bold mt-1.5 ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>
+                        Due by {dueLabel}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Profile edit panel */}
           {editingProfile && (
@@ -894,6 +925,7 @@ CMD Ordaining Council`
             councilMembers={councilMembers}
             isObserver={isObserver}
             onUpdate={() => fetchData()}
+            onInterviewLoaded={setActiveInterview}
           />
 
           <InterviewBriefSection

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '../../../../../../utils/supabase/client'
 import { C } from '../../../../../../lib/theme'
 import { inputClass } from '../../../../../../lib/formStyles'
+import { generateDecisionPDF } from '../../../../../../utils/generateDecisionPDF'
 
 interface Interview {
   id: string
@@ -16,15 +17,23 @@ interface Interview {
   notes: string
   ordination_date: string | null
   officiant: string
+  conditions: string
+  conditions_due_date: string | null
+  conditions_met_at: string | null
+  conditions_approved_by: string | null
+  final_scores: Record<string, string> | null
+  council_present: string[]
+  decision_notes: string
   conducted_by_profile?: { first_name: string; last_name: string } | null
 }
 
 interface InterviewSectionProps {
   ordinandId: string
-  candidate: { first_name: string; last_name: string }
+  candidate: { first_name: string; last_name: string; cohort_id?: string; cohorts?: { year: number; season: string; sermon_topic: string } | null }
   councilMembers: { id: string; first_name: string; last_name: string }[]
   isObserver: boolean
   onUpdate?: () => void
+  onInterviewLoaded?: (interview: Interview | null) => void
 }
 
 const STATUS_DISPLAY: Record<string, { label: string; badge: string; icon: string }> = {
@@ -41,10 +50,11 @@ const RESULT_DISPLAY: Record<string, { label: string; colour: string }> = {
   not_sustained: { label: 'Not Sustained',     colour: 'text-red-700 bg-red-50 border-red-200' },
 }
 
-export default function InterviewSection({ ordinandId, candidate, councilMembers, isObserver, onUpdate }: InterviewSectionProps) {
+export default function InterviewSection({ ordinandId, candidate, councilMembers, isObserver, onUpdate, onInterviewLoaded }: InterviewSectionProps) {
   const [interviews, setInterviews] = useState<Interview[]>([])
   const [loading, setLoading] = useState(true)
   const [showSchedule, setShowSchedule] = useState(false)
+  const [isApprovingConditions, setIsApprovingConditions] = useState(false)
 
   // Schedule form state
   const [schedDate, setSchedDate] = useState('')
@@ -60,7 +70,10 @@ export default function InterviewSection({ ordinandId, candidate, councilMembers
     })
     if (res.ok) {
       const json = await res.json()
-      setInterviews(json.interviews ?? [])
+      const fetched = json.interviews ?? []
+      setInterviews(fetched)
+      const active = fetched.find((i: Interview) => i.status !== 'cancelled') ?? null
+      onInterviewLoaded?.(active)
     }
     setLoading(false)
   }
@@ -117,6 +130,48 @@ export default function InterviewSection({ ordinandId, candidate, councilMembers
     })
     fetchInterviews()
     onUpdate?.()
+  }
+
+  async function handleApproveConditions(interviewId: string) {
+    setIsApprovingConditions(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setIsApprovingConditions(false); return }
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const res = await fetch(`/api/admin/interviews/${interviewId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        conditions_met_at: new Date().toISOString(),
+        conditions_approved_by: user?.id ?? null,
+      }),
+    })
+    if (res.ok) {
+      fetchInterviews()
+      onUpdate?.()
+    }
+    setIsApprovingConditions(false)
+  }
+
+  async function handleDownloadPDF(iv: Interview) {
+    const cohortLabel = candidate.cohorts
+      ? `${candidate.cohorts.season} ${candidate.cohorts.year} Cohort`
+      : undefined
+    const councilNames = (iv.council_present || []).map(cid => {
+      const m = councilMembers.find(cm => cm.id === cid)
+      return m ? `${m.first_name} ${m.last_name}` : 'Unknown'
+    })
+    await generateDecisionPDF({
+      candidateName: `${candidate.first_name} ${candidate.last_name}`,
+      cohortLabel,
+      interviewDate: iv.interview_date || iv.scheduled_date || '',
+      result: iv.result || '',
+      resultLabel: RESULT_DISPLAY[iv.result || '']?.label || iv.result || '',
+      councilPresent: councilNames,
+      finalScores: (iv.final_scores || {}) as Record<string, string>,
+      conditions: iv.conditions || undefined,
+      decisionNotes: iv.decision_notes || undefined,
+    })
   }
 
   // Active interview = most recent non-cancelled
@@ -281,6 +336,77 @@ export default function InterviewSection({ ordinandId, candidate, councilMembers
                 </div>
               )}
             </div>
+
+            {/* Conditions follow-up — shown for conditional / deferred outcomes */}
+            {(activeInterview.result === 'conditional' || activeInterview.result === 'deferred') && activeInterview.conditions && (
+              <div className="mt-4 border border-amber-200 bg-amber-50/50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-black text-amber-700 uppercase tracking-widest">
+                    {activeInterview.result === 'deferred' ? 'Conditions for Reinstatement' : 'Conditions for Ordination'}
+                  </h3>
+                  {activeInterview.conditions_met_at ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+                      Approved
+                    </span>
+                  ) : activeInterview.conditions_due_date && new Date(activeInterview.conditions_due_date + 'T23:59:59') < new Date() ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
+                      Overdue
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                      Pending
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-700 font-medium whitespace-pre-wrap mb-3">{activeInterview.conditions}</p>
+                <div className="flex flex-wrap items-center gap-4 text-xs">
+                  {activeInterview.conditions_due_date && (
+                    <div>
+                      <span className="font-bold text-slate-500">Due: </span>
+                      <span className="font-medium text-slate-700">
+                        {new Date(activeInterview.conditions_due_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </div>
+                  )}
+                  {activeInterview.conditions_met_at && (
+                    <div>
+                      <span className="font-bold text-slate-500">Approved: </span>
+                      <span className="font-medium text-green-700">
+                        {new Date(activeInterview.conditions_met_at).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      {activeInterview.conditions_approved_by && (() => {
+                        const approver = councilMembers.find(m => m.id === activeInterview.conditions_approved_by)
+                        return approver ? (
+                          <span className="text-slate-500"> by {approver.first_name} {approver.last_name}</span>
+                        ) : null
+                      })()}
+                    </div>
+                  )}
+                </div>
+                {!activeInterview.conditions_met_at && !isObserver && (
+                  <button
+                    onClick={() => handleApproveConditions(activeInterview.id)}
+                    disabled={isApprovingConditions}
+                    className="mt-3 px-4 py-2 text-white rounded-xl text-xs font-bold transition-all"
+                    style={{ backgroundColor: isApprovingConditions ? '#94a3b8' : '#16a34a' }}
+                  >
+                    {isApprovingConditions ? 'Saving…' : 'Mark Conditions as Met'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* PDF download — shown when decision is recorded */}
+            {activeInterview.status === 'decided' && (
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => handleDownloadPDF(activeInterview)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+                >
+                  ↓ Download Decision Record (PDF)
+                </button>
+              </div>
+            )}
           </div>
         )}
 
