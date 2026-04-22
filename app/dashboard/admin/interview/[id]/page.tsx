@@ -95,6 +95,9 @@ export default function InterviewConsolePage() {
   const [finalScores, setFinalScores] = useState<Record<string, InterviewRating | ''>>({})
   const [aggregateHints, setAggregateHints] = useState<Record<string, string | null>>({})
 
+  // Conditions (conditional / deferred outcomes)
+  const [conditions, setConditions] = useState('')
+
   // ── Fetch interview + council ──────────────────────────────────────
   useEffect(() => {
     async function load() {
@@ -121,6 +124,7 @@ export default function InterviewConsolePage() {
       setSelectedCouncil(new Set(iv.council_present || []))
       setSectionAssignments(iv.section_assignments || {})
       setFinalScores(iv.final_scores || {})
+      setConditions(iv.conditions || '')
       setCouncilMembers(cmRes.data ?? [])
       setLoading(false)
     }
@@ -256,6 +260,7 @@ export default function InterviewConsolePage() {
         decision_notes: decisionNotes,
         council_present: Array.from(selectedCouncil),
         final_scores: finalScores,
+        conditions: conditions || '',
       }),
     })
     if (res.ok) {
@@ -540,6 +545,18 @@ export default function InterviewConsolePage() {
             {/* Decision summary (shown after decided) */}
             {isDecided && (
               <>
+                {/* Conditions (conditional / deferred) */}
+                {conditions && (
+                  <div className="px-6 py-4 border-t border-amber-100 flex-shrink-0 bg-amber-50/30">
+                    <p className="text-xs font-black text-amber-600 uppercase tracking-widest mb-2">
+                      {interview.result === 'deferred' ? 'Conditions for Reinstatement' : 'Conditions for Ordination'}
+                    </p>
+                    <pre className="text-sm text-amber-900 font-medium whitespace-pre-wrap" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
+                      {conditions}
+                    </pre>
+                  </div>
+                )}
+
                 <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0">
                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Deliberation Notes</p>
                   <pre className="text-sm text-slate-600 font-medium whitespace-pre-wrap" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
@@ -567,6 +584,31 @@ export default function InterviewConsolePage() {
                     </div>
                   </div>
                 )}
+
+                {/* PDF download */}
+                <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0">
+                  <button
+                    onClick={async () => {
+                      const { generateDecisionPDF } = await import('../../../../../utils/generateDecisionPDF')
+                      await generateDecisionPDF({
+                        candidateName,
+                        cohortLabel: ord?.cohorts ? `${ord.cohorts.season} ${ord.cohorts.year} Cohort` : undefined,
+                        interviewDate: interviewDate || '',
+                        result: interview.result || '',
+                        resultLabel: RESULT_OPTIONS.find(r => r.value === interview.result)?.label || '',
+                        councilPresent: councilMembers
+                          .filter(m => selectedCouncil.has(m.id))
+                          .map(m => `${m.first_name} ${m.last_name}`),
+                        finalScores: finalScores as Record<string, string>,
+                        conditions: conditions || undefined,
+                        decisionNotes: decisionNotes || undefined,
+                      })
+                    }}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+                  >
+                    ↓ Download Decision Record (PDF)
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -601,6 +643,27 @@ export default function InterviewConsolePage() {
                 ))}
               </div>
             </div>
+
+            {/* Conditions — shown for conditional / deferred outcomes */}
+            {(result === 'conditional' || result === 'deferred') && (
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">
+                  {result === 'deferred' ? 'Conditions for Reinstatement *' : 'Conditions for Ordination *'}
+                </label>
+                <p className="text-xs text-slate-400 font-medium mb-2">
+                  {result === 'deferred'
+                    ? 'What must the ordinand complete or demonstrate before the council will reconsider?'
+                    : 'What specific requirements must be fulfilled before ordination can proceed?'}
+                </p>
+                <textarea
+                  value={conditions}
+                  onChange={e => setConditions(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 text-sm border border-amber-200 bg-amber-50/50 rounded-xl outline-none focus:ring-2 focus:ring-amber-100 resize-none"
+                  placeholder="e.g., Complete revised paper on Sanctification by Sept 30…"
+                />
+              </div>
+            )}
 
             {/* Final scores — official consensus grades */}
             <div>

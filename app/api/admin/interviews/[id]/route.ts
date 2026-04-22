@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     'scheduled_date', 'interview_date', 'status', 'result',
     'council_present', 'notes', 'decision_notes', 'brief_snapshot',
     'conducted_by', 'ordination_date', 'officiant', 'section_assignments',
-    'final_scores',
+    'final_scores', 'conditions',
   ]
   for (const f of fields) {
     if (body[f] !== undefined) allowed[f] = body[f]
