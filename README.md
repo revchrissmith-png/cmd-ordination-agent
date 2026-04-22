@@ -148,8 +148,12 @@ app/
       auto-assign-graders/route.ts  Algorithmic grader assignment
       interview-brief/route.ts      AI Interview Brief (streaming)
       email-interview-brief/route.ts Email brief to council via Resend
+      interview-scores-aggregate/route.ts Anonymous aggregate scores for debrief
+      notify-interview-scheduled/route.ts Email council when interview is scheduled
       interviews/route.ts           List + schedule oral interviews (GET/POST)
       interviews/[id]/route.ts      Get/update/delete interview (GET/PATCH/DELETE)
+    council/
+      interview-scores/route.ts     Council member score upsert + retrieval
       archive-report/route.ts       Save + email final reports (POST action=save|email)
       daily-report/route.ts         Vercel cron — daily activity digest email
       send-council-report/route.ts  Council progress report email via Resend
@@ -163,8 +167,10 @@ app/
     page.tsx                        Role-based router
     admin/                          Admin console + ordinand/council detail pages
       interview/[id]/page.tsx       Interview Console (split-panel: brief + notes)
+      interview/[id]/aggregate/     Chair's aggregate score view (dark theme, pop-out)
       candidates/[id]/_components/  Co-located modal subcomponents (Grade, SA, Eval, Brief, Interview)
     council/
+      interview/[id]/page.tsx       Council live interview console (scoring, questions, brief)
       grade/[assignmentId]/         Grading detail with auto-save drafts
         _components/                SermonRubric, PaperAssessment
     ordinand/                       Dashboard, profile, requirements, process guide, mentor report
@@ -186,6 +192,8 @@ utils/
   fetchWithTimeout.ts               AbortController-based fetch with configurable timeout
   generateBriefPDF.ts               Interview brief PDF generation (jsPDF)
   generateArchiveReportPDF.ts       Archive/final report PDF generation (jsPDF)
+  generateDecisionPDF.ts            Interview decision record PDF (jsPDF)
+  interviewQuestions.ts             10-section CMD interview questions, ratings, scoring utilities
   markdown.ts                       Lightweight markdown-to-HTML renderer
   selfAssessmentQuestions.ts        Self-assessment question sets by theological topic
   sermonRubric.ts                   21-criterion sermon evaluation rubric
@@ -283,6 +291,28 @@ This portal was built for the CMD but the architecture is generic enough to adap
 - **Pardington's system prompt** — lives in `app/api/study-agent/route.ts`; includes the full CMD handbook, reading list, and interview questions
 - **Branding** — CMD dark blue (`#00426A`) and Alliance blue (`#0077C8`) colour constants appear at the top of each page file; the CMD logo is at `public/cmd-logo.png`
 - **Email sending domain** — configured in Resend; update the `from` address in each API route that sends email
+
+---
+
+## Recent Changes
+
+### 2026-04-22
+- **Council live interview console**: full scoring rubric (10 sections, 5-point qualitative scale), question browser with section highlights, private scratchpad, submit-and-lock flow
+- **Chair aggregate view**: dark-themed pop-out for screen-casting during debrief — per-section spectrum bars, anonymous vote dots, overall average, auto-refreshes every 10 seconds
+- **Section assignments**: chair assigns question groups to council members day-of from the admin console; council members see "Your section" badges on their live view
+- **AI brief persistence**: briefs generated from the candidate page now save to `brief_snapshot` on the interview record, eliminating redundant regeneration on interview day
+- **Official final scores**: decision modal includes a 10-section scoring grid pre-populated from aggregate averages; recorded as the council's consensus grades
+- **Conditions field**: dedicated field for conditional/deferred outcomes, separate from deliberation notes
+- **Decision record PDF**: branded PDF with coloured outcome pill, conditions callout, section grade pills, council attendance, deliberation notes, and signature lines
+- **Bidirectional chair/council navigation**: "My Scores" on admin console opens council view; "Chair Console" on council view links back
+- **Council attendance auto-save**: toggles now persist immediately instead of only on decision submission
+- **Email notifications**: council members receive branded email when an interview is scheduled
+- **Council dashboard section**: upcoming and recently decided interviews visible to council members
+
+### 2026-04-21
+- Oral interview console with split-panel layout (AI brief + live notes), interview lifecycle management (scheduled → in progress → decided), and four-outcome decision recording
+- Archive report modal with PDF/TXT/email export and AI executive summary
+- Interview brief PDF generation with CMD branding
 
 ---
 
