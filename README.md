@@ -297,6 +297,12 @@ This portal was built for the CMD but the architecture is generic enough to adap
 ## Recent Changes
 
 ### 2026-04-22
+- **Grade validation**: decision modal now requires all 10 section grades before confirming — shows X/10 counter with amber warning
+- **Conditions follow-up workflow**: due date field on decision modal; candidate detail page shows follow-up panel with status (Pending/Overdue/Approved) and "Mark Conditions as Met" button; prominent banner at top of page when conditions are outstanding
+- **Decision Record PDF on candidate page**: download button now visible directly in the InterviewSection on the candidate detail page, not only inside the interview console
+- **PDF branding**: CMD cross/flame logo added to all three PDF report headers (Interview Brief, Decision Record, Archive Report); title font sizes standardized across all reports
+- **PDF print safety**: header and footer bars inset by 18pt page margin with rounded corners so nothing bleeds outside the printable area for physical records
+- **Compact grades in Decision PDF**: label width widened (190→260pt) so long section names are no longer truncated; row height reduced so the full report including signature panel fits on one page
 - **Council live interview console**: full scoring rubric (10 sections, 5-point qualitative scale), question browser with section highlights, private scratchpad, submit-and-lock flow
 - **Chair aggregate view**: dark-themed pop-out for screen-casting during debrief — per-section spectrum bars, anonymous vote dots, overall average, auto-refreshes every 10 seconds
 - **Section assignments**: chair assigns question groups to council members day-of from the admin console; council members see "Your section" badges on their live view
