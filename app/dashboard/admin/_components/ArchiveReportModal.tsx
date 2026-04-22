@@ -6,6 +6,11 @@ import { useState, useRef } from 'react'
 import { supabase } from '../../../../utils/supabase/client'
 import { C, STATUS_CONFIG } from '../../../../lib/theme'
 import ModalWrapper from '../../../components/ModalWrapper'
+import {
+  INTERVIEW_SECTIONS,
+  INTERVIEW_RATING_LABELS,
+  type InterviewRating,
+} from '../../../../utils/interviewQuestions'
 
 interface ArchiveReportModalProps {
   target: any // profile object
@@ -46,6 +51,7 @@ export default function ArchiveReportModal({ target, mode, councilMembers = [], 
   const [ordinationDate, setOrdinationDate] = useState('')
   const [officiant, setOfficiant] = useState('')
   const [interviewId, setInterviewId] = useState<string | null>(null)
+  const [interviewFinalScores, setInterviewFinalScores] = useState<Record<string, string>>({})
 
   // Enriched data
   const [evaluationSummary, setEvaluationSummary] = useState('')
@@ -76,7 +82,7 @@ export default function ArchiveReportModal({ target, mode, councilMembers = [], 
         .order('requirement_templates(display_order)', { ascending: true } as any),
       supabase
         .from('oral_interviews')
-        .select('id, interview_date, scheduled_date, result, notes, decision_notes, ordination_date, officiant')
+        .select('id, interview_date, scheduled_date, result, notes, decision_notes, ordination_date, officiant, final_scores')
         .eq('ordinand_id', target.id)
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false })
@@ -106,6 +112,7 @@ export default function ArchiveReportModal({ target, mode, councilMembers = [], 
       setInterviewNotes([iv.notes, iv.decision_notes].filter(Boolean).join('\n\n') || '')
       setOrdinationDate(iv.ordination_date || '')
       setOfficiant(iv.officiant || '')
+      setInterviewFinalScores(iv.final_scores || {})
     }
 
     // Evaluation summary
@@ -220,6 +227,15 @@ export default function ArchiveReportModal({ target, mode, councilMembers = [], 
       text += 'ORAL INTERVIEW\n'
       if (interviewDate) text += `  Date: ${interviewDate}\n`
       if (interviewResult) text += `  Result: ${RESULT_LABELS[interviewResult] || interviewResult}\n`
+      // Final section grades
+      const scoredSections = INTERVIEW_SECTIONS.filter(s => interviewFinalScores[s.id])
+      if (scoredSections.length > 0) {
+        text += '  Section Grades:\n'
+        for (const s of scoredSections) {
+          const grade = interviewFinalScores[s.id] as InterviewRating
+          text += `    ${s.title}: ${INTERVIEW_RATING_LABELS[grade] || grade}\n`
+        }
+      }
       if (interviewNotes) text += `  Notes: ${interviewNotes}\n`
       text += '\n'
     }
@@ -286,6 +302,14 @@ export default function ArchiveReportModal({ target, mode, councilMembers = [], 
     let interviewText = ''
     if (interviewDate) interviewText += `Date: ${interviewDate}\n`
     if (interviewResult) interviewText += `Result: ${RESULT_LABELS[interviewResult] || interviewResult}\n`
+    const pdfScoredSections = INTERVIEW_SECTIONS.filter(s => interviewFinalScores[s.id])
+    if (pdfScoredSections.length > 0) {
+      interviewText += 'Section Grades:\n'
+      for (const s of pdfScoredSections) {
+        const grade = interviewFinalScores[s.id] as InterviewRating
+        interviewText += `  ${s.title}: ${INTERVIEW_RATING_LABELS[grade] || grade}\n`
+      }
+    }
     if (interviewNotes) interviewText += `Notes: ${interviewNotes}\n`
 
     let ordText = ''

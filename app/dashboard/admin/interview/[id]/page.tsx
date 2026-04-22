@@ -9,7 +9,21 @@ import { supabase } from '../../../../../utils/supabase/client'
 import { C } from '../../../../../lib/theme'
 import { inputClass } from '../../../../../lib/formStyles'
 import ModalWrapper from '../../../../components/ModalWrapper'
-import { INTERVIEW_SECTIONS } from '../../../../../utils/interviewQuestions'
+import {
+  INTERVIEW_SECTIONS,
+  INTERVIEW_RATINGS,
+  INTERVIEW_RATING_LABELS,
+  type InterviewRating,
+} from '../../../../../utils/interviewQuestions'
+
+// Rating pill styles for the decision modal scoring grid
+const RATING_STYLE: Record<InterviewRating, { active: string; idle: string }> = {
+  insufficient: { active: 'bg-red-500 text-white border-red-500', idle: 'border-red-200 text-red-400 hover:border-red-300' },
+  adequate:     { active: 'bg-amber-500 text-white border-amber-500', idle: 'border-amber-200 text-amber-400 hover:border-amber-300' },
+  good:         { active: 'bg-blue-500 text-white border-blue-500', idle: 'border-blue-200 text-blue-400 hover:border-blue-300' },
+  excellent:    { active: 'bg-green-500 text-white border-green-500', idle: 'border-green-200 text-green-400 hover:border-green-300' },
+  exceptional:  { active: 'bg-purple-500 text-white border-purple-500', idle: 'border-purple-200 text-purple-400 hover:border-purple-300' },
+}
 
 interface Interview {
   id: string
@@ -77,6 +91,10 @@ export default function InterviewConsolePage() {
   const [selectedCouncil, setSelectedCouncil] = useState<Set<string>>(new Set())
   const [isSaving, setIsSaving] = useState(false)
 
+  // Final scores state — official consensus grades per section
+  const [finalScores, setFinalScores] = useState<Record<string, InterviewRating | ''>>({})
+  const [aggregateHints, setAggregateHints] = useState<Record<string, string | null>>({})
+
   // ── Fetch interview + council ──────────────────────────────────────
   useEffect(() => {
     async function load() {
@@ -102,6 +120,7 @@ export default function InterviewConsolePage() {
       setResult(iv.result || '')
       setSelectedCouncil(new Set(iv.council_present || []))
       setSectionAssignments(iv.section_assignments || {})
+      setFinalScores(iv.final_scores || {})
       setCouncilMembers(cmRes.data ?? [])
       setLoading(false)
     }
@@ -192,6 +211,34 @@ export default function InterviewConsolePage() {
     }
   }
 
+  // ── Open decision modal + pre-populate from aggregate ────────────────
+  async function openDecisionModal() {
+    setShowDecision(true)
+    // Fetch aggregate to pre-populate final scores from council averages
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    try {
+      const res = await fetch(`/api/admin/interview-scores-aggregate?interviewId=${interviewId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.ok) {
+        const agg = await res.json()
+        const hints: Record<string, string | null> = {}
+        const prePopulated: Record<string, InterviewRating | ''> = { ...finalScores }
+        for (const section of INTERVIEW_SECTIONS) {
+          const sectionAgg = agg.sections?.[section.id]
+          hints[section.id] = sectionAgg?.averageRating ?? null
+          // Only pre-populate if not already set
+          if (!prePopulated[section.id] && sectionAgg?.averageRating) {
+            prePopulated[section.id] = sectionAgg.averageRating as InterviewRating
+          }
+        }
+        setAggregateHints(hints)
+        setFinalScores(prePopulated)
+      }
+    } catch { /* aggregate hint is optional — proceed without it */ }
+  }
+
   // ── Record decision ────────────────────────────────────────────────
   async function handleRecordDecision() {
     if (!result) return
@@ -208,6 +255,7 @@ export default function InterviewConsolePage() {
         interview_date: interviewDate || null,
         decision_notes: decisionNotes,
         council_present: Array.from(selectedCouncil),
+        final_scores: finalScores,
       }),
     })
     if (res.ok) {
@@ -357,7 +405,7 @@ export default function InterviewConsolePage() {
           )}
           {isActive && (
             <button
-              onClick={() => setShowDecision(true)}
+              onClick={openDecisionModal}
               className="px-5 py-2 text-white rounded-xl text-sm font-bold transition-all"
               style={{ backgroundColor: C.deepSea }}
             >
@@ -491,12 +539,35 @@ export default function InterviewConsolePage() {
 
             {/* Decision summary (shown after decided) */}
             {isDecided && (
-              <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Deliberation Notes</p>
-                <pre className="text-sm text-slate-600 font-medium whitespace-pre-wrap" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
-                  {decisionNotes || '(No deliberation notes recorded)'}
-                </pre>
-              </div>
+              <>
+                <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0">
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Deliberation Notes</p>
+                  <pre className="text-sm text-slate-600 font-medium whitespace-pre-wrap" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
+                    {decisionNotes || '(No deliberation notes recorded)'}
+                  </pre>
+                </div>
+
+                {/* Final grades */}
+                {Object.keys(finalScores).length > 0 && (
+                  <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Official Section Grades</p>
+                    <div className="space-y-1.5">
+                      {INTERVIEW_SECTIONS.map(section => {
+                        const grade = finalScores[section.id]
+                        if (!grade) return null
+                        return (
+                          <div key={section.id} className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-500 w-36 flex-shrink-0">{section.title}</span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${RATING_STYLE[grade as InterviewRating]?.active ?? 'text-slate-500'}`}>
+                              {INTERVIEW_RATING_LABELS[grade as InterviewRating] ?? grade}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -504,19 +575,19 @@ export default function InterviewConsolePage() {
 
       {/* Decision modal */}
       {showDecision && (
-        <ModalWrapper onClose={() => setShowDecision(false)} ariaLabel="Record interview decision" maxWidth="max-w-lg">
-          <div className="p-8 space-y-5">
+        <ModalWrapper onClose={() => setShowDecision(false)} ariaLabel="Record interview decision" maxWidth="max-w-3xl">
+          <div className="p-8 space-y-5 max-h-[90vh] overflow-y-auto">
             <div>
               <h2 className="text-lg font-black text-slate-900">Record Decision</h2>
               <p className="text-sm text-slate-500 font-medium mt-1">
-                Document the council&apos;s decision for {candidateName}.
+                Document the council&apos;s decision and official grades for {candidateName}.
               </p>
             </div>
 
             {/* Result selection */}
             <div>
               <label className="text-xs font-bold text-slate-500 block mb-2">Outcome *</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {RESULT_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
@@ -528,6 +599,47 @@ export default function InterviewConsolePage() {
                     {opt.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Final scores — official consensus grades */}
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1">Official Section Grades</label>
+              <p className="text-xs text-slate-400 font-medium mb-3">
+                Record the council&apos;s consensus grade for each interview section.
+                {Object.keys(aggregateHints).length > 0 && ' Pre-populated from the aggregate — adjust as needed.'}
+              </p>
+              <div className="space-y-2.5">
+                {INTERVIEW_SECTIONS.map(section => {
+                  const current = finalScores[section.id] || ''
+                  const hint = aggregateHints[section.id]
+                  return (
+                    <div key={section.id} className="flex items-center gap-3">
+                      <div className="w-36 flex-shrink-0">
+                        <span className="text-xs font-bold text-slate-600 leading-tight">{section.title}</span>
+                        {hint && current !== hint && (
+                          <span className="text-[10px] text-slate-400 font-medium block">avg: {INTERVIEW_RATING_LABELS[hint as InterviewRating]}</span>
+                        )}
+                      </div>
+                      <div className="flex gap-1 flex-1">
+                        {INTERVIEW_RATINGS.map(rating => (
+                          <button
+                            key={rating}
+                            onClick={() => setFinalScores(prev => ({
+                              ...prev,
+                              [section.id]: prev[section.id] === rating ? '' : rating,
+                            }))}
+                            className={`px-2 py-1 rounded-lg text-[11px] font-bold border transition-all flex-1 ${
+                              current === rating ? RATING_STYLE[rating].active : RATING_STYLE[rating].idle
+                            }`}
+                          >
+                            {INTERVIEW_RATING_LABELS[rating]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
