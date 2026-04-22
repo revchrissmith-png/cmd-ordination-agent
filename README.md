@@ -41,7 +41,9 @@ The ordination process for Alliance pastoral candidates (called *ordinands*) spa
 - Cohort calendar with multi-cohort event assignment and a rich notes editor
 - Per-ordinand detail page: edit profile, reassign graders, upload files on behalf of ordinands (with historical date picker for Moodle migration), enter self-assessment data manually
 - Grade attribution — "Graded By" selector allows historical grades to be attributed to the correct council member
-- AI Interview Brief — on-demand, streams a structured 7-section pre-interview brief synthesising all grades, self-assessments, evaluation responses, and Pardington conversation history; downloadable as a branded PDF
+- AI Interview Brief — on-demand, streams a structured 7-section pre-interview brief synthesising all grades, self-assessments, evaluation responses, and Pardington conversation history; downloadable as a branded PDF; emailable to council members
+- **Oral Interview Console** — schedule interviews, conduct them in a split-panel view (AI brief + live notes), record council attendance, auto-save notes, record decisions with four handbook outcomes (sustained/conditional/deferred/not sustained), track ordination service details
+- **Archive Report** — generates a comprehensive final report pulling completion grid, interview data, external evaluations, mentor reports, and AI executive summary; downloadable as branded PDF or TXT; emailable to council; saved as a permanent DB record
 - Send progress emails to ordinands via Resend
 - Archive ordinands as complete (preserved for records) or soft-delete them
 - External evaluation forms for mentors and church board members — sent via tokenised email link, no portal account required
@@ -145,16 +147,23 @@ app/
       register-user/route.ts        User creation + requirement generation
       auto-assign-graders/route.ts  Algorithmic grader assignment
       interview-brief/route.ts      AI Interview Brief (streaming)
+      email-interview-brief/route.ts Email brief to council via Resend
+      interviews/route.ts           List + schedule oral interviews (GET/POST)
+      interviews/[id]/route.ts      Get/update/delete interview (GET/PATCH/DELETE)
+      archive-report/route.ts       Save + email final reports (POST action=save|email)
       daily-report/route.ts         Vercel cron — daily activity digest email
       send-council-report/route.ts  Council progress report email via Resend
       send-evaluation-invite/route.ts  Tokenised external evaluator invitations
       update-user-email/route.ts    Service-role email update for council members
       council-member-info/route.ts  Last sign-in lookup
+      delete-ordinand/route.ts      Cascade delete (grades, assignments, submissions, etc.)
+      regenerate-requirements/route.ts  Recalculate cohort requirements on topic change
   dashboard/
     error.tsx                       Route-level error boundary (all /dashboard/*)
     page.tsx                        Role-based router
     admin/                          Admin console + ordinand/council detail pages
-      candidates/[id]/_components/  Co-located modal subcomponents (Grade, SA, Eval, Brief)
+      interview/[id]/page.tsx       Interview Console (split-panel: brief + notes)
+      candidates/[id]/_components/  Co-located modal subcomponents (Grade, SA, Eval, Brief, Interview)
     council/
       grade/[assignmentId]/         Grading detail with auto-save drafts
         _components/                SermonRubric, PaperAssessment
@@ -176,6 +185,7 @@ utils/
   supabase/client.ts                Browser Supabase client (cookie-based sessions)
   fetchWithTimeout.ts               AbortController-based fetch with configurable timeout
   generateBriefPDF.ts               Interview brief PDF generation (jsPDF)
+  generateArchiveReportPDF.ts       Archive/final report PDF generation (jsPDF)
   markdown.ts                       Lightweight markdown-to-HTML renderer
   selfAssessmentQuestions.ts        Self-assessment question sets by theological topic
   sermonRubric.ts                   21-criterion sermon evaluation rubric
