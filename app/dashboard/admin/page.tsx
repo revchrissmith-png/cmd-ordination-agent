@@ -155,7 +155,7 @@ function AdminPageContent() {
     setCandidatesLoading(true)
     const { data, error } = await supabase
       .from('profiles')
-      .select('*, cohorts(name)')
+      .select('*, cohorts(name, season, year)')
       .contains('roles', ['ordinand'])
       .neq('status', 'deleted')
       .order('last_name', { ascending: true })

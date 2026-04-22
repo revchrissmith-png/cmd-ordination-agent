@@ -5,7 +5,7 @@
 interface CandidateInfo {
   first_name?: string
   last_name?: string
-  cohorts?: { season: string; year: number } | null
+  cohorts?: { name?: string; season?: string; year?: number } | null
 }
 
 interface ArchiveReportData {
@@ -110,17 +110,42 @@ export async function generateArchiveReportPDF(data: ArchiveReportData) {
       doc.setFontSize(10)
       doc.setTextColor(30, 41, 59)
 
-      const indent = trimmed.startsWith('✓') || trimmed.startsWith('○') || trimmed.startsWith('•') || trimmed.startsWith('-')
-      const x = indent ? ML + 12 : ML
-      const w = indent ? CW - 12 : CW
+      // Detect bullet/status prefix and strip Unicode chars that break jsPDF metrics
+      const checkMatch = trimmed.match(/^(\u2713|\u25CB|\u2022|[-])\s*(.*)$/)
+      if (checkMatch) {
+        const bullet = checkMatch[1]
+        const rest = checkMatch[2]
+        const x = ML + 16
+        const w = CW - 16
 
-      const wrapped = doc.splitTextToSize(trimmed, w) as string[]
-      checkBreak(wrapped.length * 14 + 4)
-      for (const wl of wrapped) {
-        doc.text(wl, x, y)
-        y += 14
+        // Draw a coloured dot as the bullet indicator
+        if (bullet === '\u2713') {
+          doc.setFillColor(34, 197, 94)     // green for complete
+        } else if (bullet === '\u25CB') {
+          doc.setFillColor(203, 213, 225)   // gray for incomplete
+        } else {
+          doc.setFillColor(100, 116, 139)   // slate for dash/bullet
+        }
+        checkBreak(14)
+        doc.circle(ML + 7, y - 3, 2.5, 'F')
+
+        // Render the text content with clean ASCII only
+        const wrapped = doc.splitTextToSize(rest, w) as string[]
+        checkBreak(wrapped.length * 14 + 4)
+        for (const wl of wrapped) {
+          doc.text(wl, x, y)
+          y += 14
+        }
+        y += 2
+      } else {
+        const wrapped = doc.splitTextToSize(trimmed, CW) as string[]
+        checkBreak(wrapped.length * 14 + 4)
+        for (const wl of wrapped) {
+          doc.text(wl, ML, y)
+          y += 14
+        }
+        y += 2
       }
-      y += 2
     }
   }
 
@@ -145,11 +170,19 @@ export async function generateArchiveReportPDF(data: ArchiveReportData) {
   y += 16
 
   if (data.candidate.cohorts) {
-    doc.setTextColor(71, 85, 105)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.text(`${data.candidate.cohorts.season} ${data.candidate.cohorts.year} Cohort`, ML, y)
-    y += 14
+    const cohort = data.candidate.cohorts
+    const cohortLabel = cohort.season && cohort.year
+      ? `${cohort.season} ${cohort.year} Cohort`
+      : cohort.name
+        ? `${cohort.name} Cohort`
+        : null
+    if (cohortLabel) {
+      doc.setTextColor(71, 85, 105)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.text(cohortLabel, ML, y)
+      y += 14
+    }
   }
 
   doc.setTextColor(100, 116, 139)
