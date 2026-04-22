@@ -1,7 +1,9 @@
 // _components/InterviewBriefSection.tsx
 // AI Interview Brief card + streaming modal + email + PDF download
+// Persists the generated brief to the interview record's brief_snapshot so the
+// interview console and council console can display it without regeneration.
 'use client'
-import { useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../../../../../utils/supabase/client'
 import { generateBriefPDF } from '../../../../../../utils/generateBriefPDF'
 
@@ -15,6 +17,10 @@ export default function InterviewBriefSection({ candidate, ordinandId, councilMe
   const [showBrief, setShowBrief] = useState(false)
   const [briefContent, setBriefContent] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [hasSavedBrief, setHasSavedBrief] = useState(false)
+
+  // The interview ID we'll save the brief to
+  const [interviewId, setInterviewId] = useState<string | null>(null)
 
   // Email state
   const [showEmailPanel, setShowEmailPanel] = useState(false)
@@ -23,9 +29,55 @@ export default function InterviewBriefSection({ candidate, ordinandId, councilMe
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // Track the full text during streaming so we can save it at the end
+  const fullTextRef = useRef('')
+
+  // ── On mount: find the most recent non-cancelled interview and load its brief_snapshot ──
+  useEffect(() => {
+    async function loadExistingBrief() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      // Find the most recent non-cancelled interview for this ordinand
+      const { data: interviews } = await supabase
+        .from('oral_interviews')
+        .select('id, brief_snapshot, status, scheduled_date')
+        .eq('ordinand_id', ordinandId)
+        .neq('status', 'cancelled')
+        .order('scheduled_date', { ascending: false })
+        .limit(1)
+
+      if (interviews && interviews.length > 0) {
+        const iv = interviews[0]
+        setInterviewId(iv.id)
+        if (iv.brief_snapshot) {
+          setBriefContent(iv.brief_snapshot)
+          fullTextRef.current = iv.brief_snapshot
+          setHasSavedBrief(true)
+        }
+      }
+    }
+    loadExistingBrief()
+  }, [ordinandId])
+
+  // ── Save brief to interview record ──
+  async function saveBriefToInterview(text: string) {
+    if (!interviewId) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    await fetch(`/api/admin/interviews/${interviewId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ brief_snapshot: text }),
+    })
+    setHasSavedBrief(true)
+  }
+
   async function handleGenerate() {
     setShowBrief(true)
     setBriefContent('')
+    fullTextRef.current = ''
     setIsGenerating(true)
     setShowEmailPanel(false)
     setEmailStatus(null)
@@ -43,12 +95,23 @@ export default function InterviewBriefSection({ candidate, ordinandId, councilMe
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        setBriefContent(prev => prev + decoder.decode(value, { stream: true }))
+        const chunk = decoder.decode(value, { stream: true })
+        fullTextRef.current += chunk
+        setBriefContent(prev => prev + chunk)
       }
+
+      // Save to the interview record so the console and council can read it
+      await saveBriefToInterview(fullTextRef.current)
     } catch {
       setBriefContent('Error generating brief — please try again.')
     }
     setIsGenerating(false)
+  }
+
+  function handleViewSaved() {
+    setShowBrief(true)
+    setShowEmailPanel(false)
+    setEmailStatus(null)
   }
 
   async function handleDownloadPDF() {
@@ -116,18 +179,40 @@ export default function InterviewBriefSection({ candidate, ordinandId, councilMe
             <p className="text-xs text-slate-400 font-medium mt-1">
               Synthesizes grades, feedback, self-assessments, Pardington sessions, and evaluations into a council-ready briefing document.
             </p>
+            {hasSavedBrief && (
+              <p className="text-xs text-green-600 font-bold mt-1">
+                ✓ Brief saved — will appear on the interview console and council view.
+              </p>
+            )}
+            {!interviewId && (
+              <p className="text-xs text-amber-500 font-medium mt-1">
+                No interview scheduled — brief will not be saved until an interview is created.
+              </p>
+            )}
           </div>
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="px-5 py-2.5 text-white rounded-xl text-sm font-bold transition-all flex-shrink-0"
-            style={{ backgroundColor: isGenerating ? '#94a3b8' : '#00426A' }}
-          >
-            {isGenerating ? '\u23F3 Generating\u2026' : '\u2728 Generate Brief'}
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {hasSavedBrief && (
+              <button
+                onClick={handleViewSaved}
+                className="px-4 py-2.5 rounded-xl text-sm font-bold transition-all border border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                View Brief
+              </button>
+            )}
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="px-5 py-2.5 text-white rounded-xl text-sm font-bold transition-all"
+              style={{ backgroundColor: isGenerating ? '#94a3b8' : '#00426A' }}
+            >
+              {isGenerating ? '\u23F3 Generating\u2026' : hasSavedBrief ? '\u{1F504} Regenerate' : '\u2728 Generate Brief'}
+            </button>
+          </div>
         </div>
         <div className="px-8 py-4 text-xs text-slate-400 font-medium leading-relaxed">
-          Use this before an oral interview. The brief draws on all available data — the more complete the record, the richer the output. It does not make a pass/fail recommendation; it helps the council have a more informed, personal conversation.
+          {hasSavedBrief
+            ? 'A brief has been generated and saved. It will appear automatically on the interview console and each council member\u2019s live view. Regenerating will overwrite the saved version.'
+            : 'Use this before an oral interview. The brief draws on all available data \u2014 the more complete the record, the richer the output. It does not make a pass/fail recommendation; it helps the council have a more informed, personal conversation.'}
         </div>
       </div>
 
@@ -147,6 +232,12 @@ export default function InterviewBriefSection({ candidate, ordinandId, councilMe
                 {briefContent && !isGenerating && (
                   <>
                     <button
+                      onClick={handleGenerate}
+                      className="px-4 py-2 rounded-xl text-xs font-bold transition-all border border-slate-200 text-slate-500 hover:bg-slate-50"
+                    >
+                      {'\u{1F504}'} Regenerate
+                    </button>
+                    <button
                       onClick={() => { setShowEmailPanel(!showEmailPanel); setEmailStatus(null) }}
                       className="px-4 py-2 rounded-xl text-xs font-bold transition-all border"
                       style={{
@@ -155,7 +246,7 @@ export default function InterviewBriefSection({ candidate, ordinandId, councilMe
                         color: showEmailPanel ? '#0077C8' : '#64748b',
                       }}
                     >
-                      ✉ Email
+                      {'\u2709'} Email
                     </button>
                     <button
                       onClick={handleDownloadPDF}
