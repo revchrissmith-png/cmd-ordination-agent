@@ -431,6 +431,17 @@ CMD Ordaining Council`
                   {candidate.cohorts.sermon_topic && ` · ${TOPIC_LABELS[candidate.cohorts.sermon_topic] ?? candidate.cohorts.sermon_topic} (sermon topic)`}
                 </span>
               )}
+              {candidate.roles?.includes('ordinand') && (
+                candidate.pardington_consent_at ? (
+                  <span className="inline-block mt-1.5 px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-bold">
+                    ✓ Pardington consent · {new Date(candidate.pardington_consent_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                ) : (
+                  <span className="inline-block mt-1.5 px-3 py-1 bg-slate-50 text-slate-400 border border-slate-200 rounded-full text-xs font-bold">
+                    Pardington consent pending
+                  </span>
+                )
+              )}
             </div>
             <div className="flex gap-3 flex-wrap">
               {!isObserver && (
