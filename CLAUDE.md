@@ -25,7 +25,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 
 **Live site:** https://ordination.canadianmidwest.ca (custom subdomain; Vercel deployment at cmd-ordination-agent.vercel.app is the underlying host)
 **GitHub repo:** github.com/revchrissmith-png/cmd-ordination-agent
-**Supabase project ID:** `gdjodcqlydmtlccjuurw` (AWS ca-central-1)
+**Supabase project ID:** `cqqvxfructdtvtnaggdh` (AWS ca-central-1)
 
 ---
 
