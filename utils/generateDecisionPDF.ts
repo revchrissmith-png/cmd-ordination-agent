@@ -172,17 +172,17 @@ export async function generateDecisionPDF(data: DecisionPDFData) {
   const resultColour = RESULT_COLOURS[data.result] ?? { r: 100, g: 116, b: 139 }
 
   // Background pill
-  const pillW = 260, pillH = 50
+  const pillW = 240, pillH = 40
   const pillX = ML + (CW - pillW) / 2
   doc.setFillColor(resultColour.r, resultColour.g, resultColour.b)
-  doc.roundedRect(pillX, y - 8, pillW, pillH, 12, 12, 'F')
+  doc.roundedRect(pillX, y - 6, pillW, pillH, 10, 10, 'F')
 
   // Outcome label
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(18)
-  doc.text(data.resultLabel, PW / 2, y + 22, { align: 'center' })
-  y += pillH + 24
+  doc.setFontSize(16)
+  doc.text(data.resultLabel, PW / 2, y + 17, { align: 'center' })
+  y += pillH + 18
 
   // ── Conditions (conditional / deferred only) ───────────────────────
 
@@ -233,31 +233,31 @@ export async function generateDecisionPDF(data: DecisionPDFData) {
   if (scoredSections.length > 0) {
     sectionHeader('Official Section Grades')
 
-    const rowH = 22
-    const labelW = 190
-    const pillWidth = 80
+    const rowH = 16
+    const labelW = 260
+    const pillWidth = 66
 
     for (const section of scoredSections) {
-      checkBreak(rowH + 4)
+      checkBreak(rowH + 2)
       const rating = data.finalScores[section.id] as InterviewRating
       const rc = RATING_COLOURS[rating] ?? { r: 100, g: 116, b: 139 }
 
       // Section label
       doc.setTextColor(51, 65, 85)
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-      doc.text(section.title, ML, y + 4)
+      doc.setFontSize(9)
+      doc.text(section.title, ML, y + 3)
 
       // Coloured rating pill
       doc.setFillColor(rc.r, rc.g, rc.b)
       const rx = ML + labelW
-      doc.roundedRect(rx, y - 8, pillWidth, rowH, 6, 6, 'F')
+      doc.roundedRect(rx, y - 6, pillWidth, rowH, 5, 5, 'F')
       doc.setTextColor(255, 255, 255)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(9)
-      doc.text(INTERVIEW_RATING_LABELS[rating] ?? rating, rx + pillWidth / 2, y + 5, { align: 'center' })
+      doc.setFontSize(8)
+      doc.text(INTERVIEW_RATING_LABELS[rating] ?? rating, rx + pillWidth / 2, y + 3.5, { align: 'center' })
 
-      y += rowH + 4
+      y += rowH + 2
     }
     y += 4
   }
@@ -288,7 +288,7 @@ export async function generateDecisionPDF(data: DecisionPDFData) {
 
   // ── Signature line ─────────────────────────────────────────────────
 
-  y += 30
+  y += 20
   checkBreak(60)
 
   doc.setDrawColor(203, 213, 225)
