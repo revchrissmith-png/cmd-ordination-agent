@@ -202,8 +202,6 @@ export default function InterviewConsolePage() {
         interview_date: interviewDate || null,
         decision_notes: decisionNotes,
         council_present: Array.from(selectedCouncil),
-        ordination_date: ordinationDate || null,
-        officiant: officiant || null,
       }),
     })
     if (res.ok) {
@@ -292,6 +290,14 @@ export default function InterviewConsolePage() {
               style={{ backgroundColor: '#d97706' }}
             >
               🎙️ Begin Interview
+            </button>
+          )}
+          {(isActive || isDecided) && (
+            <button
+              onClick={() => window.open(`/dashboard/admin/interview/${interviewId}/aggregate`, 'aggregate', 'width=1200,height=900')}
+              className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+            >
+              📊 Aggregate View
             </button>
           )}
           {isActive && (
@@ -450,23 +456,6 @@ export default function InterviewConsolePage() {
                 <p className="text-sm font-medium text-slate-700 py-2">{selectedCouncil.size} member{selectedCouncil.size !== 1 ? 's' : ''}</p>
               </div>
             </div>
-
-            {/* Ordination details (shown for sustained / conditional) */}
-            {(result === 'sustained' || result === 'conditional') && (
-              <div className="bg-green-50 rounded-2xl p-4 space-y-3">
-                <p className="text-xs font-black text-green-700 uppercase tracking-widest">Ordination Service</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-green-600 block mb-1">Date</label>
-                    <input type="date" value={ordinationDate} onChange={e => setOrdinationDate(e.target.value)} className={inputClass} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-green-600 block mb-1">Officiant</label>
-                    <input type="text" value={officiant} onChange={e => setOfficiant(e.target.value)} placeholder="Name" className={inputClass} />
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Deliberation notes */}
             <div>
