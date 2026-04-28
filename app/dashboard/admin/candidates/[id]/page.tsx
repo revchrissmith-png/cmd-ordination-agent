@@ -157,10 +157,14 @@ export default function CandidateDetailPage() {
       .order('id')
     setRequirements(reqs || [])
 
+    // Match the ordinand's is_demo so the picker only offers compatible graders
+    // (real ordinand → real council; demo ordinand → demo council only).
+    const ordinandIsDemo = !!(profile as any)?.is_demo
     const { data: council } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, email, grading_types')
       .contains('roles', ['council'])
+      .eq('is_demo', ordinandIsDemo)
       .order('last_name')
     setCouncilMembers(council || [])
 

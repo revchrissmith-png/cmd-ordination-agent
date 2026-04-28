@@ -115,6 +115,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email address format' }, { status: 400 })
   }
 
+  // Belt-and-suspenders: demo accounts must never trigger real outbound email.
+  // The .local TLD is reserved by RFC 6762 so this also can't accidentally
+  // route to a real domain, but reject explicitly.
+  if (recipientEmail.toLowerCase().endsWith('@cmd-demo.local')) {
+    return NextResponse.json({ error: 'Demo email addresses are not eligible for outbound mail' }, { status: 400 })
+  }
+
   const resendKey = process.env.RESEND_API_KEY
   if (!resendKey) return NextResponse.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 })
 

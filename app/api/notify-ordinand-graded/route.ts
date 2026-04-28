@@ -41,11 +41,14 @@ export async function POST(req: NextRequest) {
   // 3. Ordinand profile (needs email to send to)
   const { data: ordinandProfile } = await serviceClient
     .from('profiles')
-    .select('first_name, last_name, email')
+    .select('first_name, last_name, email, is_demo')
     .eq('id', reqRow.ordinand_id)
     .single()
   if (!ordinandProfile?.email) {
     return NextResponse.json({ sent: false, reason: 'Ordinand email not found' })
+  }
+  if (ordinandProfile.is_demo) {
+    return NextResponse.json({ sent: false, reason: 'Demo ordinand — outbound mail suppressed' })
   }
 
   // 4. Grader name (council member who graded)

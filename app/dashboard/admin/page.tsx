@@ -118,6 +118,7 @@ function AdminPageContent() {
       .from('profiles')
       .select('*')
       .contains('roles', ['council'])
+      .eq('is_demo', false)
       .order('last_name', { ascending: true })
     if (!error) setCouncilMembers(data || [])
     setCouncilLoading(false)
@@ -158,6 +159,7 @@ function AdminPageContent() {
       .select('*, cohorts(name, season, year)')
       .contains('roles', ['ordinand'])
       .neq('status', 'deleted')
+      .eq('is_demo', false)
       .order('last_name', { ascending: true })
     if (!error) setCandidates(data || [])
     setCandidatesLoading(false)
@@ -167,10 +169,11 @@ function AdminPageContent() {
     setActivityLoading(true)
     const { data } = await supabase
       .from('activity_logs')
-      .select('id, event_type, page, metadata, created_at, profiles(first_name, last_name, email, roles)')
+      .select('id, event_type, page, metadata, created_at, profiles(first_name, last_name, email, roles, is_demo)')
       .order('created_at', { ascending: false })
       .limit(200)
-    setActivityLogs(data || [])
+    const realOnly = (data || []).filter((row: any) => !row.profiles?.is_demo)
+    setActivityLogs(realOnly)
     setActivityLoading(false)
   }
 

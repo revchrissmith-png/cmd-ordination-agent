@@ -28,10 +28,10 @@ export async function GET(req: NextRequest) {
   // ── Fetch last 24 hours of activity ──────────────────────────────────────
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-  const [{ data: logs }, { data: feedback }] = await Promise.all([
+  const [{ data: logsRaw }, { data: feedbackRaw }] = await Promise.all([
     serviceClient
       .from('activity_logs')
-      .select('event_type, page, metadata, created_at, profiles(first_name, last_name, email, roles)')
+      .select('event_type, page, metadata, created_at, profiles(first_name, last_name, email, roles, is_demo)')
       .gte('created_at', since)
       .order('created_at', { ascending: true }),
     serviceClient
@@ -40,6 +40,13 @@ export async function GET(req: NextRequest) {
       .gte('created_at', since)
       .order('created_at', { ascending: true }),
   ])
+
+  // Strip demo accounts from the daily report — they exist only for video
+  // recording and shouldn't show up in the admin's morning summary.
+  const logs = (logsRaw ?? []).filter((row: any) => !row.profiles?.is_demo)
+  const feedback = (feedbackRaw ?? []).filter((row: any) =>
+    !row.user_email?.endsWith('@cmd-demo.local')
+  )
 
   // ── Group activity by user ────────────────────────────────────────────────
   type UserEntry = {

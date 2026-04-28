@@ -296,6 +296,13 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-04-27 — Demo data infrastructure for training-video recording
+
+- **`is_demo` flag on `profiles`**: new boolean column (default false, indexed) used to filter demo/recording accounts out of every admin-facing list, count, queue, and outbound email path. Replaces what would otherwise be a fragile `email LIKE '%@cmd-demo.local'` pattern repeated everywhere.
+- **Filter discipline applied across 7 leak points**: `app/dashboard/admin/page.tsx` (council/candidates/activity), `app/dashboard/admin/candidates/[id]/page.tsx` (council picker), `app/dashboard/council/page.tsx` (upcoming interviews), `app/api/admin/auto-assign-graders/route.ts` (grader pool), `app/api/admin/daily-report/route.ts` (cron-emailed digest), `app/api/admin/send-evaluation-invite/route.ts` (email guard), `app/api/notify-ordinand-graded/route.ts` (email guard). Invariant: a demo ordinand can only be matched with a demo grader, never a real one — and vice versa.
+- **`supabase/demo-seed/jordan-smith.sql`**: idempotent one-shot seed for the Jordan Smith demo ordinand (Spring 2027 cohort, mentor Pastor Casey Reeve) plus fictional council grader Pastor Alex Bennett. Seeds 17 requirement cards in the spec'd state mix (1 graded with pastoral feedback, 1 awaiting, 1 returned-for-revision, 1 paper draft in progress, 1 sermon submitted with video URL, balance not_started), 3 Spring 2027 cohort events, 1 mentor report, and 2 prior Pardington conversations. All rows tagged with stable UUIDs so re-runs upsert.
+- **`scripts/demo-login-link.mjs`**: mints single-use magic-link URLs for `*@cmd-demo.local` accounts via the Supabase admin `generate_link` API. Real OTP delivery to `.local` addresses bounces, so this is the supported sign-in path for demo accounts. The script warns clearly when the project's redirect URL allowlist needs updating.
+
 ### 2026-04-22 (evening)
 - **Archive report PDF fix**: Unicode bullet characters (✓, ○) broke jsPDF font metrics causing stretched letter-spacing on every requirement line — replaced with colored dot indicators
 - **Cohort display fix**: archive report showed "undefined undefined Cohort" because admin page query omitted season/year fields from cohorts join

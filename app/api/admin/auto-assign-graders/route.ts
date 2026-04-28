@@ -38,6 +38,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'ordinand_id required' }, { status: 400 })
   }
 
+  // Look up ordinand to enforce demo↔demo / real↔real grader matching.
+  // A real ordinand must never get a demo grader; a demo ordinand must never
+  // get a real grader. is_demo on profiles is the source of truth.
+  const { data: ordinand } = await admin
+    .from('profiles')
+    .select('is_demo')
+    .eq('id', ordinand_id)
+    .single()
+  const ordinandIsDemo = !!ordinand?.is_demo
+
   // Check which requirements already have assignments
   const { data: allReqs } = await admin
     .from('ordinand_requirements')
@@ -53,12 +63,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ assigned: 0, skipped: 0, errors: [] })
   }
 
-  // Fetch active council members with grading_types (exclude deleted)
+  // Fetch active council members with grading_types (exclude deleted).
+  // Match the ordinand's is_demo so demo ordinands route to demo graders only.
   const { data: councilMembers } = await admin
     .from('profiles')
     .select('id, first_name, last_name, grading_types')
     .contains('roles', ['council'])
     .neq('status', 'deleted')
+    .eq('is_demo', ordinandIsDemo)
 
   // Fetch exclusions for this ordinand
   const { data: exclusions } = await admin

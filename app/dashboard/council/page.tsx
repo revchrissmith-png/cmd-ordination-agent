@@ -86,16 +86,19 @@ function CouncilDashboardContent() {
 
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name')
+          .select('id, first_name, last_name, is_demo')
           .in('id', allIds)
 
         const profileMap = new Map((profiles ?? []).map(p => [p.id, `${p.first_name} ${p.last_name}`.trim()]))
+        const demoOrdinandIds = new Set((profiles ?? []).filter(p => p.is_demo).map(p => p.id))
 
-        setUpcomingInterviews(interviews.map(iv => ({
-          ...iv,
-          ordinand_name: profileMap.get(iv.ordinand_id) || 'Unknown',
-          lead_name: iv.conducted_by ? profileMap.get(iv.conducted_by) || undefined : undefined,
-        })))
+        setUpcomingInterviews(interviews
+          .filter(iv => !demoOrdinandIds.has(iv.ordinand_id))
+          .map(iv => ({
+            ...iv,
+            ordinand_name: profileMap.get(iv.ordinand_id) || 'Unknown',
+            lead_name: iv.conducted_by ? profileMap.get(iv.conducted_by) || undefined : undefined,
+          })))
       }
 
       setLoading(false)
