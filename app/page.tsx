@@ -31,9 +31,16 @@ export default function Home() {
       const access_token = params.get('access_token')
       const refresh_token = params.get('refresh_token')
       if (access_token && refresh_token) {
-        supabase.auth.setSession({ access_token, refresh_token }).then(({ error }) => {
-          if (!error) {
-            window.history.replaceState({}, '', window.location.pathname)
+        supabase.auth.setSession({ access_token, refresh_token }).then(({ data, error }) => {
+          if (error) {
+            setMessage(`Sign-in error: ${error.message}`)
+            return
+          }
+          window.history.replaceState({}, '', window.location.pathname)
+          if (data?.session) {
+            // Route directly rather than relying on onAuthStateChange — the
+            // listener can race with the cookie write and miss the event.
+            router.push('/dashboard')
           }
         })
       }
