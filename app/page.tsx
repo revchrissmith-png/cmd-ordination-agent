@@ -15,10 +15,30 @@ export default function Home() {
 
   // If the user is already signed in (e.g. they clicked a session link),
   // send them to the dashboard immediately.
+  //
+  // Also handles the implicit-flow URL hash that admin-generated magic links
+  // produce (#access_token=...&refresh_token=...). The cookie-based browser
+  // client uses PKCE flow by default and does not auto-process implicit-flow
+  // hashes, so we do it explicitly here. Real ordinand sign-in (6-digit OTP
+  // codes via verifyOtp) is unaffected.
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) router.push('/dashboard')
     })
+
+    if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
+      const params = new URLSearchParams(window.location.hash.slice(1))
+      const access_token = params.get('access_token')
+      const refresh_token = params.get('refresh_token')
+      if (access_token && refresh_token) {
+        supabase.auth.setSession({ access_token, refresh_token }).then(({ error }) => {
+          if (!error) {
+            window.history.replaceState({}, '', window.location.pathname)
+          }
+        })
+      }
+    }
+
     return () => subscription.unsubscribe()
   }, [router])
 
