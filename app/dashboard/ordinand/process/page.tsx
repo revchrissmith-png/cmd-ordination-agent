@@ -45,7 +45,7 @@ export default function OrdinandProcessPage() {
       setProfile(prof)
       const { data: reqs } = await supabase
         .from('ordinand_requirements')
-        .select('id, status, requirement_templates(type, topic, book_category, title, display_order)')
+        .select('id, status, template_id, custom_type, custom_title, requirement_templates(id, type, topic, book_category, title, display_order)')
         .eq('ordinand_id', user.id)
       setRequirements(reqs || [])
       if (prof?.cohort_id) {

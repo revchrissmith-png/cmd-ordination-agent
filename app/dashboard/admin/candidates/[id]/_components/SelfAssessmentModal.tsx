@@ -79,7 +79,7 @@ export default function SelfAssessmentModal({ req, candidate, isObserver, onClos
         <div className="flex justify-between items-start mb-6">
           <div>
             <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">Ordinand Self-Assessment</p>
-            <h3 className="text-xl font-black text-slate-900">{req.requirement_templates?.title}</h3>
+            <h3 className="text-xl font-black text-slate-900">{req.requirement_templates?.title ?? req.custom_title}</h3>
             <p className="text-sm text-slate-400 font-medium mt-1">{candidate.first_name} {candidate.last_name}</p>
           </div>
           <button onClick={onClose} className="text-slate-300 hover:text-slate-500 text-2xl font-black leading-none">&times;</button>

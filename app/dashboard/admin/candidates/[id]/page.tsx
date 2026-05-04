@@ -15,6 +15,7 @@ import GradeModal from './_components/GradeModal'
 import SelfAssessmentModal from './_components/SelfAssessmentModal'
 import EvalInviteModal from './_components/EvalInviteModal'
 import EvalResponseModal from './_components/EvalResponseModal'
+import CustomizeTrackModal from './_components/CustomizeTrackModal'
 import InterviewBriefSection from './_components/InterviewBriefSection'
 import InterviewSection from './_components/InterviewSection'
 
@@ -43,6 +44,7 @@ export default function CandidateDetailPage() {
   const [reassigningId, setReassigningId] = useState<string | null>(null)
   const [confirmReset, setConfirmReset] = useState<{ id: string; mode: 'unsubmitted' | 'submitted' } | null>(null)
   const [isResetting, setIsResetting] = useState(false)
+  const [showCustomizeTrack, setShowCustomizeTrack] = useState(false)
 
   // Admin upload state
   const [uploadingReqId, setUploadingReqId] = useState<string | null>(null)
@@ -152,7 +154,7 @@ export default function CandidateDetailPage() {
 
     const { data: reqs } = await supabase
       .from('ordinand_requirements')
-      .select(`id, status, updated_at, requirement_templates(id, type, topic, book_category, title, display_order), grading_assignments(id, council_member_id), submissions(id, file_url, self_assessment, grades(id, overall_rating, overall_comments, graded_at))`)
+      .select(`id, status, updated_at, template_id, custom_title, custom_description, custom_type, waived_reason, waived_at, requirement_templates(id, type, topic, book_category, title, display_order), grading_assignments(id, council_member_id), submissions(id, file_url, self_assessment, grades(id, overall_rating, overall_comments, graded_at))`)
       .eq('ordinand_id', id)
       .order('id')
     setRequirements(reqs || [])
@@ -215,20 +217,23 @@ export default function CandidateDetailPage() {
   }, [candidate])
 
   const sorted = [...requirements].sort(
-    (a, b) => (a.requirement_templates?.display_order ?? 0) - (b.requirement_templates?.display_order ?? 0)
+    (a, b) => (a.requirement_templates?.display_order ?? 9999) - (b.requirement_templates?.display_order ?? 9999)
   )
-  const grouped = sorted.reduce((acc: Record<string, any[]>, req) => {
-    const type = req.requirement_templates?.type ?? 'other'
+  const activeReqs = sorted.filter(r => r.status !== 'waived')
+  const waivedReqs = sorted.filter(r => r.status === 'waived')
+  const grouped = activeReqs.reduce((acc: Record<string, any[]>, req) => {
+    const type = req.requirement_templates?.type ?? req.custom_type ?? 'other'
     if (!acc[type]) acc[type] = []
     acc[type].push(req)
     return acc
   }, {})
-  const total = requirements.length
-  const complete = requirements.filter(r => r.status === 'complete').length
-  const activeInProgress = requirements.filter(r => r.status === 'submitted' || r.status === 'under_review').length
-  const revisionRequired = requirements.filter(r => r.status === 'revision_required').length
+  // Progress denominators exclude waived rows — waivers don't penalize completion %.
+  const total = activeReqs.length
+  const complete = activeReqs.filter(r => r.status === 'complete').length
+  const activeInProgress = activeReqs.filter(r => r.status === 'submitted' || r.status === 'under_review').length
+  const revisionRequired = activeReqs.filter(r => r.status === 'revision_required').length
   const inProgress = activeInProgress + revisionRequired
-  const notStarted = requirements.filter(r => r.status === 'not_started').length
+  const notStarted = activeReqs.filter(r => r.status === 'not_started').length
   const completePct      = total > 0 ? Math.round((complete / total) * 100) : 0
   const activeInProgPct  = total > 0 ? Math.round((activeInProgress / total) * 100) : 0
   const revisionPct      = total > 0 ? Math.round((revisionRequired / total) * 100) : 0
@@ -265,14 +270,15 @@ export default function CandidateDetailPage() {
     const cohortLabel = candidate.cohorts ? `${candidate.cohorts.season} ${candidate.cohorts.year}` : 'Unknown cohort'
     const subject = encodeURIComponent(`CMD Ordination Progress Update — ${name}`)
 
+    const reqTitle = (r: any) => r.requirement_templates?.title ?? r.custom_title ?? 'Unknown'
     const revisionItems = requirements
       .filter(r => r.status === 'revision_required')
-      .map(r => `  • ${r.requirement_templates?.title ?? 'Unknown'} — Revision Required`)
+      .map(r => `  • ${reqTitle(r)} — Revision Required`)
       .join('\n')
 
     const submittedItems = requirements
       .filter(r => r.status === 'submitted' || r.status === 'under_review')
-      .map(r => `  • ${r.requirement_templates?.title ?? 'Unknown'} — ${r.status === 'submitted' ? 'Submitted (awaiting review)' : 'Under Review'}`)
+      .map(r => `  • ${reqTitle(r)} — ${r.status === 'submitted' ? 'Submitted (awaiting review)' : 'Under Review'}`)
       .join('\n')
 
     const body = encodeURIComponent(
@@ -368,11 +374,11 @@ CMD Ordaining Council`
     const existingSubmission = Array.isArray(req.submissions) ? req.submissions[0] : req.submissions
     let submissionId: string
     if (existingSubmission) {
-      const isSermonReq = req.requirement_templates?.type === 'sermon'
+      const isSermonReq = (req.requirement_templates?.type ?? req.custom_type) === 'sermon'
       await supabase.from('submissions').update({ file_url: publicUrl, submitted_at: submittedAt, ...(isSermonReq ? { notes: recordingUrl?.trim() || null } : {}) }).eq('id', existingSubmission.id)
       submissionId = existingSubmission.id
     } else {
-      const isSermonReq = req.requirement_templates?.type === 'sermon'
+      const isSermonReq = (req.requirement_templates?.type ?? req.custom_type) === 'sermon'
       const { data: newSub, error: subError } = await supabase.from('submissions').insert({
         ordinand_id: id,
         ordinand_requirement_id: req.id,
@@ -477,7 +483,23 @@ CMD Ordaining Council`
               >
                 📧 Send Progress Email
               </a>
+              {!isObserver && (
+                <button
+                  onClick={() => setShowCustomizeTrack(true)}
+                  className="px-4 py-2.5 text-white rounded-xl text-sm font-bold transition-all hover:opacity-90"
+                  style={{ backgroundColor: '#7c3aed' }}
+                  title="Waive standard requirements or add custom ones for this ordinand"
+                >
+                  ✦ Customize Track{candidate?.is_custom_track ? ' (active)' : ''}
+                </button>
+              )}
             </div>
+            {candidate?.is_custom_track && (
+              <div className="w-full bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 text-xs">
+                <span className="font-black text-purple-800 uppercase tracking-wider mr-2">Custom Track</span>
+                <span className="text-purple-700 font-medium">{candidate.custom_track_notes || 'No track notes recorded.'}</span>
+              </div>
+            )}
             {message.text && (
               <div className={`w-full px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                 {message.text}
@@ -646,7 +668,7 @@ CMD Ordaining Council`
           </div>
 
           {/* Requirements by type */}
-          {(['book_report', 'paper', 'sermon'] as const).map(type => {
+          {(['book_report', 'paper', 'sermon', 'other'] as const).map(type => {
             const items = grouped[type]
             if (!items || items.length === 0) return null
             return (
@@ -668,7 +690,10 @@ CMD Ordaining Council`
                         <div className="flex flex-wrap items-center gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 flex-wrap">
-                              <span className="font-bold text-slate-900">{req.requirement_templates?.title}</span>
+                              <span className="font-bold text-slate-900">{req.requirement_templates?.title ?? req.custom_title}</span>
+                              {req.template_id === null && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 uppercase tracking-wider">Custom</span>
+                              )}
                               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusCfg.colour}`}>{statusCfg.label}</span>
                               {grade && (
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700">
@@ -720,7 +745,7 @@ CMD Ordaining Council`
                                     className="text-xs px-2.5 py-1.5 bg-white border border-teal-300 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-teal-200 outline-none"
                                   />
                                 </div>
-                                {req.requirement_templates?.type === 'sermon' && (
+                                {(req.requirement_templates?.type ?? req.custom_type) === 'sermon' && (
                                   <div className="flex flex-col gap-1">
                                     <label className="text-xs font-black text-teal-700 whitespace-nowrap">Recording URL (optional):</label>
                                     <input
@@ -771,7 +796,7 @@ CMD Ordaining Council`
                           )}
                           {/* Self-assessment entry for paper requirements */}
                           {(() => {
-                            const isPaper = req.requirement_templates?.type === 'paper'
+                            const isPaper = (req.requirement_templates?.type ?? req.custom_type) === 'paper'
                             const hasSub = !!(Array.isArray(req.submissions) ? req.submissions[0] : req.submissions)?.id
                             const hasSA = !!(Array.isArray(req.submissions) ? req.submissions[0] : req.submissions)?.self_assessment
                             if (!isPaper || !hasSub) return null
@@ -851,6 +876,31 @@ CMD Ordaining Council`
               </div>
             )
           })}
+
+          {waivedReqs.length > 0 && (
+            <div className="bg-slate-50 rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+              <div className="px-8 py-5 border-b border-slate-200">
+                <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">Waived ({waivedReqs.length})</h2>
+                <p className="text-xs text-slate-400 font-medium mt-1">These requirements have been waived for this ordinand. Reasons are visible to council in the interview brief.</p>
+              </div>
+              <div className="divide-y divide-slate-200">
+                {waivedReqs.map(req => (
+                  <div key={req.id} className="px-8 py-4">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="font-bold text-slate-700 line-through">{req.requirement_templates?.title ?? req.custom_title}</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">Waived</span>
+                      {req.template_id === null && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 uppercase tracking-wider">Custom</span>
+                      )}
+                    </div>
+                    {req.waived_reason && (
+                      <p className="text-xs text-slate-500 mt-1">Reason: {req.waived_reason}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {requirements.length === 0 && (
             <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
@@ -985,6 +1035,18 @@ CMD Ordaining Council`
               isObserver={isObserver}
               onClose={() => { setSelectedReqForGrade(null); fetchData() }}
               onSaved={() => { setSelectedReqForGrade(null); fetchData() }}
+              flash={flash}
+            />
+          )}
+
+          {/* Customize Track modal */}
+          {showCustomizeTrack && candidate && (
+            <CustomizeTrackModal
+              candidate={candidate}
+              requirements={requirements}
+              isObserver={isObserver}
+              onClose={() => setShowCustomizeTrack(false)}
+              onSaved={() => { setShowCustomizeTrack(false); fetchData() }}
               flash={flash}
             />
           )}

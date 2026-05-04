@@ -55,7 +55,7 @@ function CouncilDashboardContent() {
         .from('grading_assignments')
         .select(`id, assigned_by, reassigned_at,
           ordinand_requirements(
-            id, status,
+            id, status, template_id, custom_title, custom_type,
             requirement_templates(id, type, topic, title),
             profiles!ordinand_id(full_name, email, status),
             cohorts(year, season),
@@ -107,7 +107,9 @@ function CouncilDashboardContent() {
   }, [])
 
   const needsReview = assignments.filter(a => ['submitted','under_review'].includes(a.ordinand_requirements?.status))
-  const allActive   = assignments.filter(a => a.ordinand_requirements?.status !== 'complete')
+  // Active = not yet finalized. Waived requirements are finalized (no grading needed) so they
+  // drop out of the active pool just like complete ones.
+  const allActive   = assignments.filter(a => !['complete','waived'].includes(a.ordinand_requirements?.status))
   const completed   = assignments.filter(a => a.ordinand_requirements?.status === 'complete')
   const filtered    = filter === 'needs_review' ? needsReview : filter === 'complete' ? completed : assignments
 
@@ -294,7 +296,8 @@ function CouncilDashboardContent() {
               if (!req) return null
               const status: Status = req.status ?? 'not_started'
               const cfg = STATUS_CONFIG[status]
-              const isPaper = req.requirement_templates?.type === 'paper'
+              const isPaper = (req.requirement_templates?.type ?? req.custom_type) === 'paper'
+              const isCustom = req.template_id === null
               const needsGrade = status === 'submitted' || status === 'under_review'
               const cohort = req.cohorts ? `${req.cohorts.season} ${req.cohorts.year}` : ''
               const days = needsGrade ? daysSinceSubmission(assign) : null
@@ -313,11 +316,12 @@ function CouncilDashboardContent() {
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <span className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${cfg.dot}`} />
                     <div className="min-w-0">
-                      <p className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors leading-snug">{req.requirement_templates?.title}</p>
+                      <p className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors leading-snug">{req.requirement_templates?.title ?? req.custom_title}</p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <p className="text-sm text-slate-500 font-medium">{req.profiles?.full_name}</p>
                         {cohort && <><span className="text-slate-200 font-bold">·</span><p className="text-xs text-slate-400 font-medium">{cohort}</p></>}
                         {isPaper && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-bold text-purple-600">Paper</span></>}
+                        {isCustom && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-bold text-purple-600">Custom</span></>}
                         {isCritical && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-black text-red-600">{days}d since submission</span></>}
                         {!isCritical && isOverdue && <><span className="text-slate-200 font-bold">·</span><span className="text-xs font-black text-amber-700">{days}d since submission</span></>}
                       </div>

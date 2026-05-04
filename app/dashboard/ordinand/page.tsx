@@ -50,7 +50,7 @@ function OrdinandDashboardContent() {
       setProfile(prof)
       const { data: reqs } = await supabase
         .from('ordinand_requirements')
-        .select(`id, status, requirement_templates(id, type, topic, title, book_category, display_order)`)
+        .select(`id, status, template_id, custom_title, custom_description, custom_type, waived_reason, requirement_templates(id, type, topic, title, book_category, display_order)`)
         .eq('ordinand_id', targetId)
       setRequirements(reqs || [])
 
@@ -94,14 +94,18 @@ function OrdinandDashboardContent() {
     fetchData()
   }, [])
 
-  const byOrder = (a: any, b: any) => (a.requirement_templates?.display_order ?? 0) - (b.requirement_templates?.display_order ?? 0)
-  const bookReports = requirements.filter(r => r.requirement_templates?.type === 'book_report').sort(byOrder)
-  const papers      = requirements.filter(r => r.requirement_templates?.type === 'paper').sort(byOrder)
-  const sermons     = requirements.filter(r => r.requirement_templates?.type === 'sermon').sort(byOrder)
-  const total      = requirements.length
-  const complete   = requirements.filter(r => r.status === 'complete').length
-  const submitted  = requirements.filter(r => ['submitted','under_review','revision_required'].includes(r.status)).length
-  const notStarted = requirements.filter(r => r.status === 'not_started').length
+  const reqType = (r: any) => r.requirement_templates?.type ?? r.custom_type
+  const byOrder = (a: any, b: any) => (a.requirement_templates?.display_order ?? 9999) - (b.requirement_templates?.display_order ?? 9999)
+  const active = requirements.filter(r => r.status !== 'waived')
+  const waived = requirements.filter(r => r.status === 'waived')
+  const bookReports = active.filter(r => reqType(r) === 'book_report').sort(byOrder)
+  const papers      = active.filter(r => reqType(r) === 'paper').sort(byOrder)
+  const sermons     = active.filter(r => reqType(r) === 'sermon').sort(byOrder)
+  const otherReqs   = active.filter(r => reqType(r) === 'other').sort(byOrder)
+  const total      = active.length
+  const complete   = active.filter(r => r.status === 'complete').length
+  const submitted  = active.filter(r => ['submitted','under_review','revision_required'].includes(r.status)).length
+  const notStarted = active.filter(r => r.status === 'not_started').length
   const completePct  = total > 0 ? Math.round((complete / total) * 100) : 0
   const submittedPct = total > 0 ? Math.round((submitted / total) * 100) : 0
   const pct = completePct
@@ -443,6 +447,7 @@ function OrdinandDashboardContent() {
           { label: 'Book Reports', items: bookReports, icon: '📚', count: bookReports.length },
           { label: 'Theological Papers', items: papers, icon: '📝', count: papers.length },
           { label: 'Sermons', items: sermons, icon: '🎤', count: sermons.length },
+          { label: 'Other Requirements', items: otherReqs, icon: '✦', count: otherReqs.length },
         ].map(({ label, items, icon, count }) => count > 0 && (
           <div key={label} className="mb-4">
             {/* Section header — click to collapse/expand */}
@@ -475,7 +480,12 @@ function OrdinandDashboardContent() {
                       className={`flex items-center justify-between bg-white border rounded-2xl px-6 py-4 hover:shadow-md hover:border-blue-200 transition-all group ${isRevision ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`}>
                       <div className="flex items-center gap-3 min-w-0">
                         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
-                        <span className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors leading-snug">{req.requirement_templates?.title}</span>
+                        <span className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors leading-snug">
+                          {req.requirement_templates?.title ?? req.custom_title}
+                        </span>
+                        {req.template_id === null && (
+                          <span className="text-[10px] font-black text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full uppercase tracking-wider">Custom</span>
+                        )}
                         {isRevision && <span className="text-xs font-black text-red-600 whitespace-nowrap">⚠ Action Required</span>}
                       </div>
                       <div className="flex items-center gap-3 shrink-0 ml-3">
@@ -491,6 +501,40 @@ function OrdinandDashboardContent() {
             )}
           </div>
         ))}
+
+        {waived.length > 0 && (
+          <div className="mb-4">
+            <button
+              onClick={() => toggleSection('Waived')}
+              className="w-full flex items-center justify-between gap-3 mb-3 group px-1 py-0.5 rounded-lg hover:bg-slate-200/40 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🕊</span>
+                <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">Waived</h2>
+                <span className="text-xs font-bold text-slate-400">({waived.length})</span>
+              </div>
+              <span className="text-slate-400 text-sm font-bold flex-shrink-0">{openSections.has('Waived') ? '▲' : '▼'}</span>
+            </button>
+            {openSections.has('Waived') && (
+              <div className="space-y-2">
+                {waived.map(req => (
+                  <div key={req.id} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4">
+                    <div className="flex items-center gap-3 min-w-0 mb-1">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-400" />
+                      <span className="font-bold text-slate-600 leading-snug line-through">
+                        {req.requirement_templates?.title ?? req.custom_title}
+                      </span>
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">Waived</span>
+                    </div>
+                    {req.waived_reason && (
+                      <p className="text-xs text-slate-500 ml-5">Reason: {req.waived_reason}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {requirements.length === 0 && (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">

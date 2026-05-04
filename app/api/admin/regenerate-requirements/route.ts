@@ -47,15 +47,17 @@ export async function POST(req: NextRequest) {
     }).map(t => t.id)
   )
 
-  // 4. Get all ordinands in this cohort
+  // 4. Get all ordinands in this cohort, skipping anyone on a custom track
+  // (their requirement set is curated by an admin and must not be mass-mutated).
   const { data: ordinands } = await serviceClient
     .from('profiles')
     .select('id, first_name, last_name')
     .eq('cohort_id', cohortId)
+    .eq('is_custom_track', false)
     .contains('roles', ['ordinand'])
 
   if (!ordinands || ordinands.length === 0) {
-    return NextResponse.json({ success: true, message: 'No ordinands in this cohort', updated: 0 })
+    return NextResponse.json({ success: true, message: 'No standard-track ordinands in this cohort', updated: 0 })
   }
 
   const results: { ordinandId: string; name: string; added: number; removed: number; skipped: number }[] = []
@@ -77,7 +79,9 @@ export async function POST(req: NextRequest) {
 
     // 7. Find requirements to remove (present but not expected)
     // Only remove not_started requirements — never touch in-progress or completed work
+    // Never remove custom (template_id IS NULL) rows — those are admin-authored
     const toRemove = currentReqs.filter(r =>
+      r.template_id !== null &&
       !expectedTemplateIds.has(r.template_id) &&
       r.status === 'not_started' &&
       // Only remove paper/sermon types (never book reports)

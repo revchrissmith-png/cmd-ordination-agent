@@ -73,7 +73,7 @@ export default function CouncilGradePage() {
 
     const { data: req } = await supabase
       .from('ordinand_requirements')
-      .select(`id, status, ordinand_id,
+      .select(`id, status, ordinand_id, template_id, custom_title, custom_description, custom_type,
         requirement_templates(id, type, topic, title),
         profiles!ordinand_id(full_name, email)`)
       .eq('id', assign.ordinand_requirement_id)
@@ -134,11 +134,12 @@ export default function CouncilGradePage() {
       graded_at:        now,
       is_draft:         true,
     }
-    if (requirement?.requirement_templates?.type === 'sermon') {
+    const effType = requirement?.requirement_templates?.type ?? requirement?.custom_type
+    if (effType === 'sermon') {
       draftData.sermon_rubric = rubricScores
       draftData.sermon_section_comments = sectionComments
     }
-    if (requirement?.requirement_templates?.type === 'paper' && submission?.self_assessment?.version === 2) {
+    if (effType === 'paper' && submission?.self_assessment?.version === 2) {
       draftData.paper_assessment = {
         version: 2,
         sections: { ...paperFeedback },
@@ -168,9 +169,12 @@ export default function CouncilGradePage() {
     return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current) }
   }, [rating, comments, rubricScores, sectionComments, paperFeedback, paperSectionRatings, triggerAutoSave, loading])
 
-  const isPaper  = requirement?.requirement_templates?.type === 'paper'
-  const isSermon = requirement?.requirement_templates?.type === 'sermon'
-  const isBook   = requirement?.requirement_templates?.type === 'book_report'
+  const effectiveType = requirement?.requirement_templates?.type ?? requirement?.custom_type
+  const isPaper  = effectiveType === 'paper'
+  const isSermon = effectiveType === 'sermon'
+  const isBook   = effectiveType === 'book_report'
+  const isOther  = effectiveType === 'other'
+  const isCustom = requirement?.template_id === null
   const topic    = requirement?.requirement_templates?.topic
   const topicData = topic ? SELF_ASSESSMENT_TOPICS[topic] : null
 
@@ -331,12 +335,18 @@ export default function CouncilGradePage() {
 
           <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
             <div>
-              <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{requirement.requirement_templates?.title}</h1>
-              <p className="text-slate-500 font-medium mt-1">
-                {requirement.profiles?.full_name}
-                <span className="text-slate-300 mx-2">·</span>
-                <span className="text-slate-400 text-sm">{requirement.profiles?.email}</span>
-              </p>
+              <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{requirement.requirement_templates?.title ?? requirement.custom_title}</h1>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <p className="text-slate-500 font-medium">
+                  {requirement.profiles?.full_name}
+                  <span className="text-slate-300 mx-2">·</span>
+                  <span className="text-slate-400 text-sm">{requirement.profiles?.email}</span>
+                </p>
+                {isCustom && <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 uppercase tracking-wider">Custom</span>}
+              </div>
+              {isCustom && requirement.custom_description && (
+                <p className="text-sm text-slate-600 mt-2 max-w-3xl whitespace-pre-wrap">{requirement.custom_description}</p>
+              )}
             </div>
             {message.text && (
               <div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
@@ -360,7 +370,7 @@ export default function CouncilGradePage() {
                 {/* Submission card */}
                 <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
                   <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-3">
-                    {isBook ? 'Submitted Book Report' : isSermon ? 'Submitted Sermon' : 'Submitted Paper'}
+                    {isBook ? 'Submitted Book Report' : isSermon ? 'Submitted Sermon' : isOther ? 'Submitted Work' : 'Submitted Paper'}
                   </h2>
                   {isBook && submission.selected_book && (
                     <div className="mb-3 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">

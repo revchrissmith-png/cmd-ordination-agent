@@ -10,7 +10,7 @@ export const C = {
 } as const
 
 export type Rating = 'insufficient' | 'adequate' | 'good' | 'excellent' | 'exceptional'
-export type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete'
+export type Status = 'not_started' | 'submitted' | 'under_review' | 'revision_required' | 'complete' | 'waived'
 
 export const RATINGS = ['insufficient', 'adequate', 'good', 'excellent', 'exceptional'] as const
 
@@ -36,12 +36,14 @@ export const STATUS_CONFIG: Record<Status, { label: string; colour: string; dot:
   under_review:      { label: 'Under Review',      colour: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-400' },
   revision_required: { label: 'Revision Required', colour: 'bg-red-100 text-red-700',       dot: 'bg-red-400' },
   complete:          { label: 'Complete',           colour: 'bg-green-100 text-green-700',   dot: 'bg-green-400' },
+  waived:            { label: 'Waived',              colour: 'bg-slate-100 text-slate-600',   dot: 'bg-slate-400' },
 }
 
 export const TYPE_LABELS: Record<string, string> = {
   book_report: 'Book Reports',
   paper: 'Theological Papers',
   sermon: 'Sermons',
+  other: 'Other Requirements',
 }
 
 export const TOPIC_LABELS: Record<string, string> = {

@@ -22,14 +22,15 @@ export async function POST(req: NextRequest) {
   // 1. Requirement
   const { data: reqRow } = await serviceClient
     .from('ordinand_requirements')
-    .select('id, ordinand_id, template_id')
+    .select('id, ordinand_id, template_id, custom_title')
     .eq('id', requirementId)
     .single()
   if (!reqRow) return NextResponse.json({ sent: false, reason: 'Requirement not found' })
 
-  // 2. Template title
-  const { data: template } = await serviceClient
-    .from('requirement_templates').select('title').eq('id', reqRow.template_id).single()
+  // 2. Template title (custom requirements carry their title inline)
+  const { data: template } = reqRow.template_id
+    ? await serviceClient.from('requirement_templates').select('title').eq('id', reqRow.template_id).single()
+    : { data: null as { title: string } | null }
 
   // 3. Ordinand name
   const { data: ordinandProfile } = await serviceClient
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
   // 7. Send
   const ordinandName    = [ordinandProfile?.first_name, ordinandProfile?.last_name].filter(Boolean).join(' ') || 'An ordinand'
   const graderName      = graderProfile.first_name || 'Council Member'
-  const assignmentTitle = template?.title || 'an assignment'
+  const assignmentTitle = template?.title || reqRow.custom_title || 'an assignment'
   const gradingUrl      = `${SITE_URL}/dashboard/council/grade/${assignment.id}`
 
   const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {

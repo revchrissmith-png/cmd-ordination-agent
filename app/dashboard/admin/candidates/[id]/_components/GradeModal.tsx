@@ -73,7 +73,7 @@ export default function GradeModal({ req, candidate, councilMembers, initialRati
         <div className="flex justify-between items-start">
           <div>
             <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Grade Assignment</p>
-            <h3 className="text-xl font-black text-slate-900">{req.requirement_templates?.title}</h3>
+            <h3 className="text-xl font-black text-slate-900">{req.requirement_templates?.title ?? req.custom_title}</h3>
             <p className="text-sm text-slate-400 font-medium mt-1">{candidate.first_name} {candidate.last_name}</p>
           </div>
           <button

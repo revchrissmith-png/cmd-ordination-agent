@@ -24,6 +24,10 @@ interface ArchiveReportModalProps {
 type Requirement = {
   id: string
   status: string
+  template_id: string | null
+  custom_title: string | null
+  custom_type: string | null
+  waived_reason: string | null
   requirement_templates: { title: string; type: string; display_order: number } | null
   submissions: { grades: { overall_rating: string; graded_at: string }[] }[] | null
 }
@@ -77,7 +81,7 @@ export default function ArchiveReportModal({ target, mode, councilMembers = [], 
     const [reqsRes, ivRes, tokRes, mentorRes] = await Promise.all([
       supabase
         .from('ordinand_requirements')
-        .select('id, status, requirement_templates(title, type, display_order), submissions(grades(overall_rating, graded_at))')
+        .select('id, status, template_id, custom_title, custom_type, waived_reason, requirement_templates(title, type, display_order), submissions(grades(overall_rating, graded_at))')
         .eq('ordinand_id', target.id)
         .order('requirement_templates(display_order)', { ascending: true } as any),
       supabase
@@ -184,15 +188,19 @@ export default function ArchiveReportModal({ target, mode, councilMembers = [], 
 
   // ── Helpers ────────────────────────────────────────────────────────
 
-  const grouped = requirements.reduce<Record<string, Requirement[]>>((acc, req) => {
-    const type = req.requirement_templates?.type ?? 'other'
+  const activeRequirements = requirements.filter(r => r.status !== 'waived')
+  const waivedRequirements = requirements.filter(r => r.status === 'waived')
+  const grouped = activeRequirements.reduce<Record<string, Requirement[]>>((acc, req) => {
+    const type = req.requirement_templates?.type ?? req.custom_type ?? 'other'
     if (!acc[type]) acc[type] = []
     acc[type].push(req)
     return acc
   }, {})
 
-  const totalCompleted = requirements.filter(r => r.status === 'complete' || r.status === 'graded').length
-  const total = requirements.length
+  const totalCompleted = activeRequirements.filter(r => r.status === 'complete' || r.status === 'graded').length
+  const total = activeRequirements.length
+
+  const reqTitle = (r: Requirement) => r.requirement_templates?.title ?? r.custom_title ?? 'Unknown'
 
   function getGrade(req: Requirement): string {
     const subs = Array.isArray(req.submissions) ? req.submissions : []
@@ -214,10 +222,20 @@ export default function ArchiveReportModal({ target, mode, councilMembers = [], 
     for (const [type, reqs] of Object.entries(grouped)) {
       text += `${(TYPE_LABELS[type] || type).toUpperCase()}\n`
       for (const req of reqs) {
-        const title = req.requirement_templates?.title ?? 'Unknown'
+        const title = reqTitle(req)
         const status = req.status
         const grade = getGrade(req)
-        text += `  ${status === 'complete' || status === 'graded' ? '✓' : '○'} ${title} — ${status} ${grade !== '—' ? `(${grade})` : ''}\n`
+        const customTag = req.template_id === null ? ' [custom]' : ''
+        text += `  ${status === 'complete' || status === 'graded' ? '✓' : '○'} ${title}${customTag} — ${status} ${grade !== '—' ? `(${grade})` : ''}\n`
+      }
+      text += '\n'
+    }
+    if (waivedRequirements.length > 0) {
+      text += `WAIVED (${waivedRequirements.length})\n`
+      for (const req of waivedRequirements) {
+        const title = reqTitle(req)
+        const reason = req.waived_reason ? ` — ${req.waived_reason}` : ''
+        text += `  • ${title}${reason}\n`
       }
       text += '\n'
     }
@@ -291,10 +309,19 @@ export default function ArchiveReportModal({ target, mode, councilMembers = [], 
     for (const [type, reqs] of Object.entries(grouped)) {
       completionText += `${TYPE_LABELS[type] || type}\n`
       for (const req of reqs) {
-        const title = req.requirement_templates?.title ?? 'Unknown'
+        const title = reqTitle(req)
         const grade = getGrade(req)
         const done = req.status === 'complete' || req.status === 'graded'
-        completionText += `${done ? '✓' : '○'} ${title} — ${req.status}${grade !== '—' ? ` (${grade})` : ''}\n`
+        const customTag = req.template_id === null ? ' [custom]' : ''
+        completionText += `${done ? '✓' : '○'} ${title}${customTag} — ${req.status}${grade !== '—' ? ` (${grade})` : ''}\n`
+      }
+      completionText += '\n'
+    }
+    if (waivedRequirements.length > 0) {
+      completionText += `Waived (${waivedRequirements.length})\n`
+      for (const req of waivedRequirements) {
+        const reason = req.waived_reason ? ` — ${req.waived_reason}` : ''
+        completionText += `• ${reqTitle(req)}${reason}\n`
       }
       completionText += '\n'
     }

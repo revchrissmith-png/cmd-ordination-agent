@@ -147,7 +147,7 @@ export default function CouncilMemberManagePage() {
         id,
         ordinand_requirement_id,
         ordinand_requirements(
-          id, status,
+          id, status, template_id, custom_title, custom_type,
           requirement_templates(title, type),
           profiles!ordinand_id(full_name, email, status),
           submissions(submitted_at, grades(graded_at, overall_rating))
@@ -177,8 +177,8 @@ export default function CouncilMemberManagePage() {
         return {
           id: ga.id,
           reqId: req?.id ?? '',
-          title: tmpl?.title ?? 'Unknown',
-          type: tmpl?.type ?? '',
+          title: tmpl?.title ?? req?.custom_title ?? 'Unknown',
+          type: tmpl?.type ?? req?.custom_type ?? '',
           ordinandName: ordinand?.full_name ?? 'Unknown',
           ordinandEmail: ordinand?.email ?? '',
           reqStatus,

@@ -48,11 +48,14 @@ export async function POST(req: NextRequest) {
     .single()
   const ordinandIsDemo = !!ordinand?.is_demo
 
-  // Check which requirements already have assignments
+  // Check which requirements already have assignments. Skip waived rows
+  // (no grading needed) and pull custom_type so non-template requirements
+  // route to the right grading pool.
   const { data: allReqs } = await admin
     .from('ordinand_requirements')
-    .select('id, requirement_templates(type), grading_assignments(id)')
+    .select('id, status, custom_type, requirement_templates(type), grading_assignments(id)')
     .eq('ordinand_id', ordinand_id)
+    .neq('status', 'waived')
 
   const unassigned = (allReqs || []).filter(r => {
     if (requirement_ids && !requirement_ids.includes(r.id)) return false
@@ -88,11 +91,12 @@ export async function POST(req: NextRequest) {
 
   const alreadyAssignedIds = new Set((existingAssignments || []).map(a => a.council_member_id))
 
-  // Fetch pending counts per council member (requirements not complete)
+  // Fetch pending counts per council member (requirements still in flight —
+  // exclude both 'complete' and 'waived' since neither needs grading work).
   const { data: pendingCounts } = await admin
     .from('grading_assignments')
     .select('council_member_id, ordinand_requirements!inner(status)')
-    .neq('ordinand_requirements.status', 'complete')
+    .not('ordinand_requirements.status', 'in', '(complete,waived)')
 
   const pendingMap: Record<string, number> = {}
   for (const row of pendingCounts || []) {
@@ -118,18 +122,25 @@ export async function POST(req: NextRequest) {
   const errors: string[] = []
 
   for (const req of unassigned) {
-    const reqType = (req.requirement_templates as any)?.type as string
+    const reqType = ((req.requirement_templates as any)?.type ?? (req as any).custom_type) as string | undefined
+
+    // Custom-type 'other' has no rubric or grading pool — flag for manual assignment.
+    if (reqType === 'other') {
+      errors.push(`Requirement ${req.id} is custom-type "other" — assign a grader manually`)
+      skipped++
+      continue
+    }
 
     // Filter eligible council members
     const eligible = (councilMembers || []).filter(m => {
       if (excludedIds.has(m.id)) return false
       // Only restrict by type if the member has explicit grading_types set (non-empty array)
-      if (Array.isArray(m.grading_types) && m.grading_types.length > 0 && !m.grading_types.includes(reqType)) return false
+      if (Array.isArray(m.grading_types) && m.grading_types.length > 0 && !m.grading_types.includes(reqType ?? '')) return false
       return true
     })
 
     if (eligible.length === 0) {
-      errors.push(`No eligible grader for requirement ${req.id} (type: ${reqType})`)
+      errors.push(`No eligible grader for requirement ${req.id} (type: ${reqType ?? 'unknown'})`)
       skipped++
       continue
     }

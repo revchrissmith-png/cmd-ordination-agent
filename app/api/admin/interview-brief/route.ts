@@ -29,7 +29,7 @@ CANDIDATE OVERVIEW
 A brief paragraph situating the candidate — their name, cohort, mentor, how far along they are in the process, and any notable context.
 
 ASSIGNMENT COMPLETION SUMMARY
-A clear picture of their 17-requirement completion. Group by type (book reports, papers, sermons). Note overall trajectory and any revisions requested.
+A clear picture of their requirement completion. Group by type (book reports, papers, sermons, and any "other" custom requirements). If the candidate is on a custom track (noted in the data), explain the bespoke shape rather than comparing against the standard 17. Reference any waived requirements with the recorded reason. Note overall trajectory and any revisions requested.
 
 COUNCIL-IDENTIFIED STRENGTHS
 2–4 genuine strengths drawn directly from grader feedback and ratings. Quote specific phrases where possible. These should reflect patterns across multiple assessments, not just one strong mark.
@@ -119,26 +119,33 @@ function buildContext(
 
   // ── Requirements ──
   if (requirements && requirements.length > 0) {
-    const byType = (type: string) => requirements.filter(r => r.requirement_templates?.type === type)
+    const reqType = (r: any) => (r.requirement_templates?.type ?? r.custom_type) as string | undefined
+    const reqTitle = (r: any) => (r.requirement_templates?.title ?? r.custom_title ?? 'Unknown') as string
+    const byType = (type: string) =>
+      requirements.filter(r => r.status !== 'waived' && reqType(r) === type)
+    const waived = requirements.filter(r => r.status === 'waived')
+
     const statusLabel: Record<string, string> = {
       complete:          'COMPLETE',
       revision_required: 'REVISION REQUIRED',
       submitted:         'SUBMITTED (awaiting grade)',
       under_review:      'UNDER REVIEW',
       not_started:       'NOT STARTED',
+      waived:            'WAIVED',
     }
 
     const printGroup = (label: string, reqs: any[]) => {
+      if (reqs.length === 0) return
       lines.push(`${label}:`)
-      const sorted = reqs.sort((a, b) =>
-        (a.requirement_templates?.display_order ?? 0) - (b.requirement_templates?.display_order ?? 0)
+      const sorted = [...reqs].sort((a, b) =>
+        (a.requirement_templates?.display_order ?? 9999) - (b.requirement_templates?.display_order ?? 9999)
       )
       for (const req of sorted) {
-        const tmpl  = req.requirement_templates
         const grade = getGrade(req)
         const graderRecord = councilMembers?.find(m => m.id === (Array.isArray(req.grading_assignments) ? req.grading_assignments[0]?.council_member_id : req.grading_assignments?.council_member_id))
         const graderName = graderRecord ? `${graderRecord.first_name} ${graderRecord.last_name}` : null
-        let line = `  • ${tmpl?.title ?? 'Unknown'} — ${statusLabel[req.status] ?? req.status}`
+        const customTag = req.template_id === null ? ' [CUSTOM]' : ''
+        let line = `  • ${reqTitle(req)}${customTag} — ${statusLabel[req.status] ?? req.status}`
         if (grade?.overall_rating) line += ` — Rating: ${RATING_LABELS[grade.overall_rating] ?? grade.overall_rating}`
         if (graderName) line += ` — Grader: ${graderName}`
         lines.push(line)
@@ -146,10 +153,28 @@ function buildContext(
       lines.push(``)
     }
 
-    lines.push(`--- REQUIREMENTS (17 total) ---`, ``)
-    printGroup('BOOK REPORTS (10)', byType('book_report'))
-    printGroup('THEOLOGICAL PAPERS (4)', byType('paper'))
-    printGroup('SERMONS (3)', byType('sermon'))
+    const activeCount = requirements.filter(r => r.status !== 'waived').length
+    const isCustomTrack = candidate?.is_custom_track === true
+    const trackHeader = isCustomTrack
+      ? `--- REQUIREMENTS (custom track, ${activeCount} active) ---`
+      : `--- REQUIREMENTS (${activeCount} total) ---`
+    lines.push(trackHeader, ``)
+    if (isCustomTrack && candidate?.custom_track_notes) {
+      lines.push(`Track notes: ${candidate.custom_track_notes}`, ``)
+    }
+    printGroup(`BOOK REPORTS (${byType('book_report').length})`, byType('book_report'))
+    printGroup(`THEOLOGICAL PAPERS (${byType('paper').length})`, byType('paper'))
+    printGroup(`SERMONS (${byType('sermon').length})`, byType('sermon'))
+    printGroup(`OTHER (${byType('other').length})`, byType('other'))
+
+    if (waived.length > 0) {
+      lines.push(`WAIVED (${waived.length}):`)
+      for (const req of waived) {
+        const reason = req.waived_reason ? ` — Reason: ${req.waived_reason}` : ''
+        lines.push(`  • ${reqTitle(req)}${reason}`)
+      }
+      lines.push(``)
+    }
   }
 
   // ── Council feedback ──
@@ -167,7 +192,9 @@ function buildContext(
       const dateStr = grade.graded_at
         ? new Date(grade.graded_at).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
         : ''
-      lines.push(`${tmpl?.title ?? 'Unknown'} (${(tmpl?.type ?? '').replace('_', ' ')})`)
+      const reqTitle = tmpl?.title ?? req.custom_title ?? 'Unknown'
+      const reqType  = tmpl?.type ?? req.custom_type ?? ''
+      lines.push(`${reqTitle} (${reqType.replace('_', ' ')})`)
       lines.push(`Rating: ${RATING_LABELS[grade.overall_rating] ?? grade.overall_rating} | Grader: ${graderName}${dateStr ? ` | ${dateStr}` : ''}`)
       if (grade.overall_comments) lines.push(`Feedback: "${grade.overall_comments}"`)
 
@@ -194,7 +221,9 @@ function buildContext(
   }
 
   // ── Self-assessment (papers only) ──
-  const paperReqs = (requirements ?? []).filter(r => r.requirement_templates?.type === 'paper')
+  const paperReqs = (requirements ?? []).filter(r =>
+    (r.requirement_templates?.type ?? r.custom_type) === 'paper' && r.status !== 'waived'
+  )
   const papersWithSA = paperReqs.filter(r => getSubmission(r)?.self_assessment?.version === 2)
 
   if (papersWithSA.length > 0) {
@@ -206,7 +235,7 @@ function buildContext(
       const sa     = sub?.self_assessment?.sections
       if (!sa) continue
 
-      lines.push(`Paper: ${tmpl?.title ?? 'Unknown'}`)
+      lines.push(`Paper: ${tmpl?.title ?? req.custom_title ?? 'Unknown'}`)
       const councilSections = grade?.paper_assessment?.section_ratings ?? {}
 
       for (const [sid, sectionLabel] of Object.entries(PAPER_SECTION_LABELS)) {
@@ -343,13 +372,13 @@ export async function POST(req: NextRequest) {
   ] = await Promise.all([
     supabaseAdmin
       .from('profiles')
-      .select('first_name, last_name, email, mentor_name, mentor_email, cohort_id, created_at')
+      .select('first_name, last_name, email, mentor_name, mentor_email, cohort_id, created_at, is_custom_track, custom_track_notes')
       .eq('id', ordinandId)
       .single(),
     supabaseAdmin
       .from('ordinand_requirements')
       .select(`
-        id, status,
+        id, status, template_id, custom_title, custom_description, custom_type, waived_reason,
         requirement_templates(type, topic, book_category, title, display_order),
         grading_assignments(id, council_member_id),
         submissions(id, file_name, self_assessment, submitted_at,

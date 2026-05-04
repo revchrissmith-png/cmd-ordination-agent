@@ -115,6 +115,7 @@ const STATUS_CONFIG: Record<Status, { label: string; colour: string }> = {
   under_review:      { label: 'Under Review',       colour: 'bg-amber-100 text-amber-700' },
   revision_required: { label: 'Revision Required',  colour: 'bg-red-100 text-red-700' },
   complete:          { label: 'Complete',            colour: 'bg-green-100 text-green-700' },
+  waived:            { label: 'Waived',              colour: 'bg-slate-100 text-slate-600' },
 }
 
 const RATING_OPTIONS = [
@@ -155,7 +156,7 @@ export default function OrdinandRequirementPage() {
     setLoading(true)
     const { data: req } = await supabase
       .from('ordinand_requirements')
-      .select(`id, status, updated_at, ordinand_id, requirement_templates(id, type, topic, book_category, title, description, sermon_question_index), cohorts(sermon_topic)`)
+      .select(`id, status, updated_at, ordinand_id, template_id, custom_title, custom_description, custom_type, waived_reason, requirement_templates(id, type, topic, book_category, title, description, sermon_question_index), cohorts(sermon_topic)`)
       .eq('id', id)
       .single()
     setRequirement(req)
@@ -222,9 +223,12 @@ export default function OrdinandRequirementPage() {
     }
   }, [autoBookOptions.length, selectedBook])
 
-  const isPaper      = requirement?.requirement_templates?.type === 'paper'
-  const isSermon     = requirement?.requirement_templates?.type === 'sermon'
-  const isBook       = requirement?.requirement_templates?.type === 'book_report'
+  const effectiveType = requirement?.requirement_templates?.type ?? requirement?.custom_type
+  const isPaper      = effectiveType === 'paper'
+  const isSermon     = effectiveType === 'sermon'
+  const isBook       = effectiveType === 'book_report'
+  const isCustom     = requirement?.template_id === null
+  const isWaived     = requirement?.status === 'waived'
   const topic        = requirement?.requirement_templates?.topic
   const bookCategory = requirement?.requirement_templates?.book_category ?? ''
   const bookOptions  = BOOK_OPTIONS[bookCategory] ?? []
@@ -363,10 +367,13 @@ export default function OrdinandRequirementPage() {
           {/* Title + status */}
           <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
             <div>
-              <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>{requirement.requirement_templates?.title}</h1>
-              <div className="flex items-center gap-3 mt-2">
+              <h1 className="text-3xl font-black mt-1" style={{ color: C.deepSea }}>
+                {requirement.requirement_templates?.title ?? requirement.custom_title}
+              </h1>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusCfg.colour}`}>{statusCfg.label}</span>
                 {isPaper && <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700">Theological Paper</span>}
+                {isCustom && <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">Custom</span>}
               </div>
             </div>
             {message.text && (
@@ -375,6 +382,23 @@ export default function OrdinandRequirementPage() {
               </div>
             )}
           </div>
+
+          {isWaived && (
+            <div className="bg-slate-100 border border-slate-200 rounded-3xl p-6 mb-6">
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">This requirement has been waived</p>
+              {requirement.waived_reason && (
+                <p className="text-sm text-slate-600 font-medium leading-relaxed">{requirement.waived_reason}</p>
+              )}
+              <p className="text-xs text-slate-400 mt-3">No submission is required. Contact your administrator with questions.</p>
+            </div>
+          )}
+
+          {isCustom && !isWaived && (requirement.custom_description) && (
+            <div className="bg-purple-50 border border-purple-100 rounded-3xl p-8 mb-6">
+              <h2 className="text-xs font-black uppercase tracking-widest mb-3 text-purple-700">Custom Requirement</h2>
+              <p className="text-sm text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{requirement.custom_description}</p>
+            </div>
+          )}
 
           {/* ── Requirement instructions ───────────────────────────────────── */}
 
@@ -666,6 +690,7 @@ export default function OrdinandRequirementPage() {
 
           {/* ── File upload ───────────────────────────────────────────────────── */}
 
+          {!isWaived && (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-6">
             <h2 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">
               {isPaper ? 'Upload Your Paper' : isSermon ? 'Upload Your Sermon Manuscript' : 'Upload Your Assignment'}
@@ -688,8 +713,8 @@ export default function OrdinandRequirementPage() {
               </div>
             )}
 
-            {/* Recording link — sermons only */}
-            {isSermon && (
+            {/* Recording link — standard sermons only (custom sermons skip the recording field) */}
+            {isSermon && !isCustom && (
               <div className="mt-6 pt-6 border-t border-slate-100">
                 <label className="block text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Sermon Recording Link</label>
                 <p className="text-xs text-slate-400 font-medium mb-3">
@@ -713,10 +738,11 @@ export default function OrdinandRequirementPage() {
               </div>
             )}
           </div>
+          )}
 
           {/* ── Submit button ─────────────────────────────────────────────────── */}
 
-          {canEdit && (
+          {!isWaived && canEdit && (
             isSubmitting ? (
               <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
                 <UploadProgress fileName={file?.name} message="Submitting your assignment..." />
@@ -737,7 +763,7 @@ export default function OrdinandRequirementPage() {
             )
           )}
 
-          {!canEdit && (
+          {!isWaived && !canEdit && (
             <div className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4">
               <p className="text-sm font-bold text-slate-500">
                 {status === 'complete' ? '✓ This assignment is complete.' : '⏳ This assignment has been submitted and is awaiting review.'}

@@ -26,17 +26,15 @@ export async function POST(req: NextRequest) {
   // 1. Requirement row
   const { data: reqRow } = await serviceClient
     .from('ordinand_requirements')
-    .select('id, ordinand_id, template_id')
+    .select('id, ordinand_id, template_id, custom_title')
     .eq('id', requirementId)
     .single()
   if (!reqRow) return NextResponse.json({ sent: false, reason: 'Requirement not found' })
 
-  // 2. Assignment title
-  const { data: template } = await serviceClient
-    .from('requirement_templates')
-    .select('title')
-    .eq('id', reqRow.template_id)
-    .single()
+  // 2. Assignment title (custom requirements carry their title inline)
+  const { data: template } = reqRow.template_id
+    ? await serviceClient.from('requirement_templates').select('title').eq('id', reqRow.template_id).single()
+    : { data: null as { title: string } | null }
 
   // 3. Ordinand profile (needs email to send to)
   const { data: ordinandProfile } = await serviceClient
@@ -69,7 +67,7 @@ export async function POST(req: NextRequest) {
   if (!resendKey) return NextResponse.json({ sent: false, reason: 'RESEND_API_KEY not configured' })
 
   const ordinandName    = [ordinandProfile.first_name, ordinandProfile.last_name].filter(Boolean).join(' ') || 'Ordinand'
-  const assignmentTitle = template?.title || 'an assignment'
+  const assignmentTitle = template?.title || reqRow.custom_title || 'an assignment'
   const isComplete      = outcome === 'complete'
   const dashboardUrl    = `${SITE_URL}/dashboard/ordinand`
 
