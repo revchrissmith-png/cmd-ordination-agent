@@ -393,15 +393,10 @@ export const WIKI_SECTIONS: WikiSection[] = [
         id: '5-3',
         heading: '5.3 Monthly Mentor Reports',
         blocks: [
-          { type: 'p', text: 'Mentors are asked to submit a short report each month following a simple reflective template. These reports provide the council with insight into the ordinand\'s growth and engagement and also help track any concerns early in the process.' },
-          { type: 'p', text: 'Reports typically address:' },
-          { type: 'ul', items: [
-            'What the mentor and ordinand discussed that month',
-            'Observations of personal, spiritual, and theological development',
-            'Any missed meetings or patterns of disengagement',
-            'Prayer needs or pastoral concerns',
-          ]},
-          { type: 'p', text: 'These forms are submitted through the CMD Ordination Portal. See Appendix A.6 for the Mentor Report Template.' },
+          { type: 'p', text: 'Each month, ordinands submit a reflective report to their mentor through the portal, following the template in Appendix A.6. The form covers spiritual formation, ministry across its dimensions, personal development, and the mentor relationship itself.' },
+          { type: 'p', text: 'These reports flow from the ordinand to the mentor only. They are not routed to the District Ministry Centre, the Ordaining Council, or any committee — by design. The mentoring relationship is intended as protected space within the ordination process: a place for honesty about formation and struggle that is not held against the ordinand in the Council\'s discernment.' },
+          { type: 'p', text: 'The Council\'s knowledge of the mentoring relationship comes through two surfaces: the annual check-in conversation between the Council and the mentor, and the mentor\'s final evaluation at the end of the process. The monthly reports themselves remain between ordinand and mentor.' },
+          { type: 'p', text: 'See Appendix A.6 for the full reflective template, and §5.4 for how mentors engage with these reports.' },
         ]
       },
       {
