@@ -296,6 +296,12 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-06 — Jordan's email moved to a real-deliverable address (clip 02 unblock)
+
+- **`jordan.smith@cmd-demo.local` → `jordan.smith@canadianmidwest.ca`**: Supabase Auth rejects `.local` domains in `signInWithOtp`, blocking clip 02's recording flow (which teaches the OTP screens). Switched Jordan to a real-deliverable address (M365 alias on `canadianmidwest.ca` routing to Chris) so the OTP path works end-to-end on camera. Casey (mentor) and Alex Bennett (demo grader) keep their `.local` emails — they never authenticate.
+- **Filter discipline now uses `is_demo` everywhere, never email-suffix**: `app/api/admin/daily-report/route.ts` looked up `feedback_reports.user_email.endsWith('@cmd-demo.local')`; replaced with a join through `profiles.is_demo`. `scripts/demo-login-link.mjs` gated on the `.local` suffix; replaced with a `profiles.is_demo` lookup against the Supabase REST API.
+- **Seed updated**: `supabase/demo-seed/jordan-smith.sql` now seeds the new email so re-runs stay aligned.
+
 ### 2026-04-27 — Demo data infrastructure for training-video recording
 
 - **`is_demo` flag on `profiles`**: new boolean column (default false, indexed) used to filter demo/recording accounts out of every admin-facing list, count, queue, and outbound email path. Replaces what would otherwise be a fragile `email LIKE '%@cmd-demo.local'` pattern repeated everywhere.

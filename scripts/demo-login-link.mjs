@@ -41,17 +41,33 @@ if (!url || !serviceKey) {
   process.exit(1)
 }
 
-const email = process.argv[2] ?? 'jordan.smith@cmd-demo.local'
+const email = process.argv[2] ?? 'jordan.smith@canadianmidwest.ca'
 const target = process.argv[3] ?? 'prod'
 
-if (!email.endsWith('@cmd-demo.local')) {
-  console.error(`Refusing — this script only mints links for @cmd-demo.local accounts. Got: ${email}`)
+// Gate on is_demo rather than email-suffix so Jordan's real-deliverable address
+// (set up to receive OTP for clip 02 recording) is allowed without opening
+// the script up to non-demo accounts.
+const profileCheckRes = await fetch(
+  `${url}/rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=is_demo`,
+  { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+)
+if (!profileCheckRes.ok) {
+  console.error(`Could not verify demo status: HTTP ${profileCheckRes.status}`)
+  process.exit(1)
+}
+const profiles = await profileCheckRes.json()
+if (!profiles[0]?.is_demo) {
+  console.error(`Refusing — ${email} is not flagged is_demo=true. This script only mints links for demo accounts.`)
   process.exit(1)
 }
 
+// Redirect to the root login page (not directly to /dashboard/ordinand). The
+// login page subscribes to onAuthStateChange and forwards to /dashboard once
+// the session is set; the dashboard page does an immediate getUser() that
+// races the URL-hash processing and bounces unauthenticated requests back to /.
 const redirectTo = target === 'local'
-  ? 'http://localhost:3000/dashboard/ordinand'
-  : 'https://ordination.canadianmidwest.ca/dashboard/ordinand'
+  ? 'http://localhost:3000/'
+  : 'https://ordination.canadianmidwest.ca/'
 
 const res = await fetch(`${url}/auth/v1/admin/generate_link`, {
   method: 'POST',

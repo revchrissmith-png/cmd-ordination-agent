@@ -36,7 +36,7 @@ values
     '00000000-0000-0000-0000-000000000000',
     'd3300001-0000-4000-8000-000000000001',
     'authenticated', 'authenticated',
-    'jordan.smith@cmd-demo.local',
+    'jordan.smith@canadianmidwest.ca',
     null,
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
@@ -68,7 +68,7 @@ on conflict (id) do update set
 update public.profiles set
   first_name = 'Jordan',
   last_name = 'Smith',
-  email = 'jordan.smith@cmd-demo.local',
+  email = 'jordan.smith@canadianmidwest.ca',
   roles = array['ordinand']::text[],
   status = 'active',
   cohort_id = '5edc53fa-67b6-4e0b-aa45-4424dd95941d',  -- Spring 2027

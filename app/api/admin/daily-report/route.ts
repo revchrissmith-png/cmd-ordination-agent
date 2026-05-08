@@ -43,9 +43,16 @@ export async function GET(req: NextRequest) {
 
   // Strip demo accounts from the daily report — they exist only for video
   // recording and shouldn't show up in the admin's morning summary.
+  // feedback_reports lacks an is_demo flag, so look up demo user_ids and filter.
+  const { data: demoUsers } = await serviceClient
+    .from('profiles')
+    .select('id')
+    .eq('is_demo', true)
+  const demoUserIds = new Set((demoUsers ?? []).map((u: { id: string }) => u.id))
+
   const logs = (logsRaw ?? []).filter((row: any) => !row.profiles?.is_demo)
   const feedback = (feedbackRaw ?? []).filter((row: any) =>
-    !row.user_email?.endsWith('@cmd-demo.local')
+    !row.user_id || !demoUserIds.has(row.user_id)
   )
 
   // ── Group activity by user ────────────────────────────────────────────────
