@@ -345,6 +345,13 @@ function OrdinandDashboardContent() {
             </div>
             <p className="text-xs text-slate-400 font-medium leading-relaxed">Full process guide, roles, and resources</p>
           </Link>
+          <Link href="/training" className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-200 hover:shadow-sm transition-all group">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-xl">🎥</span>
+              <span className="text-xs font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-600 transition-colors">Training Videos</span>
+            </div>
+            <p className="text-xs text-slate-400 font-medium leading-relaxed">15 short walkthroughs of the portal — about 8 minutes total</p>
+          </Link>
         </div>
 
         {/* Upcoming events */}

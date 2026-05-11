@@ -47,6 +47,7 @@ export default function NavBar() {
     { href: '/dashboard/council', label: 'Grading', show: isCouncil || isAdmin },
     { href: '/dashboard/ordinand', label: 'Requirements', show: isOrdinand || isAdmin },
     { href: '/dashboard/study', label: 'Pardington', show: true },
+    { href: '/training', label: 'Training', show: true },
     { href: '/handbook', label: 'Handbook', show: true },
   ]
 
