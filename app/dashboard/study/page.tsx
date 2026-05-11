@@ -20,6 +20,13 @@ const SUGGESTED_QUESTIONS = [
   'How do I think about the relationship between faith and healing?',
 ]
 
+type SessionRow = {
+  session_id: string
+  messages: Message[]
+  started_at: string
+  last_message_at: string | null
+}
+
 export default function PardingtonPage() {
   const [messages, setMessages]           = useState<Message[]>([])
   const [input, setInput]                 = useState('')
@@ -27,6 +34,7 @@ export default function PardingtonPage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const [sessionStale, setSessionStale]   = useState(false)
   const [consentStatus, setConsentStatus] = useState<'loading' | 'needed' | 'granted'>('loading')
+  const [sessions, setSessions]           = useState<SessionRow[]>([])
   const bottomRef   = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lastActivity = useRef<number>(Date.now())
@@ -92,6 +100,41 @@ export default function PardingtonPage() {
     ].join('\n')
   }
 
+  // Refresh the sidebar's session list from pardington_logs. Called on mount,
+  // after consent, after each save, and after "+ New conversation".
+  async function loadSessions() {
+    if (!ordinandId.current) return
+    const { data } = await supabase
+      .from('pardington_logs')
+      .select('session_id, messages, started_at, last_message_at')
+      .eq('ordinand_id', ordinandId.current)
+      .order('started_at', { ascending: false })
+    if (data) setSessions(data as SessionRow[])
+  }
+
+  // Switch the chat pane to a specific historical session.
+  function selectSession(session: SessionRow) {
+    sessionId.current = session.session_id
+    startedAt.current = session.started_at
+    setMessages(session.messages ?? [])
+    setSessionStale(false)
+    lastActivity.current = Date.now()
+  }
+
+  // Derive a short title for a session's sidebar entry from the first user message.
+  function getSessionTitle(session: SessionRow): string {
+    const firstUser = session.messages?.find(m => m.role === 'user')
+    if (!firstUser) return 'New conversation'
+    const text = firstUser.content.trim().replace(/\s+/g, ' ')
+    return text.length > 60 ? text.slice(0, 57) + '…' : text
+  }
+
+  // Format a session's date for sidebar display (short, locale-aware).
+  function formatSessionDate(session: SessionRow): string {
+    const ts = session.last_message_at || session.started_at
+    return new Date(ts).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+  }
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setIsLoadingHistory(false); setConsentStatus('granted'); return }
@@ -126,7 +169,7 @@ export default function PardingtonPage() {
         const latest = logs[0] as { session_id: string; messages: Message[]; started_at: string }
         if (latest.messages && latest.messages.length > 0) {
           setMessages(latest.messages)
-          sessionId.current = latest.session_id   // continue upsetting the same row
+          sessionId.current = latest.session_id   // continue upserting the same row
           startedAt.current = latest.started_at
         }
 
@@ -136,6 +179,9 @@ export default function PardingtonPage() {
           studyHistory.current = buildHistorySummary(older)
         }
       }
+
+      // Populate the sidebar's full session list.
+      await loadSessions()
 
       setIsLoadingHistory(false)
     })
@@ -173,6 +219,9 @@ export default function PardingtonPage() {
       }
     }
 
+    // Populate the sidebar's full session list.
+    await loadSessions()
+
     setIsLoadingHistory(false)
   }
 
@@ -201,6 +250,9 @@ export default function PardingtonPage() {
         },
         { onConflict: 'session_id' }
       )
+      // Refresh the sidebar so the current session shows its updated message
+      // count / preview text and rises to the top of the list.
+      await loadSessions()
     } catch {
       // Silently swallow — logging must never interrupt the conversation
     }
@@ -276,7 +328,101 @@ export default function PardingtonPage() {
   }
 
   return (
-    <div style={{ backgroundColor: C.cloudGray, height: 'calc(100vh - 3.5rem)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ height: 'calc(100vh - 3.5rem)', display: 'flex', flexDirection: 'row', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
+
+      {/* ══════════ Conversation history sidebar ══════════ */}
+      {consentStatus === 'granted' && (
+        <aside className="pardington-sidebar" style={{
+          width: '360px',
+          flexShrink: 0,
+          backgroundColor: '#0E2745',
+          borderRight: '1px solid rgba(0,0,0,0.15)',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+        }}>
+          {/* Sidebar header */}
+          <div style={{ padding: '1.1rem 1.5rem 0.75rem', flexShrink: 0 }}>
+            <div style={{ color: '#9FB3CC', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.25em' }}>CONVERSATIONS</div>
+            <div style={{ width: '52px', height: '2px', backgroundColor: '#F4B91A', borderRadius: '2px', marginTop: '0.5rem' }} />
+          </div>
+
+          {/* Session list (scrollable) */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0.75rem' }}>
+            {sessions.length === 0 ? (
+              <p style={{ color: '#9FB3CC', fontSize: '0.78rem', fontStyle: 'italic', padding: '1rem 0.75rem', margin: 0 }}>
+                No conversations yet. Ask a question below to start one.
+              </p>
+            ) : (
+              sessions.map(s => {
+                const isCurrent = s.session_id === sessionId.current
+                return (
+                  <button
+                    key={s.session_id}
+                    onClick={() => selectSession(s)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      background: isCurrent ? '#11355A' : 'transparent',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '0.75rem 0.75rem 0.75rem 1rem',
+                      margin: '0.15rem 0',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      position: 'relative',
+                      color: isCurrent ? '#FAF6EE' : 'rgba(250,246,238,0.85)',
+                      transition: 'background-color 0.15s ease',
+                      fontFamily: 'inherit',
+                    }}
+                    onMouseOver={e => { if (!isCurrent) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(17,53,90,0.5)' }}
+                    onMouseOut={e => { if (!isCurrent) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
+                  >
+                    {isCurrent && (
+                      <span style={{ position: 'absolute', left: 0, top: '0.65rem', bottom: '0.65rem', width: '3px', backgroundColor: '#F4B91A', borderRadius: '2px' }} />
+                    )}
+                    <div style={{ fontSize: '0.85rem', fontWeight: isCurrent ? 600 : 500, lineHeight: 1.35, marginBottom: '0.25rem' }}>
+                      {getSessionTitle(s)}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#9FB3CC', fontWeight: 500 }}>
+                      {formatSessionDate(s)} · {s.messages?.length ?? 0} {(s.messages?.length ?? 0) === 1 ? 'message' : 'messages'}
+                      {isCurrent && <span style={{ color: '#F4B91A', marginLeft: '0.6rem', fontWeight: 600, letterSpacing: '0.1em' }}>CURRENT</span>}
+                    </div>
+                  </button>
+                )
+              })
+            )}
+          </div>
+
+          {/* "+ New conversation" button at bottom */}
+          <div style={{ padding: '0.75rem 1rem 1rem', flexShrink: 0, borderTop: '1px solid #1B3756' }}>
+            <button
+              onClick={startNewConversation}
+              style={{
+                display: 'block',
+                width: '100%',
+                background: 'transparent',
+                border: '1px solid #3A5A7E',
+                borderRadius: '8px',
+                color: '#9FB3CC',
+                padding: '0.7rem 1rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                letterSpacing: '0.02em',
+                fontFamily: 'inherit',
+              }}
+              onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F4B91A'; (e.currentTarget as HTMLButtonElement).style.color = '#FAF6EE' }}
+              onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3A5A7E'; (e.currentTarget as HTMLButtonElement).style.color = '#9FB3CC' }}
+            >
+              + New conversation
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* ══════════ Main column ══════════ */}
+      <div style={{ flex: 1, backgroundColor: C.cloudGray, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
       {/* Pardington sub-header */}
       <div style={{ backgroundColor: C.deepSea, borderBottom: `3px solid ${C.allianceBlue}`, padding: '0.5rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -430,6 +576,8 @@ export default function PardingtonPage() {
         <p style={{ maxWidth: '800px', margin: '0.4rem auto 0', fontSize: '0.72rem', color: '#999', paddingLeft: '2px' }}>Enter to send · Shift+Enter for new line</p>
       </div>
 
+      </div> {/* ══════════ end main column ══════════ */}
+
       {/* Pardington consent disclaimer — shown once on first use */}
       {consentStatus === 'needed' && (
         <ModalWrapper
@@ -486,6 +634,9 @@ export default function PardingtonPage() {
         @keyframes bounce {
           0%, 80%, 100% { transform: translateY(0); }
           40% { transform: translateY(-6px); }
+        }
+        @media (max-width: 800px) {
+          .pardington-sidebar { display: none; }
         }
       `}</style>
     </div>
