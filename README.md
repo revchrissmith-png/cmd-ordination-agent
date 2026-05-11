@@ -296,6 +296,17 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-11 — Pardington conversation-history sidebar
+
+- **Conversation-history sidebar on `/dashboard/study`** (PR #2): left-edge panel listing the user's prior Pardington sessions, sorted most-recent first. Each entry shows a title (derived from the first user message, 60-char truncate), the session date, and message count. Click an entry to load that session's messages into the chat pane. "+ New conversation" button at the bottom starts a fresh session. Sidebar refreshes after each save so the current session rises to the top with updated preview text and message count. Hidden via media query on screens narrower than 800px (mobile design is v1.1 polish).
+- **Why this exists**: the training video library narrated "your conversation history is saved in the sidebar so you can pick up later" in clip 11. Cue's original script referenced an affordance that didn't exist — the page only auto-resumed the most recent session and had no visible session list. Patching with a graphic overlay would have trained ordinands to look for a UI feature the product didn't have. Built the real thing instead.
+- **Doesn't change**: auto-resume of the most recent session still happens on page load; the system-prompt history-summary injection from older sessions is unchanged; the `pardington_logs` schema is unchanged; consent flow is unchanged.
+
+### 2026-05-04 — Handbook §5.3 + Pardington restraint amendment
+
+- **Handbook §5.3 (Monthly Mentor Reports)** rewritten to name the pastoral design intent (PR #1): reports flow ordinand→mentor only and are not routed to the District Ministry Centre or Ordaining Council. Removes a contradiction with §5.4 / Appendix A.6 / the dashboard route description / the `mailto:` submit architecture, all of which were already aligned with the "protected space" design — only §5.3's old text was the outlier. Council's mentor-side knowledge comes through annual check-ins + the mentor's final evaluation, not the monthly reports.
+- **Pardington system prompt: explicit no-book-summaries hard limit** added to `app/api/study-agent/route.ts`. Old hard limits forbade paper-writing and sermon-writing but allowed summaries — a literal "summarize chapter 11" prompt would slip through. Now refused with a fixed pastoral response that redirects to engagement with the reading itself. Closes a gap referenced in clip 12 of the training video library.
+
 ### 2026-05-06 — Jordan's email moved to a real-deliverable address (clip 02 unblock)
 
 - **`jordan.smith@cmd-demo.local` → `jordan.smith@canadianmidwest.ca`**: Supabase Auth rejects `.local` domains in `signInWithOtp`, blocking clip 02's recording flow (which teaches the OTP screens). Switched Jordan to a real-deliverable address (M365 alias on `canadianmidwest.ca` routing to Chris) so the OTP path works end-to-end on camera. Casey (mentor) and Alex Bennett (demo grader) keep their `.local` emails — they never authenticate.
