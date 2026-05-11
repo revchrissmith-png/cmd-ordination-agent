@@ -3,13 +3,15 @@ const ContentSecurityPolicy = [
   // Next.js requires unsafe-inline for its runtime scripts and Tailwind for inline styles
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  // Local images, data URIs, and the CMD logo used in the email preview modal
-  "img-src 'self' data: https://i.imgur.com",
+  // Local images, data URIs, and the CMD logo used in the email preview modal.
+  // i.ytimg.com is allowed so YouTube thumbnails inside the /training embeds resolve.
+  "img-src 'self' data: https://i.imgur.com https://i.ytimg.com",
   "font-src 'self'",
   // Supabase API + realtime websocket
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
-  // Anthropic API is called server-side only — no client connect-src needed
-  "frame-src 'none'",
+  // Anthropic API is called server-side only — no client connect-src needed.
+  // YouTube nocookie embeds are allowed for the /training video library.
+  "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
