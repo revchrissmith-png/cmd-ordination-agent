@@ -35,6 +35,8 @@ export default function PardingtonPage() {
   const [sessionStale, setSessionStale]   = useState(false)
   const [consentStatus, setConsentStatus] = useState<'loading' | 'needed' | 'granted'>('loading')
   const [sessions, setSessions]           = useState<SessionRow[]>([])
+  // Default true so SSR / mobile first paint hide the sidebar; flips after mount on wide viewports.
+  const [isNarrowViewport, setIsNarrowViewport] = useState(true)
   const bottomRef   = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lastActivity = useRef<number>(Date.now())
@@ -51,6 +53,17 @@ export default function PardingtonPage() {
       if (Date.now() - lastActivity.current >= STALE_MS) setSessionStale(true)
     }, 60_000)
     return () => clearInterval(interval)
+  }, [])
+
+  // Track viewport width so the 360px sidebar isn't forced onto mobile.
+  // Inline styles on the <aside> override CSS media queries, so the hide
+  // decision has to live in JS / conditional render.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 800px)')
+    setIsNarrowViewport(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsNarrowViewport(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
   }, [])
 
   // Plain-text history summary injected into the system prompt each turn.
@@ -331,7 +344,7 @@ export default function PardingtonPage() {
     <div style={{ height: 'calc(100vh - 3.5rem)', display: 'flex', flexDirection: 'row', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
 
       {/* ══════════ Conversation history sidebar ══════════ */}
-      {consentStatus === 'granted' && (
+      {consentStatus === 'granted' && !isNarrowViewport && (
         <aside className="pardington-sidebar" style={{
           width: '360px',
           flexShrink: 0,
@@ -634,9 +647,6 @@ export default function PardingtonPage() {
         @keyframes bounce {
           0%, 80%, 100% { transform: translateY(0); }
           40% { transform: translateY(-6px); }
-        }
-        @media (max-width: 800px) {
-          .pardington-sidebar { display: none; }
         }
       `}</style>
     </div>
