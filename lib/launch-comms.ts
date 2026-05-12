@@ -55,11 +55,11 @@ function blessingBlock(lines: string[]): string {
 const COUNCIL_PREP_SUBJECT = 'Coming May 25 — your week with the new portal'
 
 const COUNCIL_PREP_BODY: string[] = [
-  `A short note before our Ordaining Council meetings later this month. When we gather Monday May 25, the new CMD Ordination Portal opens for the Council at noon. You'll have that week — between our meetings and Monday June 1 — to get familiar with the dashboard and your assignments before ordinand submissions start coming in. Submissions are paused for ordinands that week so you've got space to settle in.`,
-  `I'll walk us through the portal in person while we're together. The dashboard, smart grader assignment, exclusions, Pardington (now with conversation history). No prep needed; just bring a laptop or tablet you can check email on.`,
-  `Migration from Moodle is finished, by the way. Every active ordinand is on the portal now.`,
-  `Submissions reopen Monday June 1 at 8 a.m. Central. That's when notifications will start flowing to you again.`,
-  `If anything comes up before we meet, reach out to me directly.`,
+  `A short note before our Ordaining Council meetings later this month. On Monday May 25, the new CMD Ordination Portal opens for the Council at noon. You'll have exclusive access from May 25th through  Monday June 1 — to get familiar with the dashboard and your assigned marking before ordinand submissions start coming in. Submissions are paused for one week so you've got space to settle in.`,
+  `We'll walk through the portal while we're together. The dashboard, smart grader assignment, exclusions, Pardington (now with conversation history). No prep needed. Just bring a laptop or tablet you can check email on.`,
+  `Migration from Moodle is now complete. Every active ordinand is on the portal.`,
+  `Ordinand submissions reopen Monday June 1 at 8 a.m. Central. That's when notifications will start flowing to you and the next chapter of CMD ordination begins in earnest.`,
+  `Questions before we meet? Reach out to me directly.`,
 ]
 
 export function renderCouncilPrep(firstName: string): { subject: string; html: string } {
@@ -72,13 +72,13 @@ export function renderCouncilPrep(firstName: string): { subject: string; html: s
 const ORDINAND_PREP_SUBJECT = 'Coming June 1 — the new Ordination Portal'
 
 const ORDINAND_PREP_BODY: string[] = [
-  `Just over two weeks from now, on Monday June 1, the new CMD Ordination Portal opens for everyone. You'll find it at **ordination.canadianmidwest.ca**. A few things to know before then.`,
-  `**Your existing work is safe.** Everything has been ported over and will be live on the portal June 1: book reports you've turned in, feedback you've gotten back, papers you've started. Nothing was lost in the move.`,
-  `**The Council goes online a week before you, on May 25**, so they can spend time with the new system before you arrive. To give them that week without ordinand submissions piling up, **submissions are paused from noon on May 25 until 8 a.m. June 1 (Central).** You can still browse your requirements, read prior feedback, and use the new study companion (more on him below). You just can't submit new work during those six days. **Plan ahead: anything you want submitted before the pause needs to be in by Sunday May 24.**`,
+  `In just over two weeks, on Monday June 1, the new CMD Ordination Portal opens for you. You'll find it at **ordination.canadianmidwest.ca**. A few things to know before then.`,
+  `**Your submitted work is safe.** Everything has been moved over and will be live on the portal June 1: book reports you've turned in, feedback you've gotten back, papers you've uploaded. Nothing was lost.`,
+  `**The Ordaining Council goes online a week before you,** so they can spend time with the new system before you arrive. **submissions are paused from noon on May 25 until 8 a.m. June 1 (Central).** You can still browse your requirements, read prior feedback, and use the new study companion (more on him below). You just can't submit new work during those six days. **Plan ahead: anything you want submitted before the pause needs to be in by Sunday May 24.**`,
   `**Signing in.** Enter your email at the portal, and we'll send you a one-time six-digit code to use on the next screen. No passwords to remember.`,
   `**Your dashboard** shows your progress through the seventeen requirements, grouped by type. From there you submit work, read feedback, and reach the training library.`,
-  `**A good use of the quiet week.** A library of short training videos lives on your dashboard — about seven minutes in total, easy to watch on a phone between meetings. The week of May 25 is a natural time to watch them and get familiar with the new portal before submissions reopen June 1.`,
-  `**You'll also meet Pardington**, our AI study companion. He's named in honour of George Palmer Pardington, an Alliance theologian and contemporary of A.B. Simpson. He's there to think with you about the readings and help you prepare for your oral examination. He won't write your papers or sermons. That work is yours.`,
+  `**How to Videos:** Short training videos live on your dashboard — about seven minutes in total, easy to watch on a phone between meetings.`,
+  `**Meet Pardington**! Our AI study companion. He's named in honour of George Palmer Pardington, an Alliance theologian and contemporary of A.B. Simpson. He's there to think with you about the readings and help you prepare for your oral examination. He won't write your papers or sermons. That work is yours.`,
   `**Your monthly mentor report** now lives in the portal too — easier to keep on rhythm, and just as private as before. That conversation belongs to you and your mentor alone, and the Council never sees it.`,
   `If anything is missing or feels off when you log in June 1, drop Michelle a note at the District Ministry Centre and she'll get it sorted.`,
 ]
@@ -93,7 +93,7 @@ export function renderOrdinandPrep(firstName: string): { subject: string; html: 
 const ORDINAND_GO_LIVE_SUBJECT = 'The portal is here'
 
 const ORDINAND_GO_LIVE_OPENER =
-  `As promised: the new CMD Ordination Portal is live this morning. Submissions are open. Your work is waiting. Welcome.`
+  `As promised: the new CMD Ordination Portal is now live! Submissions are open. Your new space is waiting. Welcome.`
 
 const ORDINAND_GO_LIVE_BLESSING: string[] = [
   `May the work that begins here today, and the work that has long been quietly underway, find its true ground in Christ.`,
