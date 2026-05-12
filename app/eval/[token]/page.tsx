@@ -132,7 +132,7 @@ export default function EvalFormPage() {
       })
 
       if (evalError) {
-        setError('There was a problem submitting your evaluation. Please try again or contact the District Office.')
+        setError('There was a problem submitting your evaluation. Please try again or contact the District Ministry Centre.')
         setSubmitting(false)
         return
       }
@@ -143,7 +143,7 @@ export default function EvalFormPage() {
         .eq('id', tokenData.id)
 
       if (tokenError) {
-        setError('Your evaluation was saved, but we encountered a secondary error. Please contact the District Office to confirm receipt.')
+        setError('Your evaluation was saved, but we encountered a secondary error. Please contact the District Ministry Centre to confirm receipt.')
         setSubmitting(false)
         return
       }
@@ -177,7 +177,7 @@ export default function EvalFormPage() {
         <div className="text-4xl mb-4">🔒</div>
         <h1 className="text-xl font-black text-slate-900 mb-2">Link Not Found</h1>
         <p className="text-slate-500 font-medium text-sm leading-relaxed">
-          This evaluation link is invalid or has expired. Please contact the Canadian Midwest District Office if you believe this is an error.
+          This evaluation link is invalid or has expired. Please contact the Canadian Midwest District Ministry Centre if you believe this is an error.
         </p>
       </div>
     </div>

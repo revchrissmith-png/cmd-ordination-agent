@@ -183,7 +183,7 @@ export default function Home() {
             {/* Contact note */}
             <p style={{ color: '#aaa', fontSize: '0.88rem', textAlign: 'center', marginTop: '1.6rem', lineHeight: 1.6, fontWeight: '500' }}>
               Don't have access yet?<br />
-              <span style={{ color: C.allianceBlue }}>Contact the CMD District Office</span> to be added to the portal.
+              <span style={{ color: C.allianceBlue }}>Contact the CMD District Ministry Centre</span> to be added to the portal.
             </p>
           </>
         ) : (

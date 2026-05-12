@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
             ${emailButton(gradingUrl, 'OPEN GRADING PAGE →')}
             <p style="color:#888;font-size:13px;line-height:1.6;border-top:1px solid #eee;padding-top:20px;margin-top:8px;">
               You're receiving this because you are the assigned grader for this submission.<br/>
-              If you have questions, please contact the CMD District Office.
+              If you have questions, please contact the CMD District Ministry Centre.
             </p>`),
     }),
   })

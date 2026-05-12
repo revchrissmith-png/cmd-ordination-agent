@@ -305,7 +305,7 @@ function OrdinandDashboardContent() {
               </Link>
             </div>
           ) : (
-            <p className="text-sm text-slate-400 font-medium">No mentor assigned yet. Contact the District Office if you have questions about your mentorship.</p>
+            <p className="text-sm text-slate-400 font-medium">No mentor assigned yet. Contact the District Ministry Centre if you have questions about your mentorship.</p>
           )}
         </div>
 

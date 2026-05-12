@@ -246,11 +246,11 @@ export default function MentorReportPage() {
                     )}
                   </div>
                   {!profile.mentor_email && (
-                    <p className="text-xs font-bold text-amber-700">No mentor email on file — contact the District Office to have it added. You can still fill in your report and copy it manually.</p>
+                    <p className="text-xs font-bold text-amber-700">No mentor email on file — contact the District Ministry Centre to have it added. You can still fill in your report and copy it manually.</p>
                   )}
                 </>
               ) : (
-                <p className="text-sm font-bold text-amber-700">No mentor has been assigned yet. Contact the District Office. You can still fill in your report below.</p>
+                <p className="text-sm font-bold text-amber-700">No mentor has been assigned yet. Contact the District Ministry Centre. You can still fill in your report below.</p>
               )}
             </div>
           )}

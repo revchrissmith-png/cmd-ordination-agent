@@ -90,7 +90,7 @@ export default function BetaBanner() {
               <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
                 <div style={{ fontSize: '2.25rem', marginBottom: '0.6rem' }}>✅</div>
                 <p style={{ fontWeight: 700, color: '#059669', margin: 0 }}>Thank you! Your feedback has been recorded.</p>
-                <p style={{ fontSize: '0.82rem', color: '#6B7280', marginTop: '0.4rem' }}>The District Office will review it shortly.</p>
+                <p style={{ fontSize: '0.82rem', color: '#6B7280', marginTop: '0.4rem' }}>The District Ministry Centre will review it shortly.</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit}>

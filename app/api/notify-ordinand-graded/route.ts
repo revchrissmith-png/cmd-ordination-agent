@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
             ${emailButton(dashboardUrl, 'VIEW MY DASHBOARD →')}
             <p style="color:#888;font-size:13px;line-height:1.6;border-top:1px solid #eee;padding-top:20px;margin-top:8px;">
               You're receiving this because an assignment in your CMD ordination process has been graded.<br/>
-              If you have questions, please contact the CMD District Office.
+              If you have questions, please contact the CMD District Ministry Centre.
             </p>`),
     }),
   })

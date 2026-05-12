@@ -149,7 +149,7 @@ export default function TrainingPage() {
 
           {/* Footer note */}
           <div className="mt-12 text-center">
-            <p className="text-xs text-slate-400 font-medium">Need something this library doesn&rsquo;t cover? <Link href="/handbook" className="underline hover:text-blue-600">Open the Handbook</Link> or message the District Office.</p>
+            <p className="text-xs text-slate-400 font-medium">Need something this library doesn&rsquo;t cover? <Link href="/handbook" className="underline hover:text-blue-600">Open the Handbook</Link> or message the District Ministry Centre.</p>
           </div>
 
         </div>

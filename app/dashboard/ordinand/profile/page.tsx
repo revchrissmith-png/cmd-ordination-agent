@@ -162,7 +162,7 @@ export default function OrdinandProfilePage() {
           {/* Info note */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm px-8 py-6">
             <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: C.allianceBlue }}>Need to update your email or cohort?</p>
-            <p className="text-sm text-slate-500 font-medium leading-relaxed">Email address and cohort assignment can only be changed by an administrator. Contact the CMD District Office if any of your details are incorrect.</p>
+            <p className="text-sm text-slate-500 font-medium leading-relaxed">Email address and cohort assignment can only be changed by an administrator. Contact the CMD District Ministry Centre if any of your details are incorrect.</p>
           </div>
 
         </div>

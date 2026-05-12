@@ -295,7 +295,7 @@ SUMMARY
   ◷ In Progress: ${inProgress}
   ○ Not Started: ${notStarted}${revisionItems ? `\n  ⚠ Revision Required: ${revisionRequired}` : ''}
 ${revisionItems ? `\nACTION REQUIRED — please revise and resubmit the following:\n${revisionItems}\n` : ''}${submittedItems ? `\nIN PROGRESS — currently under review:\n${submittedItems}\n` : ''}
-If you have any questions, please reach out to the District Office.
+If you have any questions, please reach out to the District Ministry Centre.
 
 In His service,
 CMD Ordaining Council`

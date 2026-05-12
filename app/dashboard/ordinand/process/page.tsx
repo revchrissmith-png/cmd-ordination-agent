@@ -201,7 +201,7 @@ export default function OrdinandProcessPage() {
               </div>
             ) : !loading ? (
               <div className="bg-slate-50 border border-slate-100 rounded-2xl px-5 py-5 mb-5">
-                <p className="text-sm text-slate-500 font-medium">No upcoming gatherings have been scheduled yet. Check back soon, or contact the District Office for dates.</p>
+                <p className="text-sm text-slate-500 font-medium">No upcoming gatherings have been scheduled yet. Check back soon, or contact the District Ministry Centre for dates.</p>
               </div>
             ) : null}
             <div className="mt-5 bg-amber-50 border border-amber-100 rounded-2xl px-5 py-4">
@@ -235,7 +235,7 @@ export default function OrdinandProcessPage() {
             )}
             {!profile?.mentor_name && !loading && (
               <div className="bg-amber-50 border border-amber-100 rounded-2xl px-5 py-4 mb-5">
-                <p className="text-xs font-bold text-amber-700">No mentor has been assigned yet. Contact the District Office if you have questions about your mentorship.</p>
+                <p className="text-xs font-bold text-amber-700">No mentor has been assigned yet. Contact the District Ministry Centre if you have questions about your mentorship.</p>
               </div>
             )}
 

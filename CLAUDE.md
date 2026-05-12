@@ -1,7 +1,7 @@
 # Team Context
 
-This project is managed by the Orion AI Team. When working in this repo:
-- Orion orchestrates — delegates all dev work to Nova
+This project is orchestrated by **Dax**. When working in this repo:
+- Dax orchestrates — delegates all dev work to Nova
 - Nova handles all Next.js, Supabase, TypeScript, and Vercel work
 
 @/Users/christopher/Library/Mobile Documents/com~apple~CloudDocs/Personal/PKAgent/CLAUDE.md
@@ -54,7 +54,7 @@ A custom learning management system (LMS) built for the **Canadian Midwest Distr
 - Email OTP sign-in (Supabase sends a 6-digit code by email)
 - `shouldCreateUser: false` — blocks self-registration
 - `onAuthStateChange` listener auto-redirects on successful sign-in
-- "Contact the District Office" note for users without access
+- "Contact the District Ministry Centre" note for users without access
 - Auth callback handler at `/auth/callback/page.tsx`
 
 ### ✅ Dashboard router (`/dashboard/page.tsx`)
@@ -343,15 +343,16 @@ README.md                           ✅ Public repo documentation (overview, fea
 
 ---
 
-## 6. Migration Context (as of March 26, 2026)
+## 6. Migration Context (current as of May 10, 2026)
 
-The portal has entered **Beta** as of March 26, 2026. Active migration from Moodle (the alpha LMS) is underway.
+The portal entered **Beta** on March 26, 2026. As of May 10, 2026 the Moodle-to-portal migration is **essentially complete** — every active ordinand is on the portal.
 
-- **21 ordinands** are being migrated to the portal now (Spring 2026 and Fall 2026 cohorts)
-- **9 ordinands** remain in Moodle until their Moodle subscription renews (Spring 2027 / Fall 2027 cohorts) — running dual systems temporarily is unavoidable given the 3-year ordination process
-- **Admin upload** is the primary migration tool: upload file, set original submission date, use "Graded By" to attribute grade to the correct council member; upload no longer auto-opens the grade modal, so ungraded submissions can be migrated freely
-- **Admin self-assessment entry** allows migration of paper self-assessments submitted in Moodle that weren't captured in portal form fields
-- **Joanna Smith** (joanna@rosewoodpark.ca) was the first live beta migration — completed March 21, 2026; 5/17 requirements complete from real Moodle data
+- **One ordinand remains in Moodle:** Joel Fuglerud, who is the last candidate on the pre-2024 requirements revision track. He stays in Moodle through completion of that track and is intentionally outside portal-launch planning.
+- **Admin upload** was the primary migration tool: upload file, set original submission date, use "Graded By" to attribute grade to the correct council member; upload does not auto-open the grade modal, so ungraded submissions can be migrated freely.
+- **Admin self-assessment entry** supported migration of paper self-assessments submitted in Moodle that weren't captured in portal form fields.
+- **Joanna Smith** (joanna@rosewoodpark.ca) was the first live beta migration, completed March 21, 2026.
+
+**Historical context:** The original beta plan (March 26) called for 21 ordinands to migrate immediately and 9 to remain in Moodle until subscription renewal. That dual-system phase has been collapsed — only Joel remains on Moodle. Any doc that still references "21 migrating / 9 remaining" is stale.
 
 ---
 
