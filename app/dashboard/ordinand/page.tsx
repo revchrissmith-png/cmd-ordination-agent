@@ -317,47 +317,44 @@ function OrdinandDashboardContent() {
         </div>
 
         {/* Quick-access cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
           <Link href="/dashboard/ordinand/process"
-            className="bg-white rounded-2xl border border-slate-200 px-6 py-5 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
-            <div>
+            className="bg-white rounded-2xl border border-slate-200 px-4 py-4 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
+            <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Process Guide</p>
-              <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">The Ordination Journey</p>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">Timeline, mentorship & interview</p>
+              <p className="text-xs font-bold text-slate-700 group-hover:text-blue-700 transition-colors leading-snug">The Ordination Journey</p>
             </div>
-            <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-4">→</span>
+            <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-3 shrink-0">→</span>
           </Link>
           <Link href="/dashboard/study"
-            className="bg-white rounded-2xl border border-slate-200 px-6 py-5 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
-            <div>
+            className="bg-white rounded-2xl border border-slate-200 px-4 py-4 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
+            <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>Pardington</p>
-              <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">AI Ordination Study Partner</p>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">Explore theology & interview prep</p>
+              <p className="text-xs font-bold text-slate-700 group-hover:text-blue-700 transition-colors leading-snug">AI Study Partner</p>
             </div>
-            <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-4">→</span>
+            <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-3 shrink-0">→</span>
           </Link>
           <Link href="/dashboard/ordinand/profile"
-            className="bg-white rounded-2xl border border-slate-200 px-6 py-5 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
-            <div>
+            className="bg-white rounded-2xl border border-slate-200 px-4 py-4 hover:shadow-md hover:border-blue-200 transition-all group flex items-center justify-between">
+            <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>My Profile</p>
-              <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">Personal Details</p>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">Name, email, cohort information</p>
+              <p className="text-xs font-bold text-slate-700 group-hover:text-blue-700 transition-colors leading-snug">Personal Details</p>
             </div>
-            <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-4">→</span>
+            <span className="text-slate-300 group-hover:text-blue-400 transition-colors font-bold text-lg ml-3 shrink-0">→</span>
           </Link>
-          <Link href="/handbook" className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-200 hover:shadow-sm transition-all group">
-            <div className="flex items-center gap-3 mb-2">
+          <Link href="/handbook" className="bg-white rounded-2xl border border-slate-200 px-4 py-4 hover:border-blue-200 hover:shadow-sm transition-all group">
+            <div className="flex items-center gap-2 mb-2">
               <span className="text-xl">📖</span>
               <span className="text-xs font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-600 transition-colors">Handbook</span>
             </div>
-            <p className="text-xs text-slate-400 font-medium leading-relaxed">Full process guide, roles, and resources</p>
+            <p className="text-xs text-slate-400 font-medium leading-snug">Process guide, roles &amp; resources</p>
           </Link>
-          <Link href="/training" className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-200 hover:shadow-sm transition-all group">
-            <div className="flex items-center gap-3 mb-2">
+          <Link href="/training" className="bg-white rounded-2xl border border-slate-200 px-4 py-4 hover:border-blue-200 hover:shadow-sm transition-all group">
+            <div className="flex items-center gap-2 mb-2">
               <span className="text-xl">🎥</span>
               <span className="text-xs font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-600 transition-colors">Training Videos</span>
             </div>
-            <p className="text-xs text-slate-400 font-medium leading-relaxed">15 short walkthroughs of the portal — about 8 minutes total</p>
+            <p className="text-xs text-slate-400 font-medium leading-snug">15 short portal walkthroughs — about 8 min</p>
           </Link>
         </div>
 
