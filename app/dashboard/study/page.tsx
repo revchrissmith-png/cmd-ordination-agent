@@ -37,6 +37,8 @@ export default function PardingtonPage() {
   const [sessions, setSessions]           = useState<SessionRow[]>([])
   // Default true so SSR / mobile first paint hide the sidebar; flips after mount on wide viewports.
   const [isNarrowViewport, setIsNarrowViewport] = useState(true)
+  // Mobile slide-in history drawer (no effect on desktop, which always shows the sidebar).
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const bottomRef   = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lastActivity = useRef<number>(Date.now())
@@ -65,6 +67,11 @@ export default function PardingtonPage() {
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
+
+  // Close the mobile drawer automatically if the user rotates or resizes into desktop.
+  useEffect(() => {
+    if (!isNarrowViewport) setIsHistoryOpen(false)
+  }, [isNarrowViewport])
 
   // Plain-text history summary injected into the system prompt each turn.
   // Built once from older sessions; never changes during a session.
@@ -132,6 +139,7 @@ export default function PardingtonPage() {
     setMessages(session.messages ?? [])
     setSessionStale(false)
     lastActivity.current = Date.now()
+    setIsHistoryOpen(false)
   }
 
   // Derive a short title for a session's sidebar entry from the first user message.
@@ -243,6 +251,7 @@ export default function PardingtonPage() {
     sessionId.current = crypto.randomUUID()
     startedAt.current = new Date().toISOString()
     setMessages([])
+    setIsHistoryOpen(false)
   }
 
   // Persist the completed conversation to pardington_logs.
@@ -340,10 +349,94 @@ export default function PardingtonPage() {
     }
   }
 
+  // Shared inner content of the conversation-history sidebar.
+  // Rendered inside <aside> on desktop and inside the slide-in drawer on mobile.
+  const sidebarContents = (
+    <>
+      {/* Sidebar header */}
+      <div style={{ padding: '1.1rem 1.5rem 0.75rem', flexShrink: 0 }}>
+        <div style={{ color: '#9FB3CC', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.25em' }}>CONVERSATIONS</div>
+        <div style={{ width: '52px', height: '2px', backgroundColor: '#F4B91A', borderRadius: '2px', marginTop: '0.5rem' }} />
+      </div>
+
+      {/* Session list (scrollable) */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0.75rem' }}>
+        {sessions.length === 0 ? (
+          <p style={{ color: '#9FB3CC', fontSize: '0.78rem', fontStyle: 'italic', padding: '1rem 0.75rem', margin: 0 }}>
+            No conversations yet. Ask a question below to start one.
+          </p>
+        ) : (
+          sessions.map(s => {
+            const isCurrent = s.session_id === sessionId.current
+            return (
+              <button
+                key={s.session_id}
+                onClick={() => selectSession(s)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  background: isCurrent ? '#11355A' : 'transparent',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0.75rem 0.75rem 0.75rem 1rem',
+                  margin: '0.15rem 0',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  position: 'relative',
+                  color: isCurrent ? '#FAF6EE' : 'rgba(250,246,238,0.85)',
+                  transition: 'background-color 0.15s ease',
+                  fontFamily: 'inherit',
+                }}
+                onMouseOver={e => { if (!isCurrent) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(17,53,90,0.5)' }}
+                onMouseOut={e => { if (!isCurrent) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
+              >
+                {isCurrent && (
+                  <span style={{ position: 'absolute', left: 0, top: '0.65rem', bottom: '0.65rem', width: '3px', backgroundColor: '#F4B91A', borderRadius: '2px' }} />
+                )}
+                <div style={{ fontSize: '0.85rem', fontWeight: isCurrent ? 600 : 500, lineHeight: 1.35, marginBottom: '0.25rem' }}>
+                  {getSessionTitle(s)}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: '#9FB3CC', fontWeight: 500 }}>
+                  {formatSessionDate(s)} · {s.messages?.length ?? 0} {(s.messages?.length ?? 0) === 1 ? 'message' : 'messages'}
+                  {isCurrent && <span style={{ color: '#F4B91A', marginLeft: '0.6rem', fontWeight: 600, letterSpacing: '0.1em' }}>CURRENT</span>}
+                </div>
+              </button>
+            )
+          })
+        )}
+      </div>
+
+      {/* "+ New conversation" button at bottom */}
+      <div style={{ padding: '0.75rem 1rem 1rem', flexShrink: 0, borderTop: '1px solid #1B3756' }}>
+        <button
+          onClick={startNewConversation}
+          style={{
+            display: 'block',
+            width: '100%',
+            background: 'transparent',
+            border: '1px solid #3A5A7E',
+            borderRadius: '8px',
+            color: '#9FB3CC',
+            padding: '0.7rem 1rem',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            letterSpacing: '0.02em',
+            fontFamily: 'inherit',
+          }}
+          onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F4B91A'; (e.currentTarget as HTMLButtonElement).style.color = '#FAF6EE' }}
+          onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3A5A7E'; (e.currentTarget as HTMLButtonElement).style.color = '#9FB3CC' }}
+        >
+          + New conversation
+        </button>
+      </div>
+    </>
+  )
+
   return (
     <div style={{ height: 'calc(100vh - 3.5rem)', display: 'flex', flexDirection: 'row', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
 
-      {/* ══════════ Conversation history sidebar ══════════ */}
+      {/* ══════════ Conversation history sidebar (desktop) ══════════ */}
       {consentStatus === 'granted' && !isNarrowViewport && (
         <aside className="pardington-sidebar" style={{
           width: '360px',
@@ -354,84 +447,68 @@ export default function PardingtonPage() {
           flexDirection: 'column',
           height: '100%',
         }}>
-          {/* Sidebar header */}
-          <div style={{ padding: '1.1rem 1.5rem 0.75rem', flexShrink: 0 }}>
-            <div style={{ color: '#9FB3CC', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.25em' }}>CONVERSATIONS</div>
-            <div style={{ width: '52px', height: '2px', backgroundColor: '#F4B91A', borderRadius: '2px', marginTop: '0.5rem' }} />
-          </div>
-
-          {/* Session list (scrollable) */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0.75rem' }}>
-            {sessions.length === 0 ? (
-              <p style={{ color: '#9FB3CC', fontSize: '0.78rem', fontStyle: 'italic', padding: '1rem 0.75rem', margin: 0 }}>
-                No conversations yet. Ask a question below to start one.
-              </p>
-            ) : (
-              sessions.map(s => {
-                const isCurrent = s.session_id === sessionId.current
-                return (
-                  <button
-                    key={s.session_id}
-                    onClick={() => selectSession(s)}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      background: isCurrent ? '#11355A' : 'transparent',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '0.75rem 0.75rem 0.75rem 1rem',
-                      margin: '0.15rem 0',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      position: 'relative',
-                      color: isCurrent ? '#FAF6EE' : 'rgba(250,246,238,0.85)',
-                      transition: 'background-color 0.15s ease',
-                      fontFamily: 'inherit',
-                    }}
-                    onMouseOver={e => { if (!isCurrent) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(17,53,90,0.5)' }}
-                    onMouseOut={e => { if (!isCurrent) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
-                  >
-                    {isCurrent && (
-                      <span style={{ position: 'absolute', left: 0, top: '0.65rem', bottom: '0.65rem', width: '3px', backgroundColor: '#F4B91A', borderRadius: '2px' }} />
-                    )}
-                    <div style={{ fontSize: '0.85rem', fontWeight: isCurrent ? 600 : 500, lineHeight: 1.35, marginBottom: '0.25rem' }}>
-                      {getSessionTitle(s)}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: '#9FB3CC', fontWeight: 500 }}>
-                      {formatSessionDate(s)} · {s.messages?.length ?? 0} {(s.messages?.length ?? 0) === 1 ? 'message' : 'messages'}
-                      {isCurrent && <span style={{ color: '#F4B91A', marginLeft: '0.6rem', fontWeight: 600, letterSpacing: '0.1em' }}>CURRENT</span>}
-                    </div>
-                  </button>
-                )
-              })
-            )}
-          </div>
-
-          {/* "+ New conversation" button at bottom */}
-          <div style={{ padding: '0.75rem 1rem 1rem', flexShrink: 0, borderTop: '1px solid #1B3756' }}>
-            <button
-              onClick={startNewConversation}
-              style={{
-                display: 'block',
-                width: '100%',
-                background: 'transparent',
-                border: '1px solid #3A5A7E',
-                borderRadius: '8px',
-                color: '#9FB3CC',
-                padding: '0.7rem 1rem',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                letterSpacing: '0.02em',
-                fontFamily: 'inherit',
-              }}
-              onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F4B91A'; (e.currentTarget as HTMLButtonElement).style.color = '#FAF6EE' }}
-              onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3A5A7E'; (e.currentTarget as HTMLButtonElement).style.color = '#9FB3CC' }}
-            >
-              + New conversation
-            </button>
-          </div>
+          {sidebarContents}
         </aside>
+      )}
+
+      {/* ══════════ Conversation history drawer (mobile) ══════════ */}
+      {consentStatus === 'granted' && isNarrowViewport && (
+        <>
+          {/* Backdrop — tap to dismiss */}
+          <div
+            onClick={() => setIsHistoryOpen(false)}
+            aria-hidden="true"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0,0,0,0.45)',
+              opacity: isHistoryOpen ? 1 : 0,
+              pointerEvents: isHistoryOpen ? 'auto' : 'none',
+              transition: 'opacity 0.2s ease',
+              zIndex: 40,
+            }}
+          />
+          {/* Drawer panel — slides in from the left */}
+          <aside
+            aria-hidden={!isHistoryOpen}
+            aria-label="Conversation history"
+            style={{
+              position: 'fixed',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: 'min(360px, 85vw)',
+              backgroundColor: '#0E2745',
+              display: 'flex',
+              flexDirection: 'column',
+              transform: isHistoryOpen ? 'translateX(0)' : 'translateX(-100%)',
+              transition: 'transform 0.22s ease',
+              zIndex: 50,
+              boxShadow: isHistoryOpen ? '4px 0 16px rgba(0,0,0,0.25)' : 'none',
+            }}
+          >
+            {/* Close (X) row */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.5rem 0.5rem 0', flexShrink: 0 }}>
+              <button
+                onClick={() => setIsHistoryOpen(false)}
+                aria-label="Close conversation history"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#9FB3CC',
+                  fontSize: '1.5rem',
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  padding: '0.35rem 0.6rem',
+                  fontFamily: 'inherit',
+                }}
+              >
+                ×
+              </button>
+            </div>
+            {sidebarContents}
+          </aside>
+        </>
       )}
 
       {/* ══════════ Main column ══════════ */}
@@ -439,9 +516,29 @@ export default function PardingtonPage() {
 
       {/* Pardington sub-header */}
       <div style={{ backgroundColor: C.deepSea, borderBottom: `3px solid ${C.allianceBlue}`, padding: '0.5rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '30px' }} />
-          <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+          {isNarrowViewport && consentStatus === 'granted' && (
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              aria-label="Open conversation history"
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(144,200,240,0.4)',
+                borderRadius: '6px',
+                color: '#90C8F0',
+                padding: '0.3rem 0.5rem',
+                fontSize: '0.95rem',
+                lineHeight: 1,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                flexShrink: 0,
+              }}
+            >
+              ☰
+            </button>
+          )}
+          <img src="/pardington-avatar.png" alt="Pardington" style={{ height: '30px', flexShrink: 0 }} />
+          <div style={{ minWidth: 0 }}>
             <div style={{ color: C.white, fontWeight: '900', fontSize: '0.85rem', letterSpacing: '0.05em', lineHeight: 1.1 }}>PARDINGTON</div>
             <div style={{ color: '#90C8F0', fontSize: '0.6rem', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ordination Study Partner</div>
           </div>
