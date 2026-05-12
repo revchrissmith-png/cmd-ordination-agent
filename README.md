@@ -296,6 +296,12 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-11 — Launch prep: submission pause, launch-comms previews, dashboard cleanup
+
+- **Submission pause feature** (`867becc`): new `submission_windows` table + `is_submission_paused()` SQL function + **RESTRICTIVE** RLS policy on `submissions.INSERT` that blocks non-admin inserts during an active window. Admin inserts pass through for backfill / recovery. Council quiet-week seeded for `2026-05-25 12:00 → 2026-06-01 08:00 America/Regina` (CST year-round, no DST math). Client: `SubmissionPauseBanner` + `useSubmissionPause` hook (60 s poll) mounted on the ordinand dashboard and every requirement detail page; Submit/Resubmit buttons gate on `submissionsPaused` with tooltip + inline notice. Mentor reports, Pardington, and read access intentionally untouched. Migration at `supabase/migrations/20260511000000_add_submission_windows.sql`.
+- **Launch-comms preview pipeline** (`cabe723`): `/api/admin/preview-launch-comms` sends all three launch emails (Council Prep · Ordinand Prep · Ordinand Go-Live) personalised to every admin profile with a `[PREVIEW]` subject prefix. From-display "Chris Smith" over `noreply@send.canadianmidwest.ca` (chris@ not verified on the Resend domain); reply-to `chris@canadianmidwest.ca`. Trigger UI at `/dashboard/admin/launch-comms`, linked from the Admin Console header. Render pipeline reuses the existing `wrapEmail()` template — visual identity matches in-flight transactional emails. Copy is held as TS constants in `lib/launch-comms.ts`; edit + push + retrigger to iterate.
+- **Dashboard quick-access cards** (`e32cac5`): five-card row was wrapping to two rows after Training Videos joined; switched `lg:grid-cols-4` → `lg:grid-cols-5`, tightened padding, trimmed arrow cards to two text lines. Mobile layouts unchanged.
+
 ### 2026-05-06 — Jordan's email moved to a real-deliverable address (clip 02 unblock)
 
 - **`jordan.smith@cmd-demo.local` → `jordan.smith@canadianmidwest.ca`**: Supabase Auth rejects `.local` domains in `signInWithOtp`, blocking clip 02's recording flow (which teaches the OTP screens). Switched Jordan to a real-deliverable address (M365 alias on `canadianmidwest.ca` routing to Chris) so the OTP path works end-to-end on camera. Casey (mentor) and Alex Bennett (demo grader) keep their `.local` emails — they never authenticate.
