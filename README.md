@@ -296,6 +296,11 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-12 — Pardington conversation history on mobile
+
+- **Mobile hide fix** (`71fc782`): yesterday's conversation-history sidebar (`f87eefc`) shipped with a `@media (max-width: 800px) { display: none }` guard in an inline `<style>` block, but the `<aside>` itself carried inline `style={{ display: 'flex', width: '360px' }}` — inline styles beat media queries, so the 360 px panel was crushing the chat column on every phone. Replaced the CSS-only guard with a JS `matchMedia('(max-width: 800px)')` viewport check; `isNarrowViewport` defaults to `true` so SSR and the mobile first paint agree (no hydration mismatch, no broken-layout flash).
+- **Mobile slide-in drawer** (`26dad98`): launch comms (onboarding emails, training video library, orientation walkthrough) all promise ordinands they can reach prior conversations from the sidebar, so "hidden on mobile" wasn't a tenable v1. Added a ☰ button in the Pardington sub-header that opens a cobalt drawer (`min(360px, 85vw)`) sliding in from the left, carrying the same session list, gold "current session" accent, and "+ New conversation" affordance as the desktop sidebar. Tapping a session, starting a new conversation, or rotating an iPad portrait→landscape all auto-dismiss the drawer. Sidebar contents extracted into a shared JSX fragment so the desktop `<aside>` and the mobile drawer can't drift.
+
 ### 2026-05-11 — Launch prep: submission pause, launch-comms previews, dashboard cleanup
 
 - **Submission pause feature** (`867becc`): new `submission_windows` table + `is_submission_paused()` SQL function + **RESTRICTIVE** RLS policy on `submissions.INSERT` that blocks non-admin inserts during an active window. Admin inserts pass through for backfill / recovery. Council quiet-week seeded for `2026-05-25 12:00 → 2026-06-01 08:00 America/Regina` (CST year-round, no DST math). Client: `SubmissionPauseBanner` + `useSubmissionPause` hook (60 s poll) mounted on the ordinand dashboard and every requirement detail page; Submit/Resubmit buttons gate on `submissionsPaused` with tooltip + inline notice. Mentor reports, Pardington, and read access intentionally untouched. Migration at `supabase/migrations/20260511000000_add_submission_windows.sql`.
