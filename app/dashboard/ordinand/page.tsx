@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 import { logActivity } from '../../../utils/logActivity'
 import BetaBanner from '../../components/BetaBanner'
+import SubmissionPauseBanner from '../../components/SubmissionPauseBanner'
 import { PageSkeleton } from '../../components/Skeleton'
 import { C, STATUS_CONFIG, type Status } from '../../../lib/theme'
 import { renderMarkdown } from '../../../utils/markdown'
@@ -134,6 +135,12 @@ function OrdinandDashboardContent() {
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
 
       <BetaBanner />
+
+      <div className="px-5 sm:px-10 md:px-14 lg:px-20 pt-4">
+        <div className="max-w-5xl mx-auto">
+          <SubmissionPauseBanner />
+        </div>
+      </div>
 
       {viewAsId && profile && (
         <div style={{ backgroundColor: '#7c3aed', padding: '0.6rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>

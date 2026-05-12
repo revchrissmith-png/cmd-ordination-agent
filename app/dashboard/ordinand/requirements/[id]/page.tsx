@@ -10,6 +10,7 @@ import { SERMON_RUBRIC_SECTIONS, sectionAverage } from '../../../../../utils/ser
 import { C, RATING_COLOUR, type Status } from '../../../../../lib/theme'
 import { PageSkeleton } from '../../../../components/Skeleton'
 import UploadProgress from '../../../../components/UploadProgress'
+import SubmissionPauseBanner, { useSubmissionPause, SUBMIT_PAUSED_TOOLTIP } from '../../../../components/SubmissionPauseBanner'
 import { inputClass, selectClass, textareaClass, btnPrimary } from '../../../../../lib/formStyles'
 import { useFlash } from '../../../../../hooks/useFlash'
 
@@ -142,6 +143,7 @@ export default function OrdinandRequirementPage() {
   const [recordingUrl, setRecordingUrl] = useState('')
   const [selectedBook, setSelectedBook] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { paused: submissionsPaused } = useSubmissionPause()
 
   // ── Self-assessment state (new v2 format) ──────────────────────────────────
   // Completeness section: per-question rating + one shared evidence field
@@ -363,6 +365,8 @@ export default function OrdinandRequirementPage() {
 
       <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
         <div className="max-w-3xl mx-auto">
+
+          <SubmissionPauseBanner placement="detail" />
 
           {/* Title + status */}
           <div className="flex flex-wrap justify-between items-start gap-4 mb-10">
@@ -748,15 +752,19 @@ export default function OrdinandRequirementPage() {
                 <UploadProgress fileName={file?.name} message="Submitting your assignment..." />
               </div>
             ) : (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting || (isPaper && !allAnswered) || (!file && !submission?.file_url)}
+                disabled={isSubmitting || submissionsPaused || (isPaper && !allAnswered) || (!file && !submission?.file_url)}
+                title={submissionsPaused ? SUBMIT_PAUSED_TOOLTIP : undefined}
                 className={btnPrimary}
               >
                 {status === 'revision_required' ? 'Resubmit' : 'Submit'}
               </button>
-              {isPaper && !allAnswered && (
+              {submissionsPaused && (
+                <p className="text-xs text-amber-700 font-bold">Submissions paused — see banner above.</p>
+              )}
+              {!submissionsPaused && isPaper && !allAnswered && (
                 <p className="text-xs text-amber-600 font-bold">Please complete all self-assessment sections to submit</p>
               )}
             </div>
