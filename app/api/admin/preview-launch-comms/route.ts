@@ -8,26 +8,30 @@
 // on the Resend domain). Reply-to is chris@canadianmidwest.ca so any
 // feedback routes to Chris directly.
 //
+// Outbound rate is throttled via lib/resend-send to stay under Resend's
+// 5/sec cap (the original tight-loop version failed the 6th send when
+// Chris first tested with two admin recipients).
+//
 // Caller must be an authenticated admin.
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, serviceClient } from '../../../../lib/api-auth'
-import { fetchWithTimeout } from '../../../../utils/fetchWithTimeout'
 import { LAUNCH_COMMS, LaunchCommsKey } from '../../../../lib/launch-comms'
+import { sendMany, EmailPayload } from '../../../../lib/resend-send'
 
 const LAUNCH_FROM     = 'Chris Smith <noreply@send.canadianmidwest.ca>'
 const LAUNCH_REPLY_TO = 'chris@canadianmidwest.ca'
 
 type AdminRecipient = {
-  id: string
-  email: string
+  id:         string
+  email:      string
   first_name: string | null
-  last_name: string | null
+  last_name:  string | null
 }
 
-type SendResult = {
-  email: string
-  comm: LaunchCommsKey
-  ok: boolean
+type SendResultRow = {
+  email:   string
+  comm:    LaunchCommsKey
+  ok:      boolean
   detail?: string
 }
 
@@ -58,41 +62,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No admin recipients found' }, { status: 404 })
   }
 
-  const results: SendResult[] = []
+  // Build the full send queue: every admin × every launch comm, with
+  // per-admin personalisation. Parallel arrays so we can map back to
+  // (email, comm) when results return.
+  type QueueEntry = { email: string; comm: LaunchCommsKey; payload: EmailPayload }
+  const queue: QueueEntry[] = []
 
-  // For each admin, send all three launch emails personalized to them.
   for (const r of recipients) {
     const firstName = r.first_name?.trim() || 'Friend'
+    const recipientLine = r.last_name
+      ? `${firstName} ${r.last_name} <${r.email}>`
+      : `${firstName} <${r.email}>`
+
     for (const key of Object.keys(LAUNCH_COMMS) as LaunchCommsKey[]) {
       const { subject, html } = LAUNCH_COMMS[key](firstName)
-      const recipientLine = r.last_name
-        ? `${firstName} ${r.last_name} <${r.email}>`
-        : `${firstName} <${r.email}>`
-
-      const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
-        method: 'POST',
-        timeoutMs: 15_000,
-        headers: {
-          'Authorization': `Bearer ${resendKey}`,
-          'Content-Type':  'application/json',
-        },
-        body: JSON.stringify({
-          from:        LAUNCH_FROM,
-          to:          [recipientLine],
-          reply_to:    LAUNCH_REPLY_TO,
-          subject:     `[PREVIEW] ${subject}`,
+      queue.push({
+        email: r.email,
+        comm:  key,
+        payload: {
+          from:     LAUNCH_FROM,
+          to:       [recipientLine],
+          reply_to: LAUNCH_REPLY_TO,
+          subject:  `[PREVIEW] ${subject}`,
           html,
-        }),
+        },
       })
-
-      if (!resendRes.ok) {
-        const detail = await resendRes.text().catch(() => resendRes.statusText)
-        results.push({ email: r.email, comm: key, ok: false, detail })
-      } else {
-        results.push({ email: r.email, comm: key, ok: true })
-      }
     }
   }
+
+  const sendResults = await sendMany(queue.map(q => q.payload), resendKey)
+
+  const results: SendResultRow[] = queue.map((q, i) => {
+    const r = sendResults[i]
+    return r.ok
+      ? { email: q.email, comm: q.comm, ok: true }
+      : { email: q.email, comm: q.comm, ok: false, detail: `${r.status ?? 'err'}: ${r.detail}` }
+  })
 
   const allOk = results.every(r => r.ok)
   return NextResponse.json({
