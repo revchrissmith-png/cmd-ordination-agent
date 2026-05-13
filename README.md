@@ -296,6 +296,12 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-13 — Scheduled launch sends + council notification re-enabled
+
+- **Scheduled cron send** (`8265b5c`): real launch-send route at `/api/cron/send-launch-comm`. Single daily Vercel cron at `0 16 * * *` (16:00 UTC = 10:00 Regina, CST year-round) date-dispatches to the right audience: May 14 → council_prep (admin+council, 10 recipients), May 15 → ordinand_prep (admin+ordinand, 31 recipients), June 1 → ordinand_go_live (admin+ordinand, 31 recipients), any other day → 204 no-op. Uses 1 of Hobby's 2 cron slots. Auth: Vercel-managed `CRON_SECRET`. Admin `POST { key }` available as a manual recovery path. Throttled `sendMany` at 4/sec fits worst-case 31 recipients (~7.75 s) under Hobby's 10 s function limit.
+- **Launch-comms copy edits** (`8265b5c`): Council Prep double-space fixed ("through  Monday" → "through Monday"); Ordinand Prep "submissions are paused" → "Submissions are paused"; "before you arrive" → "before submissions reopen" (resolved the "no access for 7 days" vs. "can still browse" ambiguity).
+- **Council interview notifications re-enabled** (`d04e512`): `notify-interview-scheduled` call in `InterviewSection.tsx` had been commented out since 2026-04-22 (testing). Uncommented — all 9 council members now receive an email (date, candidate name, lead interviewer, council dashboard link) when an interview is scheduled. Submission notifications (`notify-grader`) were unaffected throughout.
+
 ### 2026-05-12 — Pardington conversation history on mobile
 
 - **Mobile hide fix** (`71fc782`): yesterday's conversation-history sidebar (`f87eefc`) shipped with a `@media (max-width: 800px) { display: none }` guard in an inline `<style>` block, but the `<aside>` itself carried inline `style={{ display: 'flex', width: '360px' }}` — inline styles beat media queries, so the 360 px panel was crushing the chat column on every phone. Replaced the CSS-only guard with a JS `matchMedia('(max-width: 800px)')` viewport check; `isNarrowViewport` defaults to `true` so SSR and the mobile first paint agree (no hydration mismatch, no broken-layout flash).
