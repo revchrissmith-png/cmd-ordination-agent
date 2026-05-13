@@ -55,7 +55,7 @@ function blessingBlock(lines: string[]): string {
 const COUNCIL_PREP_SUBJECT = 'Coming May 25 — your week with the new portal'
 
 const COUNCIL_PREP_BODY: string[] = [
-  `A short note before our Ordaining Council meetings later this month. On Monday May 25, the new CMD Ordination Portal opens for the Council at noon. You'll have exclusive access from May 25th through  Monday June 1 — to get familiar with the dashboard and your assigned marking before ordinand submissions start coming in. Submissions are paused for one week so you've got space to settle in.`,
+  `A short note before our Ordaining Council meetings later this month. On Monday May 25, the new CMD Ordination Portal opens for the Council at noon. You'll have exclusive access from May 25th through Monday June 1 — to get familiar with the dashboard and your assigned marking before ordinand submissions start coming in. Submissions are paused for one week so you've got space to settle in.`,
   `We'll walk through the portal while we're together. The dashboard, smart grader assignment, exclusions, Pardington (now with conversation history). No prep needed. Just bring a laptop or tablet you can check email on.`,
   `Migration from Moodle is now complete. Every active ordinand is on the portal.`,
   `Ordinand submissions reopen Monday June 1 at 8 a.m. Central. That's when notifications will start flowing to you and the next chapter of CMD ordination begins in earnest.`,
@@ -74,7 +74,7 @@ const ORDINAND_PREP_SUBJECT = 'Coming June 1 — the new Ordination Portal'
 const ORDINAND_PREP_BODY: string[] = [
   `In just over two weeks, on Monday June 1, the new CMD Ordination Portal opens for you. You'll find it at **ordination.canadianmidwest.ca**. A few things to know before then.`,
   `**Your submitted work is safe.** Everything has been moved over and will be live on the portal June 1: book reports you've turned in, feedback you've gotten back, papers you've uploaded. Nothing was lost.`,
-  `**The Ordaining Council goes online a week before you,** so they can spend time with the new system before you arrive. **submissions are paused from noon on May 25 until 8 a.m. June 1 (Central).** You can still browse your requirements, read prior feedback, and use the new study companion (more on him below). You just can't submit new work during those six days. **Plan ahead: anything you want submitted before the pause needs to be in by Sunday May 24.**`,
+  `**The Ordaining Council goes online a week before you,** so they can spend time with the new system before submissions reopen. **Submissions are paused from noon on May 25 until 8 a.m. June 1 (Central).** You can still browse your requirements, read prior feedback, and use the new study companion (more on him below). You just can't submit new work during those six days. **Plan ahead: anything you want submitted before the pause needs to be in by Sunday May 24.**`,
   `**Signing in.** Enter your email at the portal, and we'll send you a one-time six-digit code to use on the next screen. No passwords to remember.`,
   `**Your dashboard** shows your progress through the seventeen requirements, grouped by type. From there you submit work, read feedback, and reach the training library.`,
   `**How to Videos:** Short training videos live on your dashboard — about seven minutes in total, easy to watch on a phone between meetings.`,
