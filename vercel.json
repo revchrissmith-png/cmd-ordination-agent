@@ -3,10 +3,6 @@
     {
       "path": "/api/admin/daily-report",
       "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/send-launch-comm",
-      "schedule": "0 16 * * *"
     }
   ]
 }
