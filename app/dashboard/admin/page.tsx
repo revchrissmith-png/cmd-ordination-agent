@@ -587,6 +587,7 @@ function AdminPageContent() {
             <h1 className="text-2xl font-black mt-1" style={{ color: C.deepSea }}>Admin Console</h1>
             <button onClick={() => setShowViewAs(true)} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-100 transition-all">👁 View as User</button>
             <Link href="/dashboard/admin/launch-comms" className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-100 transition-all">✉ Launch Comms</Link>
+            <Link href="/dashboard/admin/pardington-usage" className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-100 transition-all">📊 Pardington Usage</Link>
           </div>
           {message.text && (
             <div className={`px-5 py-3 rounded-xl text-sm font-bold shadow-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
