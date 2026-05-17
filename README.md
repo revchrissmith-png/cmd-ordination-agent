@@ -296,6 +296,10 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-17 — LIFECYCLE.md: locked post-launch development cadence
+
+- **LIFECYCLE.md added** (`5052209`): documents the annual tick-tock maintenance cadence — **8–21 December** (bug-fix window) and **8–21 June** (feature-update window) — with the codebase frozen between windows. Includes the one-time **1–7 June 2026 stabilization tail**, the three-condition AND-gate cadence-break exception (blocks required workflow + reproducible + 14-day or 10%-cohort harm threshold), Michelle as sole feedback intake, and the protected class (ordinands + council members). To be presented to the Ordaining Council on 25 May 2026.
+
 ### 2026-05-13 — Scheduled launch sends + council notification re-enabled
 
 - **Scheduled cron send** (`8265b5c`): real launch-send route at `/api/cron/send-launch-comm`. Single daily Vercel cron at `0 16 * * *` (16:00 UTC = 10:00 Regina, CST year-round) date-dispatches to the right audience: May 14 → council_prep (admin+council, 10 recipients), May 15 → ordinand_prep (admin+ordinand, 31 recipients), June 1 → ordinand_go_live (admin+ordinand, 31 recipients), any other day → 204 no-op. Uses 1 of Hobby's 2 cron slots. Auth: Vercel-managed `CRON_SECRET`. Admin `POST { key }` available as a manual recovery path. Throttled `sendMany` at 4/sec fits worst-case 31 recipients (~7.75 s) under Hobby's 10 s function limit.
