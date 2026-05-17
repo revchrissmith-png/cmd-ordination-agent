@@ -14,6 +14,9 @@ const serviceClient = createClient(
 // Prevents a very long session from accumulating excessive token costs.
 const MAX_MESSAGES = 20
 
+// Anthropic model — kept in one place so usage logging records the same id.
+const MODEL = 'claude-haiku-4-5-20251001'
+
 const SYSTEM_PROMPT = `You are Pardington — an AI ordination study partner for pastoral candidates (called "ordinands") in the Canadian Midwest District of the Christian and Missionary Alliance church. You are named in honour of George Palmer Pardington (1858–1925), theologian, Bible teacher, and close colleague of A.B. Simpson at the Christian and Missionary Alliance. Pardington authored "The Charter of the Christian's Liberty," "Outline Studies in Christian Doctrine," and other foundational Alliance texts. He was known for his precision, warmth, and ability to make deep theology accessible to ordinary Christians in ministry.
 
 You carry that same spirit. You are warm, collegial, and theologically precise — like a trusted mentor who has read everything and wants to help ordinands think more clearly, not do their thinking for them.
@@ -300,13 +303,21 @@ export async function POST(req: NextRequest) {
     // Apply rolling window — only send the most recent MAX_MESSAGES to the model
     const cappedMessages = messages.slice(-MAX_MESSAGES)
 
-    // Inject past-session history into the system prompt if provided.
-    // Appended rather than prepended so the core instructions always take priority.
-    // studyHistory is a plain-text block built client-side from pardington_logs.
-    const effectiveSystemPrompt =
-      studyHistory && typeof studyHistory === 'string' && studyHistory.trim()
-        ? `${SYSTEM_PROMPT}\n\n${studyHistory.trim()}`
-        : SYSTEM_PROMPT
+    // System prompt as cacheable blocks. The large static SYSTEM_PROMPT gets a
+    // cache_control breakpoint so it is not re-billed at full rate on every
+    // message in a session — a heavy Pardington user otherwise pays for the
+    // entire ~6k-token prompt on every turn. studyHistory varies per ordinand
+    // and is appended uncached, after the breakpoint.
+    const systemBlocks: Anthropic.TextBlockParam[] = [
+      {
+        type: 'text',
+        text: SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' },
+      },
+    ]
+    if (studyHistory && typeof studyHistory === 'string' && studyHistory.trim()) {
+      systemBlocks.push({ type: 'text', text: studyHistory.trim() })
+    }
 
     const encoder = new TextEncoder()
 
@@ -314,9 +325,9 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           const anthropicStream = client.messages.stream({
-            model: 'claude-haiku-4-5-20251001',
+            model: MODEL,
             max_tokens: 1024,
-            system: effectiveSystemPrompt,
+            system: systemBlocks,
             messages: cappedMessages.map((m: { role: string; content: string }) => ({
               role: m.role as 'user' | 'assistant',
               content: m.content,
@@ -333,6 +344,24 @@ export async function POST(req: NextRequest) {
           }
 
           controller.close()
+
+          // Record token usage for per-ordinand cost tracking. Runs after the
+          // response is fully streamed, so it never delays the user. Failures
+          // here must not surface — logging is not worth breaking a reply over.
+          try {
+            const finalMessage = await anthropicStream.finalMessage()
+            const usage = finalMessage.usage
+            await serviceClient.from('pardington_usage').insert({
+              ordinand_id: user.id,
+              model: MODEL,
+              input_tokens: usage.input_tokens ?? 0,
+              output_tokens: usage.output_tokens ?? 0,
+              cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+              cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+            })
+          } catch (usageErr) {
+            console.error('Pardington usage logging failed:', usageErr)
+          }
         } catch (err) {
           controller.error(err)
         }
