@@ -147,7 +147,7 @@ export default function PardingtonUsagePage() {
         )}
 
         <p className="mt-4 text-xs text-slate-400 leading-relaxed">
-          Rates (USD per million tokens): input $1.00 · output $5.00 · cache write $1.25 · cache read $0.10.
+          Rates (USD per million tokens): input $1.00 · output $5.00 · cache write $2.00 · cache read $0.10.
           &ldquo;Saved by caching&rdquo; is the difference between the cached-read rate and the full input
           rate on tokens served from cache.
         </p>

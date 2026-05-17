@@ -312,7 +312,10 @@ export async function POST(req: NextRequest) {
       {
         type: 'text',
         text: SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' },
+        // 1-hour TTL, not the 5-minute default: Pardington is a reflective
+        // study tool — ordinands often take more than 5 minutes between turns,
+        // which would expire a 5m cache and re-bill the write on the next call.
+        cache_control: { type: 'ephemeral', ttl: '1h' },
       },
     ]
     if (studyHistory && typeof studyHistory === 'string' && studyHistory.trim()) {
