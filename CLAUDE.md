@@ -4,8 +4,8 @@ This project is orchestrated by **Dax**. When working in this repo:
 - Dax orchestrates — delegates all dev work to Nova
 - Nova handles all Next.js, Supabase, TypeScript, and Vercel work
 
-@/Users/christopher/Library/Mobile Documents/com~apple~CloudDocs/Personal/PKAgent/CLAUDE.md
-@/Users/christopher/Library/Mobile Documents/com~apple~CloudDocs/Personal/PKAgent/Team/nova.md
+@/Users/christopher/Library/Mobile Documents/iCloud~md~obsidian/Documents/PKAgent/CLAUDE.md
+@/Users/christopher/Library/Mobile Documents/iCloud~md~obsidian/Documents/PKAgent/Team/nova.md
 
 ---
 
