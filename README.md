@@ -296,6 +296,12 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-19 — Weekly digest email replaces daily activity report
+
+- **Weekly digest** (`0884ad2`): new `/api/cron/weekly-digest` route fires every Monday at 7:00 AM Regina time. Five sections: submissions this week, assignments graded this week, users inactive 30+ days, submissions ungraded 60+ days (red alert), ordinands with no mentor report 60+ days (red alert). Email includes summary bar with action-needed / all-clear badge.
+- **Daily report cron retired**: `vercel.json` updated from daily `/api/admin/daily-report` to weekly digest schedule (`0 13 * * 1`). Old route preserved as manual admin trigger.
+- **Recipients wired up**: `DIGEST_CC_EMAIL=admin.assist@canadianmidwest.ca` (Michelle Stearns) set in Vercel production; Chris receives at `system.admin@canadianmidwest.ca`.
+
 ### 2026-05-17 — LIFECYCLE.md: locked post-launch development cadence
 
 - **LIFECYCLE.md added** (`5052209`): documents the annual tick-tock maintenance cadence — **8–21 December** (bug-fix window) and **8–21 June** (feature-update window) — with the codebase frozen between windows. Includes the one-time **1–7 June 2026 stabilization tail**, the three-condition AND-gate cadence-break exception (blocks required workflow + reproducible + 14-day or 10%-cohort harm threshold), Michelle as sole feedback intake, and the protected class (ordinands + council members). To be presented to the Ordaining Council on 25 May 2026.
