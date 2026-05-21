@@ -296,6 +296,11 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-21 — Cohorts tab: ordinand roster per cohort + Silas Friesen requirements restored
+
+- **Cohorts tab ordinand roster** (`62c2a69`): each cohort card on the Admin → Cohorts tab now lists assigned ordinands alphabetically below the topic cards. Each row links directly to the ordinand's admin profile page and shows a stage badge (Active / Completed). Cohorts with no assigned ordinands show no roster section. Closes tasks #172 and #173.
+- **Silas Friesen requirements** (direct DB fix): 17 ordinand_requirements rows regenerated for Silas Friesen (Fall 2028, divine_healing track) after accidental deletion — 10 book reports, 4 papers, 3 sermons, all `not_started`.
+
 ### 2026-05-19 — Weekly digest email replaces daily activity report
 
 - **Weekly digest** (`0884ad2`): new `/api/cron/weekly-digest` route fires every Monday at 7:00 AM Regina time. Five sections: submissions this week, assignments graded this week, users inactive 30+ days, submissions ungraded 60+ days (red alert), ordinands with no mentor report 60+ days (red alert). Email includes summary bar with action-needed / all-clear badge.
