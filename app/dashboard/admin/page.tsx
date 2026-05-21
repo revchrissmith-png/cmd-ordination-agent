@@ -798,6 +798,42 @@ function AdminPageContent() {
                               </ul>
                             </div>
                           </div>
+                          {/* Ordinands assigned to this cohort */}
+                          {(() => {
+                            const cohortOrdinands = candidates
+                              .filter(p => p.cohort_id === c.id && p.status !== 'deleted')
+                              .sort((a, b) => {
+                                const la = (a.last_name ?? '').toLowerCase()
+                                const lb = (b.last_name ?? '').toLowerCase()
+                                if (la !== lb) return la < lb ? -1 : 1
+                                return (a.first_name ?? '').toLowerCase() < (b.first_name ?? '').toLowerCase() ? -1 : 1
+                              })
+                            if (cohortOrdinands.length === 0) return null
+                            return (
+                              <div className="mt-4 pt-4 border-t border-slate-100">
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2.5">
+                                  👤 Ordinands ({cohortOrdinands.length})
+                                </p>
+                                <ul className="space-y-1.5">
+                                  {cohortOrdinands.map(p => (
+                                    <li key={p.id} className="flex items-center justify-between gap-3">
+                                      <Link
+                                        href={`/dashboard/admin/candidates/${p.id}`}
+                                        style={{ color: C.allianceBlue }}
+                                        className="text-sm font-bold hover:underline transition-colors"
+                                      >
+                                        {p.first_name} {p.last_name}
+                                      </Link>
+                                      {p.status === 'completed'
+                                        ? <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 flex-shrink-0">Completed</span>
+                                        : <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 flex-shrink-0">Active</span>
+                                      }
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )
+                          })()}
                         </>
                       )}
                     </div>
