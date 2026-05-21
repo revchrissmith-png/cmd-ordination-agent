@@ -21,6 +21,7 @@ type Body = {
   setIsCustomTrack?: boolean
   setNotes?: string | null
   addCustom?: { title: string; description: string; type: CustomType }[]
+  addFromTemplate?: string[]
   waive?: { requirementId: string; reason: string }[]
   unwaive?: string[]
 }
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (auth.error) return auth.error
 
   const body = (await req.json().catch(() => ({}))) as Body
-  const { ordinandId, setIsCustomTrack, setNotes, addCustom, waive, unwaive } = body
+  const { ordinandId, setIsCustomTrack, setNotes, addCustom, addFromTemplate, waive, unwaive } = body
 
   if (!ordinandId || !isValidUUID(ordinandId)) {
     return NextResponse.json({ error: 'Invalid ordinandId' }, { status: 400 })
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
 
   const errors: string[] = []
   let addedCount = 0
+  let addedFromTemplateCount = 0
   let waivedCount = 0
   let unwaivedCount = 0
 
@@ -90,7 +92,49 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 3. Waive existing requirements (only allowed if status = not_started)
+  // 3. Add template-linked requirements (skip any the ordinand already has)
+  if (addFromTemplate?.length) {
+    const validIds = addFromTemplate.filter(isValidUUID)
+    if (validIds.length) {
+      // Verify the templates exist
+      const { data: templates } = await serviceClient
+        .from('requirement_templates')
+        .select('id')
+        .in('id', validIds)
+
+      const existingTemplateIds = new Set((templates ?? []).map((t: any) => t.id))
+
+      // Find which ones the ordinand already has
+      const { data: alreadyHas } = await serviceClient
+        .from('ordinand_requirements')
+        .select('template_id')
+        .eq('ordinand_id', ordinandId)
+        .in('template_id', validIds)
+
+      const alreadyHasIds = new Set((alreadyHas ?? []).map((r: any) => r.template_id))
+
+      const toInsert = validIds.filter(id => existingTemplateIds.has(id) && !alreadyHasIds.has(id))
+
+      if (toInsert.length) {
+        const rows = toInsert.map(templateId => ({
+          ordinand_id: ordinandId,
+          template_id: templateId,
+          cohort_id: ordinand.cohort_id,
+          status: 'not_started',
+        }))
+        const { error, count } = await serviceClient
+          .from('ordinand_requirements')
+          .insert(rows, { count: 'exact' })
+        if (error) errors.push(`add from template: ${error.message}`)
+        else addedFromTemplateCount = count ?? rows.length
+      }
+
+      const skipped = validIds.filter(id => alreadyHasIds.has(id))
+      if (skipped.length) errors.push(`skipped ${skipped.length} template(s) already assigned to this ordinand`)
+    }
+  }
+
+  // 4. Waive existing requirements (only allowed if status = not_started)
   if (waive?.length) {
     const ids = waive.map(w => w.requirementId).filter(isValidUUID)
     const { data: existing } = await serviceClient
@@ -127,7 +171,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 4. Un-waive (revert to not_started)
+  // 5. Un-waive (revert to not_started)
   if (unwaive?.length) {
     const ids = unwaive.filter(isValidUUID)
     const { data: existing } = await serviceClient
@@ -160,6 +204,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: errors.length === 0,
     addedCount,
+    addedFromTemplateCount,
     waivedCount,
     unwaivedCount,
     errors: errors.length ? errors : undefined,

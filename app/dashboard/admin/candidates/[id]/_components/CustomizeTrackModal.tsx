@@ -1,12 +1,13 @@
 // _components/CustomizeTrackModal.tsx
 // Admin modal to customize an ordinand's requirement track:
 //   • toggle "custom track" flag + edit track notes
-//   • waive standard requirements (with reason) or un-waive them
+//   • add requirements from existing templates (select from pre-built list)
 //   • add custom (template-less) requirements with admin-authored title/desc/type
+//   • waive standard requirements (with reason) or un-waive them
 //
 // All changes go through POST /api/admin/customize-track in a single request.
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../../../../../utils/supabase/client'
 import { inputClass, labelClass, btnPrimary } from '../../../../../../lib/formStyles'
 import ModalWrapper from '../../../../../components/ModalWrapper'
@@ -24,6 +25,20 @@ interface Props {
 
 interface NewCustom { title: string; description: string; type: CustomType }
 
+interface Template {
+  id: string
+  type: string
+  topic: string | null
+  title: string
+  display_order: number | null
+}
+
+const TYPE_GROUP_LABELS: Record<string, string> = {
+  book_report: '📚 Book Reports',
+  paper: '📝 Papers',
+  sermon: '🎤 Sermons',
+}
+
 export default function CustomizeTrackModal({ candidate, requirements, isObserver, onClose, onSaved, flash }: Props) {
   const [isCustomTrack, setIsCustomTrack] = useState<boolean>(!!candidate.is_custom_track)
   const [trackNotes, setTrackNotes]       = useState<string>(candidate.custom_track_notes ?? '')
@@ -32,8 +47,46 @@ export default function CustomizeTrackModal({ candidate, requirements, isObserve
   const [newReqs, setNewReqs]             = useState<NewCustom[]>([])
   const [isSaving, setIsSaving]           = useState(false)
 
+  // Template picker state
+  const [allTemplates, setAllTemplates]         = useState<Template[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(true)
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set())
+
   const standardReqs = requirements.filter(r => r.status === 'not_started')
   const waivedReqs   = requirements.filter(r => r.status === 'waived')
+
+  // Template IDs already assigned to this ordinand (any status)
+  const assignedTemplateIds = new Set(
+    requirements.map(r => r.template_id).filter(Boolean)
+  )
+
+  useEffect(() => {
+    supabase
+      .from('requirement_templates')
+      .select('id, type, topic, title, display_order')
+      .order('display_order', { ascending: true })
+      .then(({ data }) => {
+        setAllTemplates(data ?? [])
+        setTemplatesLoading(false)
+      })
+  }, [])
+
+  // Templates not yet assigned — grouped by type
+  const availableTemplates = allTemplates.filter(t => !assignedTemplateIds.has(t.id))
+  const templateGroups = ['book_report', 'paper', 'sermon'].map(type => ({
+    type,
+    label: TYPE_GROUP_LABELS[type] ?? type,
+    templates: availableTemplates.filter(t => t.type === type),
+  })).filter(g => g.templates.length > 0)
+
+  function toggleTemplate(id: string) {
+    setSelectedTemplateIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   function toggleWaive(reqId: string) {
     setWaiveSelected(prev => {
@@ -92,6 +145,7 @@ export default function CustomizeTrackModal({ candidate, requirements, isObserve
       ordinandId: candidate.id,
       setIsCustomTrack: isCustomTrack,
       setNotes: trackNotes.trim() || null,
+      addFromTemplate: Array.from(selectedTemplateIds),
       addCustom: validNew.map(r => ({ title: r.title.trim(), description: r.description.trim(), type: r.type })),
       waive: waivers.map(([requirementId, reason]) => ({ requirementId, reason: reason.trim() })),
       unwaive: Array.from(unwaiveIds),
@@ -154,6 +208,101 @@ export default function CustomizeTrackModal({ candidate, requirements, isObserve
         </div>
       </div>
 
+      {/* Add from existing templates */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Add from Assignment List</h4>
+          {selectedTemplateIds.size > 0 && (
+            <span className="text-xs font-bold text-blue-600">{selectedTemplateIds.size} selected</span>
+          )}
+        </div>
+        <p className="text-xs text-slate-400 font-medium mb-3">
+          Select pre-built assignments from any track — useful for adding a sermon set or paper topic that doesn't match this cohort's default path.
+          Already-assigned requirements are hidden.
+        </p>
+        {templatesLoading ? (
+          <p className="text-xs text-slate-400 font-medium">Loading…</p>
+        ) : templateGroups.length === 0 ? (
+          <p className="text-xs text-slate-400 font-medium">All templates are already assigned to this ordinand.</p>
+        ) : (
+          <div className="space-y-4">
+            {templateGroups.map(group => (
+              <div key={group.type}>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{group.label}</p>
+                <div className="space-y-1.5">
+                  {group.templates.map(t => {
+                    const checked = selectedTemplateIds.has(t.id)
+                    return (
+                      <label
+                        key={t.id}
+                        className={`flex items-center gap-3 border rounded-xl px-3 py-2.5 cursor-pointer transition-colors ${checked ? 'bg-blue-50 border-blue-300' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleTemplate(t.id)}
+                          className="h-4 w-4 flex-shrink-0"
+                        />
+                        <span className="text-sm font-bold text-slate-800">{t.title}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add new custom requirements */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Add Custom Requirements</h4>
+          <button onClick={addNewReqRow} className="text-xs font-bold text-purple-700 hover:text-purple-900">+ Add requirement</button>
+        </div>
+        <p className="text-xs text-slate-400 font-medium mb-3">For one-off requirements not in the standard list — write your own title and instructions.</p>
+        {newReqs.length === 0 && (
+          <p className="text-xs text-slate-400 font-medium">None added yet.</p>
+        )}
+        <div className="space-y-3">
+          {newReqs.map((r, i) => (
+            <div key={i} className="border border-purple-200 bg-purple-50/40 rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Title"
+                  value={r.title}
+                  onChange={e => updateNewReq(i, { title: e.target.value })}
+                  className={inputClass}
+                />
+                <select
+                  value={r.type}
+                  onChange={e => updateNewReq(i, { type: e.target.value as CustomType })}
+                  className={inputClass}
+                  style={{ maxWidth: '12rem' }}
+                >
+                  <option value="book_report">Book Report</option>
+                  <option value="paper">Paper</option>
+                  <option value="sermon">Sermon</option>
+                  <option value="other">Other</option>
+                </select>
+                <button onClick={() => removeNewReq(i)} className="text-slate-400 hover:text-red-600 font-black px-2">&#x2715;</button>
+              </div>
+              <textarea
+                placeholder="Description / instructions for the ordinand"
+                value={r.description}
+                onChange={e => updateNewReq(i, { description: e.target.value })}
+                rows={3}
+                className={inputClass}
+              />
+              {r.type === 'other' && (
+                <p className="text-xs text-amber-700 font-medium">Type "other" has no automatic grader pool — you'll need to assign a grader manually.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Waive existing not_started requirements */}
       {standardReqs.length > 0 && (
         <div>
@@ -206,54 +355,6 @@ export default function CustomizeTrackModal({ candidate, requirements, isObserve
           </div>
         </div>
       )}
-
-      {/* Add new custom requirements */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Add Custom Requirements</h4>
-          <button onClick={addNewReqRow} className="text-xs font-bold text-purple-700 hover:text-purple-900">+ Add requirement</button>
-        </div>
-        {newReqs.length === 0 && (
-          <p className="text-xs text-slate-400 font-medium">None added yet. Custom requirements can replace or supplement the standard 17.</p>
-        )}
-        <div className="space-y-3">
-          {newReqs.map((r, i) => (
-            <div key={i} className="border border-purple-200 bg-purple-50/40 rounded-xl p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Title"
-                  value={r.title}
-                  onChange={e => updateNewReq(i, { title: e.target.value })}
-                  className={inputClass}
-                />
-                <select
-                  value={r.type}
-                  onChange={e => updateNewReq(i, { type: e.target.value as CustomType })}
-                  className={inputClass}
-                  style={{ maxWidth: '12rem' }}
-                >
-                  <option value="book_report">Book Report</option>
-                  <option value="paper">Paper</option>
-                  <option value="sermon">Sermon</option>
-                  <option value="other">Other</option>
-                </select>
-                <button onClick={() => removeNewReq(i)} className="text-slate-400 hover:text-red-600 font-black px-2">&#x2715;</button>
-              </div>
-              <textarea
-                placeholder="Description / instructions for the ordinand"
-                value={r.description}
-                onChange={e => updateNewReq(i, { description: e.target.value })}
-                rows={3}
-                className={inputClass}
-              />
-              {r.type === 'other' && (
-                <p className="text-xs text-amber-700 font-medium">Type "other" has no automatic grader pool — you'll need to assign a grader manually.</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
 
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
         <button onClick={onClose} className="text-sm font-bold text-slate-500 hover:text-slate-700 px-4 py-2">Cancel</button>
