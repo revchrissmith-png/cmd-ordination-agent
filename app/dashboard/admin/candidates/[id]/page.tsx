@@ -149,7 +149,7 @@ export default function CandidateDetailPage() {
     if (!silent) setLoading(true)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('*, cohorts(id, name, year, season, sermon_topic)')
+      .select('*, cohorts(id, name, year, season, sermon_topic, assignment_due_date)')
       .eq('id', id)
       .single()
     setCandidate(profile)

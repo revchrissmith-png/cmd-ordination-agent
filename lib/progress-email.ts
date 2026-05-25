@@ -20,10 +20,39 @@ export type ProgressEmailInput = {
   firstName:    string
   lastName:     string
   cohortLabel:  string
+  /** Cohort's assignment_due_date — `YYYY-MM-DD` or null. Drives the pace banner. */
+  cohortDueDate: string | null
   requirements: ProgressEmailRequirement[]
   /** Optional free-text comments appended by the sending admin. */
   extraComments?: string
 }
+
+/**
+ * Pace tier — mirrors district-dashboard's `lib/ordination-data.ts` so an
+ * ordinand seeing "critically behind" in their email matches the colour the
+ * council sees on the dashboard's "Ordinands at Risk" KPI. Keep the
+ * thresholds in sync with that file.
+ *
+ *   ratio = required_pace / EXPECTED_PACE  (0.5 reqs/month over ~34 months)
+ *   critical   ratio >= 2.0  OR past-due with reqs remaining
+ *   attention  1.0 < ratio < 2.0
+ *   on_track   ratio <= 1.0
+ */
+export type PaceTier = 'on_track' | 'attention' | 'critical' | 'no_deadline' | 'finished'
+
+export type PaceAssessment = {
+  tier:           PaceTier
+  remaining:      number
+  /** Reqs/month required to finish by cohort deadline. `Infinity` if past-due. */
+  requiredPace:   number
+  /** Months left to deadline; negative if past-due. */
+  monthsToDue:    number | null
+  /** `YYYY-MM-DD` cohort deadline, formatted human-friendly. */
+  dueDateLabel:   string | null
+}
+
+const EXPECTED_PACE      = 0.5    // reqs/month — program baseline
+const AVG_DAYS_PER_MONTH = 30.4375
 
 export type ProgressEmailSummary = {
   total:            number
@@ -70,6 +99,54 @@ export function summarizeProgress(requirements: ProgressEmailRequirement[]): Pro
   }
 }
 
+/**
+ * Classify the ordinand's pace against the cohort deadline. Mirrors
+ * district-dashboard's logic so the colour the ordinand sees matches the
+ * colour the council sees.
+ *
+ * "Remaining" = active reqs the ordinand can act on now. Excludes:
+ *   - waived (not counted toward totals)
+ *   - complete (done)
+ *   - submitted / under_review (ball is in council's court — not the
+ *     ordinand's fault if it sits)
+ * Revision-required stays counted: the ball is back in the ordinand's court.
+ */
+export function assessPace(
+  requirements: ProgressEmailRequirement[],
+  cohortDueDate: string | null,
+): PaceAssessment {
+  const active   = requirements.filter(r => r.status !== 'waived')
+  const complete = active.filter(r => r.status === 'complete').length
+  const inFlight = active.filter(r => r.status === 'submitted' || r.status === 'under_review').length
+  const remaining = Math.max(0, active.length - complete - inFlight)
+
+  const dueDateLabel = cohortDueDate
+    ? new Date(cohortDueDate + 'T12:00:00').toLocaleDateString('en-CA', {
+        month: 'long', day: 'numeric', year: 'numeric',
+      })
+    : null
+
+  if (!cohortDueDate) {
+    return { tier: 'no_deadline', remaining, requiredPace: 0, monthsToDue: null, dueDateLabel: null }
+  }
+  if (remaining === 0) {
+    return { tier: 'finished', remaining: 0, requiredPace: 0, monthsToDue: null, dueDateLabel }
+  }
+
+  // America/Regina is UTC-6 year-round (no DST in Saskatchewan).
+  const dueMs = new Date(cohortDueDate + 'T00:00:00-06:00').getTime()
+  const monthsToDue = (dueMs - Date.now()) / (AVG_DAYS_PER_MONTH * 24 * 60 * 60 * 1000)
+
+  if (monthsToDue <= 0) {
+    return { tier: 'critical', remaining, requiredPace: Infinity, monthsToDue, dueDateLabel }
+  }
+
+  const requiredPace = remaining / monthsToDue
+  const ratio        = requiredPace / EXPECTED_PACE
+  const tier: PaceTier = ratio >= 2.0 ? 'critical' : ratio > 1.0 ? 'attention' : 'on_track'
+  return { tier, remaining, requiredPace, monthsToDue, dueDateLabel }
+}
+
 /** Plain-text subject line. */
 export function buildProgressEmailSubject(input: { firstName: string; lastName: string }): string {
   return `CMD Ordination Progress Update — ${input.firstName} ${input.lastName}`
@@ -93,8 +170,9 @@ const paragraphsFromText = (text: string): string =>
  * Build the inner email HTML (no wrap). Pass through wrapEmail() before sending.
  */
 export function buildProgressEmailBody(input: ProgressEmailInput): string {
-  const { firstName, lastName, cohortLabel, requirements, extraComments } = input
+  const { firstName, lastName, cohortLabel, cohortDueDate, requirements, extraComments } = input
   const s = summarizeProgress(requirements)
+  const pace = assessPace(requirements, cohortDueDate)
 
   const fullName = `${firstName} ${lastName}`
 
@@ -124,6 +202,51 @@ export function buildProgressEmailBody(input: ProgressEmailInput): string {
        </div>`
     : ''
 
+  // ── Pace banner ───────────────────────────────────────────────────────
+  // Uses the district design system's status palette (green / amber / red)
+  // so what the ordinand sees in email matches what council sees on the
+  // "Ordinands at Risk" KPI.
+  const paceBanner = ((): string => {
+    if (pace.tier === 'no_deadline') return '' // no honest signal to give
+
+    const palette = {
+      on_track:  { bg: '#ecfdf5', border: '#10b981', headFg: '#065f46', bodyFg: '#047857', icon: '✓', label: 'On track' },
+      attention: { bg: '#fffbeb', border: '#f59e0b', headFg: '#92400e', bodyFg: '#b45309', icon: '◷', label: 'Slightly behind pace' },
+      critical:  { bg: '#fef2f2', border: '#dc2626', headFg: '#991b1b', bodyFg: '#b91c1c', icon: '⚠', label: 'Critically behind pace' },
+      finished:  { bg: '#ecfdf5', border: '#10b981', headFg: '#065f46', bodyFg: '#047857', icon: '✓', label: 'All requirements complete' },
+    }[pace.tier]
+
+    // Body copy: tier-specific framing of what to do about it.
+    const body = ((): string => {
+      if (pace.tier === 'finished') {
+        return `Every active requirement is either complete or in front of the council. Nothing further is required of you at this time.${pace.dueDateLabel ? ` Your cohort deadline is <strong>${pace.dueDateLabel}</strong>.` : ''}`
+      }
+      if (pace.tier === 'critical' && !isFinite(pace.requiredPace)) {
+        // Past-due with reqs remaining.
+        return `Your cohort's deadline of <strong>${pace.dueDateLabel}</strong> has passed and you still have <strong>${pace.remaining} requirement${pace.remaining === 1 ? '' : 's'}</strong> outstanding. Please reach out to the District Ministry Centre as soon as possible to discuss your path forward.`
+      }
+      // Round up — partial-req-per-month doesn't translate into a real action.
+      const perMonth = Math.max(1, Math.ceil(pace.requiredPace))
+      const deadlineFrag = pace.dueDateLabel
+        ? ` between now and your cohort deadline of <strong>${pace.dueDateLabel}</strong>`
+        : ''
+      const lead = pace.tier === 'on_track'
+        ? 'You are on pace to finish ordination on time.'
+        : pace.tier === 'attention'
+          ? "You're slipping a little behind the cohort's pace. A small course-correction now keeps you out of trouble."
+          : 'Your pace is now significantly behind what the cohort timeline requires. Please prioritise catching up — and reach out if you need help reshaping the plan.'
+      return `${lead} To finish on time you need to complete about <strong>${perMonth} requirement${perMonth === 1 ? '' : 's'} per month</strong>${deadlineFrag}.`
+    })()
+
+    return `
+      <div style="background:${palette.bg};border-left:4px solid ${palette.border};border-radius:4px;padding:14px 18px;margin:0 0 24px;">
+        <p style="color:${palette.headFg};font-weight:bold;font-size:13px;letter-spacing:0.04em;text-transform:uppercase;margin:0 0 6px;">
+          ${palette.icon} ${palette.label}
+        </p>
+        <p style="color:${palette.bodyFg};font-size:14px;line-height:1.6;margin:0;">${body}</p>
+      </div>`
+  })()
+
   // Simple horizontal progress bar.
   const bar = `
     <div style="margin:18px 0 24px;">
@@ -141,6 +264,7 @@ export function buildProgressEmailBody(input: ProgressEmailInput): string {
     <p style="color:#334155;font-size:15px;line-height:1.6;margin:0 0 12px;">Dear ${escapeHtml(fullName)},</p>
     <p style="color:#334155;font-size:14px;line-height:1.6;margin:0 0 12px;">Here is a summary of your current progress in the CMD ordination process.</p>
     ${bar}
+    ${paceBanner}
     <table style="width:100%;border-collapse:collapse;margin:0 0 18px;">
       <tr>
         <td style="padding:8px 0;color:#334155;font-size:14px;">✓ Complete</td>
@@ -162,7 +286,7 @@ export function buildProgressEmailBody(input: ProgressEmailInput): string {
     ${revisionSection}
     ${inProgressSection}
     ${commentsBlock}
-    <p style="color:#334155;font-size:14px;line-height:1.6;margin:18px 0 12px;">If you have any questions, please reply to this email or reach out to the District Ministry Centre.</p>
+    <p style="color:#334155;font-size:14px;line-height:1.6;margin:18px 0 12px;">If you have any questions, please reach out to the District Ministry Centre.</p>
     <p style="color:#334155;font-size:14px;line-height:1.6;margin:0;">In His service,<br><strong>CMD Ordaining Council</strong></p>
   `
 }

@@ -41,6 +41,7 @@ export default function ProgressEmailModal({
   const cohortLabel = candidate?.cohorts
     ? `${candidate.cohorts.season} ${candidate.cohorts.year}`
     : 'Unknown cohort'
+  const cohortDueDate: string | null = candidate?.cohorts?.assignment_due_date ?? null
 
   const subject = useMemo(
     () => buildProgressEmailSubject({ firstName: candidate.first_name, lastName: candidate.last_name }),
@@ -53,10 +54,11 @@ export default function ProgressEmailModal({
       firstName:    candidate.first_name,
       lastName:     candidate.last_name,
       cohortLabel,
+      cohortDueDate,
       requirements,
       extraComments,
     })),
-    [candidate.first_name, candidate.last_name, cohortLabel, requirements, extraComments],
+    [candidate.first_name, candidate.last_name, cohortLabel, cohortDueDate, requirements, extraComments],
   )
 
   async function handleSend() {
@@ -83,10 +85,7 @@ export default function ProgressEmailModal({
       if (!res.ok || !result.sent) {
         flash(`Error sending: ${result.reason || result.detail || 'unknown error'}`, 'error')
       } else {
-        flash(
-          `Progress update sent to ${candidate.first_name} ${candidate.last_name}. Replies will come to ${result.replyTo}.`,
-          'success',
-        )
+        flash(`Progress update sent to ${candidate.first_name} ${candidate.last_name}.`, 'success')
         onSent()
       }
     } catch {
@@ -119,8 +118,7 @@ export default function ProgressEmailModal({
 
         {/* Routing summary */}
         <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-xs text-blue-900 leading-relaxed">
-          Sent from the portal address. <strong>Reply-To</strong> is set to your address, so any reply from{' '}
-          {candidate?.first_name} comes straight to your inbox.
+          Sent from the portal's noreply address, signed by the CMD Ordaining Council. Includes a pace banner that mirrors the dashboard's "Ordinands at Risk" tier (green / amber / red) plus the required reqs-per-month to finish on time.
         </div>
 
         {/* Extra comments */}

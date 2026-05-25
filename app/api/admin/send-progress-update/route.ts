@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   const { data: callerProfile } = await serviceClient
     .from('profiles')
-    .select('roles, email')
+    .select('roles')
     .eq('id', user.id)
     .single()
   if (!callerProfile?.roles?.includes('admin')) {
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   // ── Pull ordinand + active requirements (server-side source of truth) ─
   const { data: candidate, error: profileErr } = await serviceClient
     .from('profiles')
-    .select('id, first_name, last_name, email, cohorts(season, year)')
+    .select('id, first_name, last_name, email, cohorts(season, year, assignment_due_date)')
     .eq('id', ordinandId)
     .single()
   if (profileErr || !candidate?.email) {
@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
   }
 
   const cohort = Array.isArray(candidate.cohorts) ? candidate.cohorts[0] : candidate.cohorts
-  const cohortLabel = cohort ? `${cohort.season} ${cohort.year}` : 'Unknown cohort'
+  const cohortLabel  = cohort ? `${cohort.season} ${cohort.year}` : 'Unknown cohort'
+  const cohortDueDate: string | null = cohort?.assignment_due_date ?? null
 
   const subject = buildProgressEmailSubject({
     firstName: candidate.first_name,
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
     firstName:     candidate.first_name,
     lastName:      candidate.last_name,
     cohortLabel,
+    cohortDueDate,
     requirements:  (requirements ?? []) as unknown as ProgressEmailRequirement[],
     extraComments,
   })
@@ -93,12 +95,13 @@ export async function POST(req: NextRequest) {
   }
 
   const recipientName = `${candidate.first_name} ${candidate.last_name}`.trim()
-  const replyTo = callerProfile.email || user.email
 
+  // No reply_to: the email is signed from the CMD Ordaining Council, so any
+  // reply belongs in the council inbox (the portal's noreply From address),
+  // not in the sending admin's personal inbox.
   const result = await sendOne({
-    from:     EMAIL_FROM,
-    to:       [recipientName ? `${recipientName} <${candidate.email}>` : candidate.email],
-    reply_to: replyTo,
+    from:    EMAIL_FROM,
+    to:      [recipientName ? `${recipientName} <${candidate.email}>` : candidate.email],
     subject,
     html,
   }, resendKey)
@@ -107,5 +110,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sent: false, reason: 'Resend API error', detail: result.detail, status: result.status }, { status: 502 })
   }
 
-  return NextResponse.json({ sent: true, id: result.id, replyTo })
+  return NextResponse.json({ sent: true, id: result.id })
 }
