@@ -16,6 +16,7 @@ import SelfAssessmentModal from './_components/SelfAssessmentModal'
 import EvalInviteModal from './_components/EvalInviteModal'
 import EvalResponseModal from './_components/EvalResponseModal'
 import CustomizeTrackModal from './_components/CustomizeTrackModal'
+import ProgressEmailModal from './_components/ProgressEmailModal'
 import InterviewBriefSection from './_components/InterviewBriefSection'
 import InterviewSection from './_components/InterviewSection'
 
@@ -45,6 +46,7 @@ export default function CandidateDetailPage() {
   const [confirmReset, setConfirmReset] = useState<{ id: string; mode: 'unsubmitted' | 'submitted' } | null>(null)
   const [isResetting, setIsResetting] = useState(false)
   const [showCustomizeTrack, setShowCustomizeTrack] = useState(false)
+  const [showProgressEmail, setShowProgressEmail] = useState(false)
 
   // Admin upload state
   const [uploadingReqId, setUploadingReqId] = useState<string | null>(null)
@@ -265,44 +267,6 @@ export default function CandidateDetailPage() {
     setIsSavingProfile(false)
   }
 
-  function buildProgressEmail() {
-    const name = `${candidate.first_name} ${candidate.last_name}`
-    const cohortLabel = candidate.cohorts ? `${candidate.cohorts.season} ${candidate.cohorts.year}` : 'Unknown cohort'
-    const subject = encodeURIComponent(`CMD Ordination Progress Update — ${name}`)
-
-    const reqTitle = (r: any) => r.requirement_templates?.title ?? r.custom_title ?? 'Unknown'
-    const revisionItems = requirements
-      .filter(r => r.status === 'revision_required')
-      .map(r => `  • ${reqTitle(r)} — Revision Required`)
-      .join('\n')
-
-    const submittedItems = requirements
-      .filter(r => r.status === 'submitted' || r.status === 'under_review')
-      .map(r => `  • ${reqTitle(r)} — ${r.status === 'submitted' ? 'Submitted (awaiting review)' : 'Under Review'}`)
-      .join('\n')
-
-    const body = encodeURIComponent(
-`Dear ${name},
-
-Here is a summary of your current progress in the CMD ordination process.
-
-OVERALL PROGRESS: ${progressPct}% (${complete} of ${total} requirements complete)
-
-Cohort: ${cohortLabel}
-
-SUMMARY
-  ✓ Complete: ${complete}
-  ◷ In Progress: ${inProgress}
-  ○ Not Started: ${notStarted}${revisionItems ? `\n  ⚠ Revision Required: ${revisionRequired}` : ''}
-${revisionItems ? `\nACTION REQUIRED — please revise and resubmit the following:\n${revisionItems}\n` : ''}${submittedItems ? `\nIN PROGRESS — currently under review:\n${submittedItems}\n` : ''}
-If you have any questions, please reach out to the District Ministry Centre.
-
-In His service,
-CMD Ordaining Council`
-    )
-    return `mailto:${candidate.email}?subject=${subject}&body=${body}`
-  }
-
   async function handleAssignGrader(reqId: string, councilMemberId: string) {
     if (denyObserver()) return
     const { data: currentUser } = await supabase.auth.getUser()
@@ -476,13 +440,15 @@ CMD Ordaining Council`
                   {isAutoAssigning ? 'Assigning…' : '⚡ Auto-assign Graders'}
                 </button>
               )}
-              <a
-                href={buildProgressEmail()}
-                className="px-4 py-2.5 text-white rounded-xl text-sm font-bold transition-all"
+              <button
+                onClick={() => setShowProgressEmail(true)}
+                disabled={!candidate?.email}
+                className="px-4 py-2.5 text-white rounded-xl text-sm font-bold transition-all disabled:opacity-50"
                 style={{ backgroundColor: C.deepSea }}
+                title={candidate?.email ? 'Send a branded progress update with optional comments' : 'Ordinand has no email on file'}
               >
                 📧 Send Progress Email
-              </a>
+              </button>
               {!isObserver && (
                 <button
                   onClick={() => setShowCustomizeTrack(true)}
@@ -1035,6 +1001,18 @@ CMD Ordaining Council`
               isObserver={isObserver}
               onClose={() => { setSelectedReqForGrade(null); fetchData() }}
               onSaved={() => { setSelectedReqForGrade(null); fetchData() }}
+              flash={flash}
+            />
+          )}
+
+          {/* Progress update email modal */}
+          {showProgressEmail && candidate && (
+            <ProgressEmailModal
+              candidate={candidate}
+              requirements={requirements}
+              isObserver={isObserver}
+              onClose={() => setShowProgressEmail(false)}
+              onSent={() => setShowProgressEmail(false)}
               flash={flash}
             />
           )}
