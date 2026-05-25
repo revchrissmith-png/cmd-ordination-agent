@@ -126,10 +126,12 @@ function AdminPageContent() {
 
   async function fetchCohorts() {
     setCohortsLoading(true)
+    // Order by cohort deadline — soonest at top, distant at bottom. Cohorts
+    // with no assignment_due_date sink to the bottom (nullsFirst:false).
     const { data, error } = await supabase
       .from('cohorts')
       .select('*')
-      .order('year', { ascending: false })
+      .order('assignment_due_date', { ascending: true, nullsFirst: false })
     if (!error) setCohorts(data || [])
     setCohortsLoading(false)
   }
