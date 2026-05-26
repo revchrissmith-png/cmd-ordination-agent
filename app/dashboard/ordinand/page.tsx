@@ -630,27 +630,30 @@ function OrdinandDashboardContent() {
                         {isRevision && <span className="text-xs font-black text-red-600 whitespace-nowrap">⚠ Action Required</span>}
                       </div>
                       <div className="flex items-center gap-3 shrink-0 ml-3">
-                        {/* Inline target date — stops Link navigation when interacting */}
-                        <div
-                          onClick={e => { e.preventDefault(); e.stopPropagation() }}
-                          className="hidden md:flex items-center gap-1.5"
-                          title="Your proposed submission date. Editable any time."
-                        >
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target</span>
-                          <input
-                            type="date"
-                            value={req.target_date ?? ''}
-                            onChange={e => saveTargetDate(req.id, e.target.value)}
-                            disabled={!!viewAsId}
-                            className={`text-xs font-bold border rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-blue-400 ${
-                              req.target_date
-                                ? new Date(req.target_date + 'T12:00:00') < new Date(new Date().toISOString().slice(0,10) + 'T12:00:00')
-                                  ? 'border-red-200 text-red-600'
-                                  : 'border-slate-200 text-slate-700'
-                                : 'border-amber-200 text-amber-700'
-                            }`}
-                          />
-                        </div>
+                        {/* Inline target date — stops Link navigation when interacting.
+                            Hidden once the assignment is complete (no calendar relevance). */}
+                        {status !== 'complete' && (
+                          <div
+                            onClick={e => { e.preventDefault(); e.stopPropagation() }}
+                            className="hidden md:flex items-center gap-1.5"
+                            title="Your proposed submission date. Editable any time."
+                          >
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target</span>
+                            <input
+                              type="date"
+                              value={req.target_date ?? ''}
+                              onChange={e => saveTargetDate(req.id, e.target.value)}
+                              disabled={!!viewAsId}
+                              className={`text-xs font-bold border rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-blue-400 ${
+                                req.target_date
+                                  ? new Date(req.target_date + 'T12:00:00') < new Date(new Date().toISOString().slice(0,10) + 'T12:00:00')
+                                    ? 'border-red-200 text-red-600'
+                                    : 'border-slate-200 text-slate-700'
+                                  : 'border-amber-200 text-amber-700'
+                              }`}
+                            />
+                          </div>
+                        )}
                         <span className={`px-3 py-1 rounded-full text-xs font-bold hidden sm:inline ${cfg.colour}`}>{cfg.label}</span>
                         <span className="text-xs font-bold text-slate-300 group-hover:text-blue-500 transition-colors whitespace-nowrap">
                           {status === 'not_started' ? 'Submit →' : 'View →'}
