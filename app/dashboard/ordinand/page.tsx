@@ -12,6 +12,16 @@ import { PageSkeleton } from '../../components/Skeleton'
 import { C, STATUS_CONFIG, type Status } from '../../../lib/theme'
 import { renderMarkdown } from '../../../utils/markdown'
 
+// Date on/after which ordinands must commit a target date to every active
+// requirement before they can use the rest of the portal.
+const TARGET_DATE_GATE_START = '2026-06-01'
+
+// Active = not waived and not complete. These are the requirements that need
+// a target_date both for the gate and for the admin health dot.
+function isActiveForTarget(status: string) {
+  return status !== 'waived' && status !== 'complete'
+}
+
 function OrdinandDashboardContent() {
   const [profile, setProfile] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
@@ -22,6 +32,8 @@ function OrdinandDashboardContent() {
   const [showCohortPopover, setShowCohortPopover] = useState(false)
   const [interview, setInterview] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [gateDrafts, setGateDrafts] = useState<Record<string, string>>({})
+  const [gateSaving, setGateSaving] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
 
   const searchParams = useSearchParams()
@@ -51,7 +63,7 @@ function OrdinandDashboardContent() {
       setProfile(prof)
       const { data: reqs } = await supabase
         .from('ordinand_requirements')
-        .select(`id, status, template_id, custom_title, custom_description, custom_type, waived_reason, requirement_templates(id, type, topic, title, book_category, display_order)`)
+        .select(`id, status, template_id, custom_title, custom_description, custom_type, waived_reason, target_date, target_date_set_at, requirement_templates(id, type, topic, title, book_category, display_order)`)
         .eq('ordinand_id', targetId)
       setRequirements(reqs || [])
 
@@ -128,11 +140,129 @@ function OrdinandDashboardContent() {
     })
   }
 
+  // ── Target date helpers ─────────────────────────────────────────────────
+  // Save one target_date from an inline card picker. Stamps target_date_set_at
+  // server-side via `now()` returning into the local row.
+  async function saveTargetDate(reqId: string, value: string) {
+    if (viewAsId) return // admins in viewAs preview can't write
+    const newDate = value || null
+    // Optimistic local update so the input feels instant
+    setRequirements(prev => prev.map(r => r.id === reqId ? { ...r, target_date: newDate, target_date_set_at: newDate ? new Date().toISOString() : null } : r))
+    const { error } = await supabase
+      .from('ordinand_requirements')
+      .update({ target_date: newDate, target_date_set_at: newDate ? new Date().toISOString() : null })
+      .eq('id', reqId)
+    if (error) {
+      // Revert on failure
+      // Cheapest path: refetch the one row
+      const { data } = await supabase
+        .from('ordinand_requirements')
+        .select('target_date, target_date_set_at')
+        .eq('id', reqId)
+        .single()
+      if (data) setRequirements(prev => prev.map(r => r.id === reqId ? { ...r, ...data } : r))
+      alert('Could not save target date. Please try again.')
+    }
+  }
+
+  // June 1 forcing function — fires when today >= TARGET_DATE_GATE_START and
+  // any active requirement lacks a target_date. The admin viewAs preview is
+  // exempt (read-only).
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const gateActive = !viewAsId && todayIso >= TARGET_DATE_GATE_START
+  const ungatedReqs = requirements.filter(r => isActiveForTarget(r.status) && !r.target_date)
+  const showGate = gateActive && ungatedReqs.length > 0 && !loading
+
+  const allGateDatesFilled = ungatedReqs.every(r => !!gateDrafts[r.id])
+
+  async function submitGateDrafts() {
+    if (!allGateDatesFilled || gateSaving) return
+    setGateSaving(true)
+    const now = new Date().toISOString()
+    const updates = ungatedReqs.map(r =>
+      supabase.from('ordinand_requirements')
+        .update({ target_date: gateDrafts[r.id], target_date_set_at: now })
+        .eq('id', r.id)
+    )
+    const results = await Promise.all(updates)
+    const anyError = results.some(r => r.error)
+    if (anyError) {
+      setGateSaving(false)
+      alert('Some dates could not be saved. Please try again.')
+      return
+    }
+    // Patch local state so the gate closes
+    setRequirements(prev => prev.map(r => gateDrafts[r.id]
+      ? { ...r, target_date: gateDrafts[r.id], target_date_set_at: now }
+      : r
+    ))
+    setGateDrafts({})
+    setGateSaving(false)
+  }
+
 
   if (loading) return <PageSkeleton rows={6} />
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
+
+      {/* ── June 1 gate — blocks everything until target dates are committed ── */}
+      {showGate && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm overflow-y-auto py-8 px-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full my-auto">
+            <div className="px-8 py-6 border-b border-slate-100">
+              <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: C.allianceBlue }}>Plan your submissions</p>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">Propose a date for each remaining assignment</h2>
+              <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                Before continuing, set a target submission date for each requirement below. These are your own deadlines — you can revise them later as life shifts — but committing to a calendar now helps you finish strong.
+              </p>
+            </div>
+            <div className="px-8 py-5 max-h-[55vh] overflow-y-auto">
+              <div className="space-y-2">
+                {ungatedReqs.map(req => {
+                  const title = req.requirement_templates?.title ?? req.custom_title ?? 'Untitled requirement'
+                  const typeLabel = (req.requirement_templates?.type ?? req.custom_type ?? '').replace('_', ' ')
+                  return (
+                    <div key={req.id} className="flex items-center justify-between gap-4 px-4 py-3 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 leading-snug truncate">{title}</p>
+                        {typeLabel && <p className="text-xs text-slate-400 font-medium capitalize">{typeLabel}</p>}
+                      </div>
+                      <input
+                        type="date"
+                        value={gateDrafts[req.id] ?? ''}
+                        onChange={e => setGateDrafts(prev => ({ ...prev, [req.id]: e.target.value }))}
+                        className="text-sm font-bold text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 bg-white"
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="px-8 py-5 border-t border-slate-100 bg-slate-50 rounded-b-3xl flex items-center justify-between gap-4">
+              <p className="text-xs text-slate-500 font-medium">
+                {Object.keys(gateDrafts).filter(k => gateDrafts[k]).length} of {ungatedReqs.length} set
+              </p>
+              <button
+                onClick={submitGateDrafts}
+                disabled={!allGateDatesFilled || gateSaving}
+                className={`px-6 py-2.5 rounded-xl font-black text-sm transition-colors ${
+                  allGateDatesFilled && !gateSaving
+                    ? 'text-white hover:opacity-90'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+                style={allGateDatesFilled && !gateSaving ? { backgroundColor: C.deepSea } : {}}
+              >
+                {gateSaving ? 'Saving…' : 'Submit my calendar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BetaBanner />
 
@@ -500,6 +630,27 @@ function OrdinandDashboardContent() {
                         {isRevision && <span className="text-xs font-black text-red-600 whitespace-nowrap">⚠ Action Required</span>}
                       </div>
                       <div className="flex items-center gap-3 shrink-0 ml-3">
+                        {/* Inline target date — stops Link navigation when interacting */}
+                        <div
+                          onClick={e => { e.preventDefault(); e.stopPropagation() }}
+                          className="hidden md:flex items-center gap-1.5"
+                          title="Your proposed submission date. Editable any time."
+                        >
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target</span>
+                          <input
+                            type="date"
+                            value={req.target_date ?? ''}
+                            onChange={e => saveTargetDate(req.id, e.target.value)}
+                            disabled={!!viewAsId}
+                            className={`text-xs font-bold border rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-blue-400 ${
+                              req.target_date
+                                ? new Date(req.target_date + 'T12:00:00') < new Date(new Date().toISOString().slice(0,10) + 'T12:00:00')
+                                  ? 'border-red-200 text-red-600'
+                                  : 'border-slate-200 text-slate-700'
+                                : 'border-amber-200 text-amber-700'
+                            }`}
+                          />
+                        </div>
                         <span className={`px-3 py-1 rounded-full text-xs font-bold hidden sm:inline ${cfg.colour}`}>{cfg.label}</span>
                         <span className="text-xs font-bold text-slate-300 group-hover:text-blue-500 transition-colors whitespace-nowrap">
                           {status === 'not_started' ? 'Submit →' : 'View →'}

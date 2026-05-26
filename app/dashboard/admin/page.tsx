@@ -83,6 +83,7 @@ function AdminPageContent() {
 
   const [candidates, setCandidates] = useState<any[]>([])
   const [candidatesLoading, setCandidatesLoading] = useState(true)
+  const [calendarHealth, setCalendarHealth] = useState<Record<string, { color: 'green'|'yellow'|'red'|'grey'; label: string }>>({})
   const [newCandidateEmail, setNewCandidateEmail] = useState('')
   const [newCandidateFirst, setNewCandidateFirst] = useState('')
   const [newCandidateLast, setNewCandidateLast] = useState('')
@@ -164,6 +165,38 @@ function AdminPageContent() {
       .eq('is_demo', false)
       .order('last_name', { ascending: true })
     if (!error) setCandidates(data || [])
+    // Compute calendar-health indicator from active requirements' target_dates.
+    // Active = status NOT IN ('waived','complete'). Submitted/under_review still
+    // count — the ordinand's promise was about *when* to hand it in.
+    const ordinandIds = (data ?? []).filter((p: any) => !p.status || p.status === 'active').map((p: any) => p.id)
+    if (ordinandIds.length > 0) {
+      const { data: reqRows } = await supabase
+        .from('ordinand_requirements')
+        .select('ordinand_id, status, target_date')
+        .in('ordinand_id', ordinandIds)
+      const today = new Date().toISOString().slice(0, 10)
+      const in14 = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10)
+      const health: Record<string, { color: 'green'|'yellow'|'red'|'grey'; label: string }> = {}
+      for (const oid of ordinandIds) {
+        const active = (reqRows ?? []).filter((r: any) => r.ordinand_id === oid && r.status !== 'waived' && r.status !== 'complete')
+        if (active.length === 0) { health[oid] = { color: 'green', label: 'All requirements complete or waived' }; continue }
+        const missing = active.filter((r: any) => !r.target_date)
+        if (missing.length > 0) {
+          health[oid] = { color: 'grey', label: `${missing.length} requirement${missing.length !== 1 ? 's' : ''} without a target date` }
+          continue
+        }
+        const past = active.filter((r: any) => r.target_date && r.target_date < today)
+        const soon = active.filter((r: any) => r.target_date && r.target_date >= today && r.target_date <= in14)
+        if (past.length > 0) {
+          health[oid] = { color: 'red', label: `${past.length} past target${soon.length ? `, ${soon.length} due soon` : ''}` }
+        } else if (soon.length > 0) {
+          health[oid] = { color: 'yellow', label: `${soon.length} due within 14 days` }
+        } else {
+          health[oid] = { color: 'green', label: 'On track' }
+        }
+      }
+      setCalendarHealth(health)
+    }
     setCandidatesLoading(false)
   }
 
@@ -903,7 +936,18 @@ function AdminPageContent() {
                     {candidates.filter(p => !p.status || p.status === 'active').map(person => (
                       <tr key={person.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 sm:px-8 py-4 sm:py-5">
-                          <div className="font-bold text-slate-900">{person.first_name} {person.last_name}</div>
+                          <div className="font-bold text-slate-900 flex items-center gap-2">
+                            {(() => {
+                              const h = calendarHealth[person.id]
+                              if (!h) return null
+                              const cls = h.color === 'green' ? 'bg-green-500'
+                                : h.color === 'yellow' ? 'bg-amber-400'
+                                : h.color === 'red' ? 'bg-red-500'
+                                : 'bg-slate-300'
+                              return <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cls}`} title={`Calendar: ${h.label}`} />
+                            })()}
+                            <span>{person.first_name} {person.last_name}</span>
+                          </div>
                           <div className="text-sm text-slate-400 font-medium">{person.email}</div>
                           <div className="mt-1 sm:hidden">
                             {person.cohorts?.name
