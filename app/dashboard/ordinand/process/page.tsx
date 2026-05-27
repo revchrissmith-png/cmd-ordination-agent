@@ -26,6 +26,21 @@ function InfoRow({ label, value, valueNode }: { label: string; value?: string; v
   )
 }
 
+/**
+ * Format a Postgres `time` value as a 12-hour string. Stored times are
+ * Regina (CST year-round); the timezone label is appended at the call site.
+ */
+function formatEventTime(t: string | null | undefined): string {
+  if (!t) return ''
+  const [hStr, mStr] = t.split(':')
+  const h = parseInt(hStr, 10)
+  const m = parseInt(mStr, 10)
+  if (Number.isNaN(h) || Number.isNaN(m)) return t
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`
+}
+
 export default function OrdinandProcessPage() {
   const [profile, setProfile] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
@@ -52,7 +67,7 @@ export default function OrdinandProcessPage() {
         const today = new Date().toISOString().split('T')[0]
         const { data: evts } = await supabase
           .from('cohort_events')
-          .select('id, title, event_date, event_type, location, notes, requirement_templates!linked_template_id(id, title, type)')
+          .select('id, title, event_date, event_time, event_type, location, notes, requirement_templates!linked_template_id(id, title, type)')
           .or(`cohort_ids.cs.{"${prof.cohort_id}"},cohort_ids.is.null`)
           .gte('event_date', today)
           .order('event_date', { ascending: true })
@@ -150,13 +165,18 @@ export default function OrdinandProcessPage() {
                             </span>
                             {daysUntil <= 14 && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Coming up!</span>}
                           </div>
-                          <p className="text-xs text-slate-400 font-medium mt-0.5">{d.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                          <p className="text-xs text-slate-400 font-medium mt-0.5">
+                            {d.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            {ev.event_time && ` · ${formatEventTime(ev.event_time)} CST`}
+                          </p>
                         </div>
                         <span className="text-slate-300 font-bold text-sm flex-shrink-0">{isExpanded ? '▲' : '▼'}</span>
                       </button>
                       {isExpanded && (
                         <div className="px-5 pb-4 pt-1 border-t border-blue-100">
-                          <p className="text-sm font-bold text-slate-700 mb-3">{dateStr}</p>
+                          <p className="text-sm font-bold text-slate-700 mb-3">
+                            {dateStr}{ev.event_time && ` · ${formatEventTime(ev.event_time)} CST (Regina time)`}
+                          </p>
                           {linkedReq && (() => {
                             const typeIcon = ev.requirement_templates.type === 'book_report' ? '📚' : ev.requirement_templates.type === 'sermon' ? '🎤' : '📝'
                             return (
@@ -193,6 +213,12 @@ export default function OrdinandProcessPage() {
                           {!ev.location && !ev.notes && !linkedReq && (
                             <p className="text-xs text-slate-400 italic">No additional details provided.</p>
                           )}
+                          <div className="mt-3 pt-3 border-t border-blue-100">
+                            <a
+                              href={`/api/events/${ev.id}/ics`}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                            >📅 Add to calendar</a>
+                          </div>
                         </div>
                       )}
                     </div>
