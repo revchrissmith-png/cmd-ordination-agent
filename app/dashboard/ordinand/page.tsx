@@ -16,6 +16,16 @@ import { renderMarkdown } from '../../../utils/markdown'
 // epoch, no commitment modal fires (the feature was not in production prior).
 const FIRST_CYCLE_START = '2026-06-01'
 
+// Pre-launch UAT: these ordinand IDs get the modal NOW with cycle_start pinned
+// to the upcoming 2026-06-01 cycle, so the preview matches what June 1 will
+// look like. Their test commitments must be DELETEd before the real launch
+// or they'll carry over as real promises.
+const EARLY_ACCESS_ORDINAND_IDS = new Set<string>([
+  '7784ba28-3686-4a6c-8c17-4b30cc479b50', // Joanna Smith
+])
+const EARLY_ACCESS_CYCLE_START = '2026-06-01'
+const EARLY_ACCESS_NEXT_CYCLE  = '2026-12-01'
+
 // Active = not waived and not complete. These are eligible to be committed to.
 function isActiveForTarget(status: string) {
   return status !== 'waived' && status !== 'complete'
@@ -89,7 +99,7 @@ function OrdinandDashboardContent() {
 
       const { data: prof } = await supabase
         .from('profiles')
-        .select('full_name, email, mentor_name, mentor_email, cohort_id, cohorts(year, season, sermon_topic, assignment_due_date)')
+        .select('id, full_name, email, mentor_name, mentor_email, cohort_id, cohorts(year, season, sermon_topic, assignment_due_date)')
         .eq('id', targetId)
         .single()
       setProfile(prof)
@@ -101,13 +111,16 @@ function OrdinandDashboardContent() {
 
       // Commitments for the current cycle — used both to render the
       // "My Commitments" dashboard section and to decide whether the
-      // commitment modal needs to fire.
-      const cycleStart = currentCycleStart(new Date())
+      // commitment modal needs to fire. Early-access users get the upcoming
+      // Jun-1 cycle so their preview matches the post-launch view.
+      const fetchCycleStart = EARLY_ACCESS_ORDINAND_IDS.has(targetId)
+        ? EARLY_ACCESS_CYCLE_START
+        : currentCycleStart(new Date())
       const { data: cmts } = await supabase
         .from('commitments')
         .select('id, ordinand_requirement_id, cycle_start, target_date, committed_at')
         .eq('ordinand_id', targetId)
-        .eq('cycle_start', cycleStart)
+        .eq('cycle_start', fetchCycleStart)
       setCommitments(cmts || [])
 
       if (prof?.cohort_id) {
@@ -192,8 +205,9 @@ function OrdinandDashboardContent() {
   // viewAs admin preview is exempt (read-only).
   const today = new Date()
   const todayIso = today.toISOString().slice(0, 10)
-  const cycleStart = currentCycleStart(today)
-  const nextCycle = nextCycleStart(today)
+  const isEarlyAccess = !!(profile?.id && EARLY_ACCESS_ORDINAND_IDS.has(profile.id))
+  const cycleStart = isEarlyAccess ? EARLY_ACCESS_CYCLE_START : currentCycleStart(today)
+  const nextCycle  = isEarlyAccess ? EARLY_ACCESS_NEXT_CYCLE  : nextCycleStart(today)
   // The picker max is the day BEFORE the next cycle starts.
   const cycleMaxDate = new Date(nextCycle + 'T12:00:00')
   cycleMaxDate.setDate(cycleMaxDate.getDate() - 1)
@@ -205,7 +219,8 @@ function OrdinandDashboardContent() {
   const committedReqIds = new Set(commitments.map(c => c.ordinand_requirement_id))
   const modalEligibleReqs = eligibleReqs.filter(r => !committedReqIds.has(r.id))
 
-  const cycleHasStarted = todayIso >= cycleStart && cycleStart >= FIRST_CYCLE_START
+  const cycleHasStarted = isEarlyAccess
+    || (todayIso >= cycleStart && cycleStart >= FIRST_CYCLE_START)
   const showCommitmentModal =
     !viewAsId && cycleHasStarted && commitments.length === 0
       && modalEligibleReqs.length > 0 && !loading
