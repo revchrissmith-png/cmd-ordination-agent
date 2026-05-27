@@ -296,6 +296,12 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-26 — Semi-annual commitments + Lydia Stoesz brief fix
+
+- **Lydia Stoesz interview brief truncation fix** (`17c66e0`): `app/api/admin/interview-brief/route.ts` was capped at `max_tokens: 4000` on Haiku 4.5, which truncated briefs mid-section for ordinands with full files. Bumped to 8000 tokens and switched the model to `claude-sonnet-4-6` (per original spec: Haiku for Pardington sessions, Sonnet for council-facing summaries).
+- **Semi-annual commitments feature** (`d0b209d`, supersedes earlier `a8fd6dd`+`8a14f9e` target-date attempt): dropped the per-requirement `target_date` columns and added a `commitments` table (`ordinand_id`, `ordinand_requirement_id`, `cycle_start`, `target_date`, `committed_at`, UNIQUE on requirement+cycle). Cycles begin June 1 / December 1; epoch `2026-06-01`. Each cycle, ordinands hit a blocking modal that asks them to pick 3-4 outstanding requirements (or all remaining if ≤3) and propose a target submission date within the next six months. Snapshot model — no mid-cycle replacement. New "My Commitments — Jun 2026 → Nov 2026" dashboard section above the progress card; committed items get an inline date pill on their requirement row. Admin candidate list grew a green/yellow/red/grey health dot computed from each ordinand's current-cycle commitments.
+- **Joanna Smith UAT preview** (`510661d` → rolled back in `7a5545c`): added an `EARLY_ACCESS_ORDINAND_IDS` set that lets named ordinands hit the modal before the epoch with `cycle_start` pinned to the upcoming cycle. Joanna previewed it the same day; her three test commitments were DELETEd and she's back to a clean slate. The hook stays in the code as an empty set for the next pre-launch preview.
+
 ### 2026-05-21 — Cohorts tab: ordinand roster per cohort + Silas Friesen requirements restored
 
 - **Cohorts tab ordinand roster** (`62c2a69`): each cohort card on the Admin → Cohorts tab now lists assigned ordinands alphabetically below the topic cards. Each row links directly to the ordinand's admin profile page and shows a stage badge (Active / Completed). Cohorts with no assigned ordinands show no roster section. Closes tasks #172 and #173.
@@ -346,30 +352,6 @@ This portal was built for the CMD but the architecture is generic enough to adap
 ### 2026-04-22 (evening)
 - **Archive report PDF fix**: Unicode bullet characters (✓, ○) broke jsPDF font metrics causing stretched letter-spacing on every requirement line — replaced with colored dot indicators
 - **Cohort display fix**: archive report showed "undefined undefined Cohort" because admin page query omitted season/year fields from cohorts join
-
-### 2026-04-22
-- **Grade validation**: decision modal now requires all 10 section grades before confirming — shows X/10 counter with amber warning
-- **Conditions follow-up workflow**: due date field on decision modal; candidate detail page shows follow-up panel with status (Pending/Overdue/Approved) and "Mark Conditions as Met" button; prominent banner at top of page when conditions are outstanding
-- **Decision Record PDF on candidate page**: download button now visible directly in the InterviewSection on the candidate detail page, not only inside the interview console
-- **PDF branding**: CMD cross/flame logo added to all three PDF report headers (Interview Brief, Decision Record, Archive Report); title font sizes standardized across all reports
-- **PDF print safety**: header and footer bars inset by 18pt page margin with rounded corners so nothing bleeds outside the printable area for physical records
-- **Compact grades in Decision PDF**: label width widened (190→260pt) so long section names are no longer truncated; row height reduced so the full report including signature panel fits on one page
-- **Council live interview console**: full scoring rubric (10 sections, 5-point qualitative scale), question browser with section highlights, private scratchpad, submit-and-lock flow
-- **Chair aggregate view**: dark-themed pop-out for screen-casting during debrief — per-section spectrum bars, anonymous vote dots, overall average, auto-refreshes every 10 seconds
-- **Section assignments**: chair assigns question groups to council members day-of from the admin console; council members see "Your section" badges on their live view
-- **AI brief persistence**: briefs generated from the candidate page now save to `brief_snapshot` on the interview record, eliminating redundant regeneration on interview day
-- **Official final scores**: decision modal includes a 10-section scoring grid pre-populated from aggregate averages; recorded as the council's consensus grades
-- **Conditions field**: dedicated field for conditional/deferred outcomes, separate from deliberation notes
-- **Decision record PDF**: branded PDF with coloured outcome pill, conditions callout, section grade pills, council attendance, deliberation notes, and signature lines
-- **Bidirectional chair/council navigation**: "My Scores" on admin console opens council view; "Chair Console" on council view links back
-- **Council attendance auto-save**: toggles now persist immediately instead of only on decision submission
-- **Email notifications**: council members receive branded email when an interview is scheduled
-- **Council dashboard section**: upcoming and recently decided interviews visible to council members
-
-### 2026-04-21
-- Oral interview console with split-panel layout (AI brief + live notes), interview lifecycle management (scheduled → in progress → decided), and four-outcome decision recording
-- Archive report modal with PDF/TXT/email export and AI executive summary
-- Interview brief PDF generation with CMD branding
 
 ---
 
