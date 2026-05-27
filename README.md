@@ -296,6 +296,14 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-27 — Cohort event enhancements: time, council teams, calendar export, T-50/T-30/T-3 reminders
+
+- **Schema** (migration `20260527144218_add_cohort_event_enhancements.sql`): adds `cohort_events.event_time` (Regina wall-clock, no DST), `cohort_events.team` + `profiles.council_team` (`preaching` / `papers` / `reading_discussions`), `cohort_event_council_assignments` join table (RLS: admins manage, council reads, ordinands read for their cohort), and `cohort_event_notifications_sent` log with `UNIQUE(event_id, kind)` for idempotent cron sweeps.
+- **Admin event editor**: time picker, council-team selector that auto-fills a council multi-select with team members, freely editable to flex anyone in for availability. Council member detail page gains a `council_team` setting.
+- **Ordinand view**: event time surfaced next to the date (`7:00 PM CST`) and an `📅 Add to calendar` button on each event → new `/api/events/[id]/ics` route generates a session-gated VCALENDAR with `VTIMEZONE:America/Regina` (fixed -06:00). URL-shaped locations also emit `URL:` so calendar apps render click-to-join. Default 1-hour duration when an explicit time is set; falls back to all-day VEVENT otherwise.
+- **Daily notification cron** (`/api/cron/event-notifications`, `0 13 * * *` UTC = 7 AM Regina, PR [#4](https://github.com/revchrissmith-png/cmd-ordination-agent/pull/4)): scans for events at +50, +30, +3 days out. T-50 to per-event council assignees (fallback: all council if none assigned) — reply-to Michelle, asking for review/update within two weeks. T-30 to cohort ordinands — reply-to Chris, includes the "without express permission you are expected to attend" attendance language. T-3 to union of council + ordinands — reply-to Michelle, warm "looking forward to seeing you" note. POST handler is admin-gated as a manual recovery path.
+- **Recipients wired up**: `EVENT_REPLY_TO_MICHELLE=admin.assist@canadianmidwest.ca` and `EVENT_REPLY_TO_CHRIS=chris@canadianmidwest.ca` set in Vercel Production via `vercel env`.
+
 ### 2026-05-26 — Semi-annual commitments + Lydia Stoesz brief fix
 
 - **Lydia Stoesz interview brief truncation fix** (`17c66e0`): `app/api/admin/interview-brief/route.ts` was capped at `max_tokens: 4000` on Haiku 4.5, which truncated briefs mid-section for ordinands with full files. Bumped to 8000 tokens and switched the model to `claude-sonnet-4-6` (per original spec: Haiku for Pardington sessions, Sonnet for council-facing summaries).
