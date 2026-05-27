@@ -16,12 +16,13 @@ import { renderMarkdown } from '../../../utils/markdown'
 // epoch, no commitment modal fires (the feature was not in production prior).
 const FIRST_CYCLE_START = '2026-06-01'
 
-// Pre-launch UAT: these ordinand IDs get the modal NOW with cycle_start pinned
-// to the upcoming 2026-06-01 cycle, so the preview matches what June 1 will
-// look like. Their test commitments must be DELETEd before the real launch
-// or they'll carry over as real promises.
+// Pre-launch UAT hook: ordinand IDs in this set get the commitment modal
+// NOW with cycle_start pinned to EARLY_ACCESS_CYCLE_START, regardless of
+// the FIRST_CYCLE_START epoch. Used for shoulder-watch demos before launch.
+// Test commitments under EARLY_ACCESS_CYCLE_START must be DELETEd before
+// that cycle goes live, or they carry over as real promises.
 const EARLY_ACCESS_ORDINAND_IDS = new Set<string>([
-  '7784ba28-3686-4a6c-8c17-4b30cc479b50', // Joanna Smith
+  // empty — Joanna's preview ran 2026-05-26, rolled back the same day
 ])
 const EARLY_ACCESS_CYCLE_START = '2026-06-01'
 const EARLY_ACCESS_NEXT_CYCLE  = '2026-12-01'
