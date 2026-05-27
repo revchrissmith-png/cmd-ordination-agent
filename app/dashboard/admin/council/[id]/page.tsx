@@ -73,6 +73,7 @@ export default function CouncilMemberManagePage() {
   const [editFirst, setEditFirst] = useState('')
   const [editLast, setEditLast] = useState('')
   const [editEmail, setEditEmail] = useState('')
+  const [editTeam, setEditTeam] = useState<'' | 'preaching' | 'papers' | 'reading_discussions'>('')
   const [isSavingProfile, setIsSavingProfile] = useState(false)
 
   const [isObserver, setIsObserver] = useState(false)
@@ -116,7 +117,7 @@ export default function CouncilMemberManagePage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, email, roles, created_at')
+      .select('id, first_name, last_name, email, roles, created_at, council_team')
       .eq('id', id)
       .single()
     setMember(profile)
@@ -124,6 +125,7 @@ export default function CouncilMemberManagePage() {
       setEditFirst(profile.first_name || '')
       setEditLast(profile.last_name || '')
       setEditEmail(profile.email || '')
+      setEditTeam(profile.council_team || '')
     }
 
     // Last login — via service-role API route
@@ -219,7 +221,12 @@ export default function CouncilMemberManagePage() {
     // Update name in profiles
     const { error: nameError } = await supabase
       .from('profiles')
-      .update({ first_name: editFirst, last_name: editLast, full_name: `${editFirst} ${editLast}`.trim() })
+      .update({
+        first_name: editFirst,
+        last_name: editLast,
+        full_name: `${editFirst} ${editLast}`.trim(),
+        council_team: editTeam || null,
+      })
       .eq('id', id)
     if (nameError) { flash('Error saving profile: ' + nameError.message, 'error'); setIsSavingProfile(false); return }
 
@@ -472,6 +479,18 @@ export default function CouncilMemberManagePage() {
                     <label style={labelStyle}>Email</label>
                     <input style={inputStyle} type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
                   </div>
+                  <div>
+                    <label style={labelStyle}>Council Team</label>
+                    <select style={inputStyle} value={editTeam} onChange={e => setEditTeam(e.target.value as any)}>
+                      <option value="">— No team —</option>
+                      <option value="preaching">Preaching</option>
+                      <option value="papers">Papers</option>
+                      <option value="reading_discussions">Reading Discussions</option>
+                    </select>
+                    <p style={{ margin: '6px 0 0', fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500 }}>
+                      Their home team. Events created with this team pre-fill assignments; per-event overrides remain available.
+                    </p>
+                  </div>
                   <button onClick={handleSaveProfile} disabled={isSavingProfile} style={{ padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: 'none', backgroundColor: isSavingProfile ? '#e2e8f0' : C.deepSea, color: isSavingProfile ? '#94a3b8' : C.white, cursor: 'pointer' }}>
                     {isSavingProfile ? 'Saving…' : 'Save Changes'}
                   </button>
@@ -493,6 +512,14 @@ export default function CouncilMemberManagePage() {
                         <span key={r} style={{ padding: '2px 10px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 700, backgroundColor: r === 'admin' ? '#eff6ff' : '#f0fdf4', color: r === 'admin' ? '#1d4ed8' : '#15803d', border: `1px solid ${r === 'admin' ? '#bfdbfe' : '#bbf7d0'}` }}>{r}</span>
                       ))}
                     </div>
+                  </div>
+                  <div>
+                    <p style={{ ...labelStyle, margin: '0 0 2px' }}>Council Team</p>
+                    <p style={{ margin: 0, fontWeight: 600, color: '#475569', fontSize: '0.9rem' }}>
+                      {member.council_team
+                        ? ({ preaching: 'Preaching', papers: 'Papers', reading_discussions: 'Reading Discussions' } as const)[member.council_team as 'preaching' | 'papers' | 'reading_discussions']
+                        : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>None assigned</span>}
+                    </p>
                   </div>
                   <div>
                     <p style={{ ...labelStyle, margin: '0 0 2px' }}>Member Since</p>
