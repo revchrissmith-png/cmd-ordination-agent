@@ -73,6 +73,9 @@ function AdminPageContent() {
   const [newEventDate, setNewEventDate] = useState('')
   const [newEventType, setNewEventType] = useState<'online' | 'in_person'>('online')
   const [newEventLocation, setNewEventLocation] = useState('')
+  const [newEventTime, setNewEventTime] = useState('')
+  const [newEventTeam, setNewEventTeam] = useState<'' | 'preaching' | 'papers' | 'reading_discussions'>('')
+  const [newEventCouncilIds, setNewEventCouncilIds] = useState<string[]>([])
   const [newEventNotes, setNewEventNotes] = useState('')
   const [isAddingEvent, setIsAddingEvent] = useState(false)
   const [newEventTemplate, setNewEventTemplate] = useState('')
@@ -141,7 +144,7 @@ function AdminPageContent() {
     setEventsLoading(true)
     const { data, error } = await supabase
       .from('cohort_events')
-      .select('*, cohort_ids, requirement_templates!linked_template_id(id, title, type)')
+      .select('*, cohort_ids, requirement_templates!linked_template_id(id, title, type), cohort_event_council_assignments(profile_id)')
       .order('event_date', { ascending: true })
     if (!error) setEvents(data || [])
     setEventsLoading(false)
@@ -581,17 +584,33 @@ function AdminPageContent() {
     }
     setNewEventTitle(ev.title)
     setNewEventDate(ev.event_date)
+    setNewEventTime(ev.event_time ? ev.event_time.slice(0, 5) : '')
     setNewEventType(ev.event_type)
     setNewEventLocation(ev.location ?? '')
     setNewEventNotes(ev.notes ?? '')
     setNewEventTemplate(ev.linked_template_id ?? '')
+    setNewEventTeam(ev.team ?? '')
+    setNewEventCouncilIds((ev.cohort_event_council_assignments ?? []).map((a: any) => a.profile_id))
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function cancelEdit() {
     setEditingEvent(null)
     setNewEventAllCohorts(true); setNewEventCohorts([])
-    setNewEventTitle(''); setNewEventDate(''); setNewEventLocation(''); setNewEventNotes(''); setNewEventTemplate('')
+    setNewEventTitle(''); setNewEventDate(''); setNewEventTime(''); setNewEventLocation(''); setNewEventNotes(''); setNewEventTemplate('')
+    setNewEventTeam(''); setNewEventCouncilIds([])
+  }
+
+  // When team changes (and we're not editing an existing event with explicit
+  // assignments), pre-fill the council multi-select with that team's members.
+  // Editing an existing event leaves its assignments alone — admin chose them.
+  function handleTeamChange(team: '' | 'preaching' | 'papers' | 'reading_discussions') {
+    setNewEventTeam(team)
+    if (!editingEvent && team) {
+      setNewEventCouncilIds(
+        councilMembers.filter(m => m.council_team === team).map(m => m.id)
+      )
+    }
   }
 
   async function handleAddEvent(e: React.FormEvent) {
@@ -603,24 +622,40 @@ function AdminPageContent() {
       cohort_ids: selectedCohortIds,
       title: newEventTitle.trim(),
       event_date: newEventDate,
+      event_time: newEventTime || null,
       event_type: newEventType,
       location: newEventLocation.trim() || null,
       notes: newEventNotes.trim() || null,
       linked_template_id: newEventTemplate || null,
+      team: newEventTeam || null,
     }
     let error: any
+    let eventId: string | null = editingEvent?.id ?? null
     if (editingEvent) {
       const res = await supabase.from('cohort_events').update(payload).eq('id', editingEvent.id)
       error = res.error
     } else {
-      const res = await supabase.from('cohort_events').insert([payload])
+      const res = await supabase.from('cohort_events').insert([payload]).select('id').single()
       error = res.error
+      eventId = res.data?.id ?? null
+    }
+    // Replace council assignments for this event. Done as delete+insert so we
+    // don't drift if the admin removed someone; the join table has no other
+    // metadata, so wiping is cheap and correct.
+    if (!error && eventId) {
+      await supabase.from('cohort_event_council_assignments').delete().eq('event_id', eventId)
+      if (newEventCouncilIds.length > 0) {
+        const rows = newEventCouncilIds.map(pid => ({ event_id: eventId, profile_id: pid }))
+        const res = await supabase.from('cohort_event_council_assignments').insert(rows)
+        if (res.error) error = res.error
+      }
     }
     if (error) { flash('Error: ' + error.message, 'error') }
     else {
       flash(editingEvent ? 'Event updated.' : 'Event added to calendar.', 'success')
       setNewEventAllCohorts(true); setNewEventCohorts([])
-      setNewEventTitle(''); setNewEventDate(''); setNewEventLocation(''); setNewEventNotes(''); setNewEventTemplate('')
+      setNewEventTitle(''); setNewEventDate(''); setNewEventTime(''); setNewEventLocation(''); setNewEventNotes(''); setNewEventTemplate('')
+      setNewEventTeam(''); setNewEventCouncilIds([])
       setEditingEvent(null)
       fetchEvents()
     }
@@ -1165,9 +1200,66 @@ function AdminPageContent() {
                     </select>
                   </div>
                   <div>
-                    <label className={labelClass}>Location / Link <span className="normal-case font-medium text-slate-400">(optional)</span></label>
-                    <input className={inputClass} value={newEventLocation} onChange={e => setNewEventLocation(e.target.value)} placeholder="Zoom link, church address, etc." />
+                    <label className={labelClass}>Time <span className="normal-case font-medium text-slate-400">(Central / Regina time, optional)</span></label>
+                    <input className={inputClass} type="time" value={newEventTime} onChange={e => setNewEventTime(e.target.value)} placeholder="19:00" />
                   </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Location / Link <span className="normal-case font-medium text-slate-400">(optional)</span></label>
+                  <input className={inputClass} value={newEventLocation} onChange={e => setNewEventLocation(e.target.value)} placeholder="Zoom link, church address, etc." />
+                </div>
+                <div>
+                  <label className={labelClass}>Council Team <span className="normal-case font-medium text-slate-400">(optional — pre-fills assignments)</span></label>
+                  <div className="flex gap-2 flex-wrap">
+                    {([
+                      ['', 'None'],
+                      ['preaching', 'Preaching'],
+                      ['papers', 'Papers'],
+                      ['reading_discussions', 'Reading Discussions'],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => handleTeamChange(value as any)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${newEventTeam === value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-300 hover:border-blue-400'}`}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Council Assigned <span className="normal-case font-medium text-slate-400">(editable — flex anyone in for availability)</span></label>
+                  {councilMembers.length === 0 ? (
+                    <p className="text-xs text-slate-400 font-medium">No council members loaded yet.</p>
+                  ) : (
+                    <div className="flex gap-2 flex-wrap">
+                      {councilMembers.map(m => {
+                        const isSelected = newEventCouncilIds.includes(m.id)
+                        const name = `${m.first_name ?? ''} ${m.last_name ?? ''}`.trim() || m.email
+                        const teamBadge = m.council_team
+                          ? ({ preaching: 'P', papers: 'W', reading_discussions: 'R' } as const)[m.council_team as 'preaching' | 'papers' | 'reading_discussions']
+                          : null
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setNewEventCouncilIds(
+                                isSelected
+                                  ? newEventCouncilIds.filter(x => x !== m.id)
+                                  : [...newEventCouncilIds, m.id]
+                              )
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-300 hover:border-blue-400'}`}
+                          >
+                            {name}{teamBadge ? ` · ${teamBadge}` : ''}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {newEventCouncilIds.length > 0 && (
+                    <p className="text-xs text-blue-600 font-bold mt-1.5">{newEventCouncilIds.length} council member{newEventCouncilIds.length === 1 ? '' : 's'} assigned</p>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
