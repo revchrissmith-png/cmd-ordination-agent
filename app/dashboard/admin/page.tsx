@@ -165,34 +165,64 @@ function AdminPageContent() {
       .eq('is_demo', false)
       .order('last_name', { ascending: true })
     if (!error) setCandidates(data || [])
-    // Compute calendar-health indicator from active requirements' target_dates.
-    // Active = status NOT IN ('waived','complete'). Submitted/under_review still
-    // count — the ordinand's promise was about *when* to hand it in.
+    // Compute calendar-health dot from current-cycle commitments.
+    // Cycles begin Jun 1 / Dec 1; epoch is 2026-06-01.
+    const FIRST_CYCLE_START = '2026-06-01'
+    function currentCycleStart(today: Date): string {
+      const y = today.getFullYear()
+      const jun1 = new Date(y, 5, 1)
+      const dec1 = new Date(y, 11, 1)
+      if (today >= dec1) return `${y}-12-01`
+      if (today >= jun1) return `${y}-06-01`
+      return `${y - 1}-12-01`
+    }
+    const todayDate = new Date()
+    const todayIso = todayDate.toISOString().slice(0, 10)
+    const cycleStart = currentCycleStart(todayDate)
+    const in14 = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10)
     const ordinandIds = (data ?? []).filter((p: any) => !p.status || p.status === 'active').map((p: any) => p.id)
     if (ordinandIds.length > 0) {
-      const { data: reqRows } = await supabase
-        .from('ordinand_requirements')
-        .select('ordinand_id, status, target_date')
+      // Fetch this cycle's commitments + each commitment's requirement status.
+      const { data: cmtRows } = await supabase
+        .from('commitments')
+        .select('ordinand_id, target_date, ordinand_requirement_id, ordinand_requirements(status)')
         .in('ordinand_id', ordinandIds)
-      const today = new Date().toISOString().slice(0, 10)
-      const in14 = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10)
+        .eq('cycle_start', cycleStart)
+      // Also need to know who has *any* eligible reqs left (to distinguish
+      // "no commitments because finished" from "no commitments because hasn't done modal yet").
+      const { data: reqCounts } = await supabase
+        .from('ordinand_requirements')
+        .select('ordinand_id, status')
+        .in('ordinand_id', ordinandIds)
+      const cycleStarted = todayIso >= cycleStart && cycleStart >= FIRST_CYCLE_START
       const health: Record<string, { color: 'green'|'yellow'|'red'|'grey'; label: string }> = {}
       for (const oid of ordinandIds) {
-        const active = (reqRows ?? []).filter((r: any) => r.ordinand_id === oid && r.status !== 'waived' && r.status !== 'complete')
-        if (active.length === 0) { health[oid] = { color: 'green', label: 'All requirements complete or waived' }; continue }
-        const missing = active.filter((r: any) => !r.target_date)
-        if (missing.length > 0) {
-          health[oid] = { color: 'grey', label: `${missing.length} requirement${missing.length !== 1 ? 's' : ''} without a target date` }
+        const cmts = (cmtRows ?? []).filter((c: any) => c.ordinand_id === oid)
+        const hasEligible = (reqCounts ?? []).some((r: any) =>
+          r.ordinand_id === oid && r.status !== 'waived' && r.status !== 'complete')
+        if (!cycleStarted) {
+          // Before epoch — no signal to give.
+          health[oid] = { color: 'green', label: 'Commitment cycles begin June 1, 2026' }
           continue
         }
-        const past = active.filter((r: any) => r.target_date && r.target_date < today)
-        const soon = active.filter((r: any) => r.target_date && r.target_date >= today && r.target_date <= in14)
+        if (cmts.length === 0) {
+          if (!hasEligible) { health[oid] = { color: 'green', label: 'All requirements complete or waived' }; continue }
+          health[oid] = { color: 'grey', label: 'No commitments set this cycle' }
+          continue
+        }
+        // For each commitment, ignore those whose requirement is already complete.
+        const open = cmts.filter((c: any) => {
+          const status = Array.isArray(c.ordinand_requirements) ? c.ordinand_requirements[0]?.status : c.ordinand_requirements?.status
+          return status !== 'complete'
+        })
+        const past = open.filter((c: any) => c.target_date < todayIso)
+        const soon = open.filter((c: any) => c.target_date >= todayIso && c.target_date <= in14)
         if (past.length > 0) {
-          health[oid] = { color: 'red', label: `${past.length} past target${soon.length ? `, ${soon.length} due soon` : ''}` }
+          health[oid] = { color: 'red', label: `${past.length} commitment${past.length !== 1 ? 's' : ''} past target${soon.length ? `, ${soon.length} due soon` : ''}` }
         } else if (soon.length > 0) {
-          health[oid] = { color: 'yellow', label: `${soon.length} due within 14 days` }
+          health[oid] = { color: 'yellow', label: `${soon.length} commitment${soon.length !== 1 ? 's' : ''} due within 14 days` }
         } else {
-          health[oid] = { color: 'green', label: 'On track' }
+          health[oid] = { color: 'green', label: open.length === 0 ? 'All cycle commitments complete' : 'On track' }
         }
       }
       setCalendarHealth(health)

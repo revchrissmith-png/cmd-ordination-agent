@@ -12,19 +12,50 @@ import { PageSkeleton } from '../../components/Skeleton'
 import { C, STATUS_CONFIG, type Status } from '../../../lib/theme'
 import { renderMarkdown } from '../../../utils/markdown'
 
-// Date on/after which ordinands must commit a target date to every active
-// requirement before they can use the rest of the portal.
-const TARGET_DATE_GATE_START = '2026-06-01'
+// Semi-annual commitment cycles begin on June 1 and December 1. Before this
+// epoch, no commitment modal fires (the feature was not in production prior).
+const FIRST_CYCLE_START = '2026-06-01'
 
-// Active = not waived and not complete. These are the requirements that need
-// a target_date both for the gate and for the admin health dot.
+// Active = not waived and not complete. These are eligible to be committed to.
 function isActiveForTarget(status: string) {
   return status !== 'waived' && status !== 'complete'
+}
+
+// Returns the start date (YYYY-MM-DD) of the cycle that contains `today`.
+// Cycles run Jun 1 → Nov 30 and Dec 1 → May 31.
+function currentCycleStart(today: Date): string {
+  const y = today.getFullYear()
+  const jun1 = new Date(y, 5, 1)
+  const dec1 = new Date(y, 11, 1)
+  if (today >= dec1) return `${y}-12-01`
+  if (today >= jun1) return `${y}-06-01`
+  return `${y - 1}-12-01`
+}
+
+// Returns the start of the next cycle after `today`. Date pickers in the
+// commitment modal are capped to (nextCycleStart - 1 day).
+function nextCycleStart(today: Date): string {
+  const y = today.getFullYear()
+  const jun1 = new Date(y, 5, 1)
+  const dec1 = new Date(y, 11, 1)
+  if (today < jun1) return `${y}-06-01`
+  if (today < dec1) return `${y}-12-01`
+  return `${y + 1}-06-01`
+}
+
+// "Jun 2026 → Nov 2026" style label for the cycle covering `cycleStart`.
+function cycleWindowLabel(cycleStart: string): string {
+  const [y, m] = cycleStart.split('-').map(Number)
+  const start = new Date(y, m - 1, 1)
+  const end = new Date(m === 6 ? y : y + 1, m === 6 ? 10 : 4, 1)  // Nov of same year, or May of next
+  const fmt = (d: Date) => d.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })
+  return `${fmt(start)} → ${fmt(end)}`
 }
 
 function OrdinandDashboardContent() {
   const [profile, setProfile] = useState<any>(null)
   const [requirements, setRequirements] = useState<any[]>([])
+  const [commitments, setCommitments] = useState<any[]>([])
   const [events, setEvents] = useState<any[]>([])
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['Book Reports', 'Theological Papers', 'Sermons']))
@@ -32,8 +63,9 @@ function OrdinandDashboardContent() {
   const [showCohortPopover, setShowCohortPopover] = useState(false)
   const [interview, setInterview] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [gateDrafts, setGateDrafts] = useState<Record<string, string>>({})
-  const [gateSaving, setGateSaving] = useState(false)
+  // Commitment-modal local state: which reqs are checked, what date each has.
+  const [cycleDrafts, setCycleDrafts] = useState<Record<string, string>>({})
+  const [cycleSaving, setCycleSaving] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
 
   const searchParams = useSearchParams()
@@ -63,9 +95,20 @@ function OrdinandDashboardContent() {
       setProfile(prof)
       const { data: reqs } = await supabase
         .from('ordinand_requirements')
-        .select(`id, status, template_id, custom_title, custom_description, custom_type, waived_reason, target_date, target_date_set_at, requirement_templates(id, type, topic, title, book_category, display_order)`)
+        .select(`id, status, template_id, custom_title, custom_description, custom_type, waived_reason, requirement_templates(id, type, topic, title, book_category, display_order)`)
         .eq('ordinand_id', targetId)
       setRequirements(reqs || [])
+
+      // Commitments for the current cycle — used both to render the
+      // "My Commitments" dashboard section and to decide whether the
+      // commitment modal needs to fire.
+      const cycleStart = currentCycleStart(new Date())
+      const { data: cmts } = await supabase
+        .from('commitments')
+        .select('id, ordinand_requirement_id, cycle_start, target_date, committed_at')
+        .eq('ordinand_id', targetId)
+        .eq('cycle_start', cycleStart)
+      setCommitments(cmts || [])
 
       if (prof?.cohort_id) {
         // Upcoming events — cohort-specific (array contains) + all-cohorts (null cohort_ids)
@@ -140,65 +183,108 @@ function OrdinandDashboardContent() {
     })
   }
 
-  // ── Target date helpers ─────────────────────────────────────────────────
-  // Save one target_date from an inline card picker. Stamps target_date_set_at
-  // server-side via `now()` returning into the local row.
-  async function saveTargetDate(reqId: string, value: string) {
-    if (viewAsId) return // admins in viewAs preview can't write
-    const newDate = value || null
-    // Optimistic local update so the input feels instant
-    setRequirements(prev => prev.map(r => r.id === reqId ? { ...r, target_date: newDate, target_date_set_at: newDate ? new Date().toISOString() : null } : r))
-    const { error } = await supabase
-      .from('ordinand_requirements')
-      .update({ target_date: newDate, target_date_set_at: newDate ? new Date().toISOString() : null })
-      .eq('id', reqId)
-    if (error) {
-      // Revert on failure
-      // Cheapest path: refetch the one row
-      const { data } = await supabase
-        .from('ordinand_requirements')
-        .select('target_date, target_date_set_at')
-        .eq('id', reqId)
-        .single()
-      if (data) setRequirements(prev => prev.map(r => r.id === reqId ? { ...r, ...data } : r))
-      alert('Could not save target date. Please try again.')
-    }
+  // ── Commitment cycle helpers ────────────────────────────────────────────
+  // Modal fires when:
+  //   * we're at or past FIRST_CYCLE_START (system epoch),
+  //   * the current cycle has started,
+  //   * there's at least one outstanding requirement to commit to,
+  //   * no commitment rows exist for this ordinand in the current cycle.
+  // viewAs admin preview is exempt (read-only).
+  const today = new Date()
+  const todayIso = today.toISOString().slice(0, 10)
+  const cycleStart = currentCycleStart(today)
+  const nextCycle = nextCycleStart(today)
+  // The picker max is the day BEFORE the next cycle starts.
+  const cycleMaxDate = new Date(nextCycle + 'T12:00:00')
+  cycleMaxDate.setDate(cycleMaxDate.getDate() - 1)
+  const cycleMaxIso = cycleMaxDate.toISOString().slice(0, 10)
+
+  const eligibleReqs = requirements.filter(r => isActiveForTarget(r.status))
+  // Within "active" the user can only commit to things NOT already committed
+  // in this cycle. (Snapshot model: don't re-pick the same item.)
+  const committedReqIds = new Set(commitments.map(c => c.ordinand_requirement_id))
+  const modalEligibleReqs = eligibleReqs.filter(r => !committedReqIds.has(r.id))
+
+  const cycleHasStarted = todayIso >= cycleStart && cycleStart >= FIRST_CYCLE_START
+  const showCommitmentModal =
+    !viewAsId && cycleHasStarted && commitments.length === 0
+      && modalEligibleReqs.length > 0 && !loading
+
+  // Draft validation:
+  //   N = modalEligibleReqs.length
+  //   If N <= 3 → must select all N
+  //   If N >= 4 → must select 3 or 4
+  // A draft entry is "selected" when its date value is a non-empty string.
+  const selectedDrafts = Object.entries(cycleDrafts).filter(([, v]) => !!v)
+  const requiredMin = Math.min(3, modalEligibleReqs.length)
+  const requiredMax = Math.min(4, modalEligibleReqs.length)
+  const draftCount = selectedDrafts.length
+  const draftValid =
+    draftCount >= requiredMin && draftCount <= requiredMax
+    // every selected draft has a date inside the cycle window
+    && selectedDrafts.every(([, v]) => v >= todayIso && v <= cycleMaxIso)
+
+  function toggleDraft(reqId: string) {
+    if (modalEligibleReqs.length <= 3) return // all required — checkbox locked
+    setCycleDrafts(prev => {
+      if (prev[reqId]) {
+        const { [reqId]: _, ...rest } = prev
+        return rest
+      }
+      // default to a date midway through the cycle (~3 months out)
+      const midpoint = new Date(today)
+      midpoint.setMonth(midpoint.getMonth() + 3)
+      const midIso = midpoint.toISOString().slice(0, 10)
+      const clamped = midIso > cycleMaxIso ? cycleMaxIso : midIso
+      return { ...prev, [reqId]: clamped }
+    })
   }
 
-  // June 1 forcing function — fires when today >= TARGET_DATE_GATE_START and
-  // any active requirement lacks a target_date. The admin viewAs preview is
-  // exempt (read-only).
-  const todayIso = new Date().toISOString().slice(0, 10)
-  const gateActive = !viewAsId && todayIso >= TARGET_DATE_GATE_START
-  const ungatedReqs = requirements.filter(r => isActiveForTarget(r.status) && !r.target_date)
-  const showGate = gateActive && ungatedReqs.length > 0 && !loading
+  function setDraftDate(reqId: string, value: string) {
+    setCycleDrafts(prev => ({ ...prev, [reqId]: value }))
+  }
 
-  const allGateDatesFilled = ungatedReqs.every(r => !!gateDrafts[r.id])
-
-  async function submitGateDrafts() {
-    if (!allGateDatesFilled || gateSaving) return
-    setGateSaving(true)
-    const now = new Date().toISOString()
-    const updates = ungatedReqs.map(r =>
-      supabase.from('ordinand_requirements')
-        .update({ target_date: gateDrafts[r.id], target_date_set_at: now })
-        .eq('id', r.id)
-    )
-    const results = await Promise.all(updates)
-    const anyError = results.some(r => r.error)
-    if (anyError) {
-      setGateSaving(false)
-      alert('Some dates could not be saved. Please try again.')
+  async function submitCommitments() {
+    if (!draftValid || cycleSaving) return
+    setCycleSaving(true)
+    // Resolve the user id once — profile state holds name/email, not id.
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setCycleSaving(false); return }
+    const insertRows = selectedDrafts.map(([reqId, dateValue]) => ({
+      ordinand_id: user.id,
+      ordinand_requirement_id: reqId,
+      cycle_start: cycleStart,
+      target_date: dateValue,
+    }))
+    const { data: inserted, error } = await supabase
+      .from('commitments')
+      .insert(insertRows)
+      .select('id, ordinand_requirement_id, cycle_start, target_date, committed_at')
+    if (error) {
+      setCycleSaving(false)
+      alert('Could not save your commitments. Please try again.')
       return
     }
-    // Patch local state so the gate closes
-    setRequirements(prev => prev.map(r => gateDrafts[r.id]
-      ? { ...r, target_date: gateDrafts[r.id], target_date_set_at: now }
-      : r
-    ))
-    setGateDrafts({})
-    setGateSaving(false)
+    setCommitments(inserted ?? [])
+    setCycleDrafts({})
+    setCycleSaving(false)
   }
+
+  // If there are 3 or fewer eligible reqs, auto-select all of them on first open.
+  useEffect(() => {
+    if (!showCommitmentModal) return
+    if (modalEligibleReqs.length === 0) return
+    if (Object.keys(cycleDrafts).length > 0) return // user already touched it
+    if (modalEligibleReqs.length <= 3) {
+      const midpoint = new Date(today)
+      midpoint.setMonth(midpoint.getMonth() + 3)
+      const midIso = midpoint.toISOString().slice(0, 10)
+      const clamped = midIso > cycleMaxIso ? cycleMaxIso : midIso
+      const drafts: Record<string, string> = {}
+      for (const r of modalEligibleReqs) drafts[r.id] = clamped
+      setCycleDrafts(drafts)
+    }
+  }, [showCommitmentModal, modalEligibleReqs.length])
 
 
   if (loading) return <PageSkeleton rows={6} />
@@ -206,8 +292,9 @@ function OrdinandDashboardContent() {
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
 
-      {/* ── June 1 gate — blocks everything until target dates are committed ── */}
-      {showGate && (
+      {/* ── Semi-annual commitment modal — blocks everything until they
+            pick 3-4 (or all remaining) assignments + dates for the cycle ── */}
+      {showCommitmentModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm overflow-y-auto py-8 px-4"
           role="dialog"
@@ -215,29 +302,58 @@ function OrdinandDashboardContent() {
         >
           <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full my-auto">
             <div className="px-8 py-6 border-b border-slate-100">
-              <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: C.allianceBlue }}>Plan your submissions</p>
-              <h2 className="text-2xl font-black text-slate-900 mb-2">Propose a date for each remaining assignment</h2>
+              <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: C.allianceBlue }}>
+                {cycleWindowLabel(cycleStart)} commitments
+              </p>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">
+                {modalEligibleReqs.length <= 3
+                  ? `Set a target date for each remaining assignment`
+                  : `Pick 3–4 assignments to commit to this cycle`}
+              </h2>
               <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                Before continuing, set a target submission date for each requirement below. These are your own deadlines — you can revise them later as life shifts — but committing to a calendar now helps you finish strong.
+                {modalEligibleReqs.length <= 3
+                  ? `You're nearing the finish line — only ${modalEligibleReqs.length} assignment${modalEligibleReqs.length !== 1 ? 's' : ''} remain. Pick a target submission date for each.`
+                  : `Every six months we ask you to commit to three or four assignments you'll complete in the next cycle. Choose what you'll focus on, then pick a target submission date for each.`}
               </p>
             </div>
             <div className="px-8 py-5 max-h-[55vh] overflow-y-auto">
               <div className="space-y-2">
-                {ungatedReqs.map(req => {
+                {modalEligibleReqs.map(req => {
                   const title = req.requirement_templates?.title ?? req.custom_title ?? 'Untitled requirement'
                   const typeLabel = (req.requirement_templates?.type ?? req.custom_type ?? '').replace('_', ' ')
+                  const checked = !!cycleDrafts[req.id]
+                  const lockedChecked = modalEligibleReqs.length <= 3
+                  const atMax = !checked && draftCount >= requiredMax
                   return (
-                    <div key={req.id} className="flex items-center justify-between gap-4 px-4 py-3 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="min-w-0">
-                        <p className="font-bold text-slate-800 leading-snug truncate">{title}</p>
-                        {typeLabel && <p className="text-xs text-slate-400 font-medium capitalize">{typeLabel}</p>}
-                      </div>
-                      <input
-                        type="date"
-                        value={gateDrafts[req.id] ?? ''}
-                        onChange={e => setGateDrafts(prev => ({ ...prev, [req.id]: e.target.value }))}
-                        className="text-sm font-bold text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 bg-white"
-                      />
+                    <div
+                      key={req.id}
+                      className={`flex items-center justify-between gap-4 px-4 py-3 rounded-2xl border transition-colors ${
+                        checked ? 'bg-blue-50 border-blue-200' : atMax ? 'bg-slate-50 border-slate-100 opacity-50' : 'bg-slate-50 border-slate-100'
+                      }`}
+                    >
+                      <label className={`flex items-center gap-3 min-w-0 flex-1 ${lockedChecked ? '' : 'cursor-pointer'}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked || lockedChecked}
+                          disabled={lockedChecked || (atMax && !checked)}
+                          onChange={() => toggleDraft(req.id)}
+                          className="w-4 h-4 accent-blue-600 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 leading-snug truncate">{title}</p>
+                          {typeLabel && <p className="text-xs text-slate-400 font-medium capitalize">{typeLabel}</p>}
+                        </div>
+                      </label>
+                      {(checked || lockedChecked) && (
+                        <input
+                          type="date"
+                          value={cycleDrafts[req.id] ?? ''}
+                          min={todayIso}
+                          max={cycleMaxIso}
+                          onChange={e => setDraftDate(req.id, e.target.value)}
+                          className="text-sm font-bold text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 bg-white"
+                        />
+                      )}
                     </div>
                   )
                 })}
@@ -245,19 +361,21 @@ function OrdinandDashboardContent() {
             </div>
             <div className="px-8 py-5 border-t border-slate-100 bg-slate-50 rounded-b-3xl flex items-center justify-between gap-4">
               <p className="text-xs text-slate-500 font-medium">
-                {Object.keys(gateDrafts).filter(k => gateDrafts[k]).length} of {ungatedReqs.length} set
+                {modalEligibleReqs.length <= 3
+                  ? `${draftCount} of ${modalEligibleReqs.length} dated`
+                  : `${draftCount} of 3–4 selected`}
               </p>
               <button
-                onClick={submitGateDrafts}
-                disabled={!allGateDatesFilled || gateSaving}
+                onClick={submitCommitments}
+                disabled={!draftValid || cycleSaving}
                 className={`px-6 py-2.5 rounded-xl font-black text-sm transition-colors ${
-                  allGateDatesFilled && !gateSaving
+                  draftValid && !cycleSaving
                     ? 'text-white hover:opacity-90'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 }`}
-                style={allGateDatesFilled && !gateSaving ? { backgroundColor: C.deepSea } : {}}
+                style={draftValid && !cycleSaving ? { backgroundColor: C.deepSea } : {}}
               >
-                {gateSaving ? 'Saving…' : 'Submit my calendar'}
+                {cycleSaving ? 'Saving…' : 'Commit to these'}
               </button>
             </div>
           </div>
@@ -367,6 +485,73 @@ function OrdinandDashboardContent() {
             </div>
           )}
         </div>
+
+        {/* Current Commitments — the 3-4 assignments picked this cycle */}
+        {commitments.length > 0 && (() => {
+          // Decorate commitments with their matching requirement for display.
+          const items = commitments
+            .map(c => {
+              const req = requirements.find(r => r.id === c.ordinand_requirement_id)
+              return req ? { commit: c, req } : null
+            })
+            .filter(Boolean) as Array<{ commit: any; req: any }>
+          // Sort: not-yet-done first by target_date asc, then completed at the end.
+          items.sort((a, b) => {
+            const aDone = a.req.status === 'complete'
+            const bDone = b.req.status === 'complete'
+            if (aDone !== bDone) return aDone ? 1 : -1
+            return a.commit.target_date.localeCompare(b.commit.target_date)
+          })
+          const doneCount = items.filter(i => i.req.status === 'complete').length
+          return (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 mb-8">
+              <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: C.allianceBlue }}>
+                    My Commitments — {cycleWindowLabel(cycleStart)}
+                  </p>
+                  <p className="text-sm text-slate-500 font-medium">
+                    {doneCount === items.length
+                      ? `All ${items.length} committed assignment${items.length !== 1 ? 's' : ''} complete. Well done.`
+                      : `${doneCount} of ${items.length} complete — next cycle starts ${new Date(nextCycle + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}.`}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {items.map(({ commit, req }) => {
+                  const isDone = req.status === 'complete'
+                  const isPast = !isDone && commit.target_date < todayIso
+                  const dateStr = new Date(commit.target_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
+                  const title = req.requirement_templates?.title ?? req.custom_title ?? 'Untitled requirement'
+                  return (
+                    <Link
+                      key={commit.id}
+                      href={`/dashboard/ordinand/requirements/${req.id}${viewAsId ? `?viewAs=${viewAsId}` : ''}`}
+                      className={`flex items-center justify-between gap-4 px-5 py-3 rounded-2xl border transition-all hover:shadow-sm ${
+                        isDone ? 'bg-green-50/50 border-green-100 hover:border-green-200'
+                          : isPast ? 'bg-red-50/40 border-red-100 hover:border-red-200'
+                          : 'bg-white border-slate-200 hover:border-blue-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`text-lg shrink-0 ${isDone ? '' : isPast ? '' : ''}`}>
+                          {isDone ? '✅' : isPast ? '⚠️' : '📅'}
+                        </span>
+                        <div className="min-w-0">
+                          <p className={`font-bold leading-snug truncate ${isDone ? 'text-green-800 line-through' : 'text-slate-800'}`}>{title}</p>
+                          <p className={`text-xs font-bold mt-0.5 ${isDone ? 'text-green-600' : isPast ? 'text-red-600' : 'text-slate-500'}`}>
+                            {isDone ? 'Complete' : isPast ? `Past target — ${dateStr}` : `Target: ${dateStr}`}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-slate-300 shrink-0">→</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Interview status banner */}
         {interview && (
@@ -630,30 +815,26 @@ function OrdinandDashboardContent() {
                         {isRevision && <span className="text-xs font-black text-red-600 whitespace-nowrap">⚠ Action Required</span>}
                       </div>
                       <div className="flex items-center gap-3 shrink-0 ml-3">
-                        {/* Inline target date — stops Link navigation when interacting.
-                            Hidden once the assignment is complete (no calendar relevance). */}
-                        {status !== 'complete' && (
-                          <div
-                            onClick={e => { e.preventDefault(); e.stopPropagation() }}
-                            className="hidden md:flex items-center gap-1.5"
-                            title="Your proposed submission date. Editable any time."
-                          >
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target</span>
-                            <input
-                              type="date"
-                              value={req.target_date ?? ''}
-                              onChange={e => saveTargetDate(req.id, e.target.value)}
-                              disabled={!!viewAsId}
-                              className={`text-xs font-bold border rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-blue-400 ${
-                                req.target_date
-                                  ? new Date(req.target_date + 'T12:00:00') < new Date(new Date().toISOString().slice(0,10) + 'T12:00:00')
-                                    ? 'border-red-200 text-red-600'
-                                    : 'border-slate-200 text-slate-700'
-                                  : 'border-amber-200 text-amber-700'
-                              }`}
-                            />
-                          </div>
-                        )}
+                        {/* If this requirement is in the current cycle's commitments,
+                            show the target date inline so the ordinand sees their promise. */}
+                        {(() => {
+                          const commit = commitments.find(c => c.ordinand_requirement_id === req.id)
+                          if (!commit) return null
+                          const isPast = commit.target_date < todayIso
+                          const isDone = req.status === 'complete'
+                          const cls = isDone ? 'bg-green-50 text-green-700 border-green-200'
+                            : isPast ? 'bg-red-50 text-red-700 border-red-200'
+                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                          const dateStr = new Date(commit.target_date + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+                          return (
+                            <span
+                              className={`hidden md:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${cls}`}
+                              title={`Committed target: ${dateStr}${isPast && !isDone ? ' (past)' : ''}`}
+                            >
+                              📅 {dateStr}
+                            </span>
+                          )
+                        })()}
                         <span className={`px-3 py-1 rounded-full text-xs font-bold hidden sm:inline ${cfg.colour}`}>{cfg.label}</span>
                         <span className="text-xs font-bold text-slate-300 group-hover:text-blue-500 transition-colors whitespace-nowrap">
                           {status === 'not_started' ? 'Submit →' : 'View →'}
