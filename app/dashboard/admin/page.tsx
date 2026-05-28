@@ -1327,7 +1327,13 @@ function AdminPageContent() {
                             {ev.notes && <p className="text-xs text-slate-400 font-medium mt-0.5 italic line-clamp-2 break-all">{ev.notes.replace(/<[^>]*>/g, '')}</p>}
                           </div>
                         </div>
-                        <div className="flex gap-3 flex-shrink-0">
+                        <div className="flex gap-3 flex-shrink-0 items-center flex-wrap justify-end">
+                          {ev.event_type === 'in_person' && (
+                            <>
+                              <Link href={`/dashboard/admin/events/${ev.id}/attendance`} className="text-emerald-500 hover:text-emerald-700 font-bold text-sm transition-colors whitespace-nowrap">Attendance</Link>
+                              <Link href={`/dashboard/admin/events/${ev.id}/survey`} className="text-purple-500 hover:text-purple-700 font-bold text-sm transition-colors whitespace-nowrap">Survey</Link>
+                            </>
+                          )}
                           <button onClick={() => startEditEvent(ev)} className="text-blue-400 hover:text-blue-600 font-bold text-sm transition-colors whitespace-nowrap">Edit</button>
                           <button onClick={() => handleDeleteEvent(ev.id, ev.title)} className="text-red-400 hover:text-red-600 font-bold text-sm transition-colors whitespace-nowrap">Remove</button>
                         </div>

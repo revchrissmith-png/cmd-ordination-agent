@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/event-notifications",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/dispatch-surveys",
+      "schedule": "0 * * * *"
     }
   ]
 }
