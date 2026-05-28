@@ -296,6 +296,16 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-28 — Cohort-event feedback surveys (attendance check-off → schedule → dispatch → results)
+
+- **Schema** (migration `20260528025217_add_event_attendance_and_surveys.sql`): four tables — `cohort_event_attendance` (per-attendee check-off), `cohort_event_surveys` (frozen JSONB questions + `send_at` / `sent_at`), `cohort_event_survey_invitations` (one tokenised row per attendee), `cohort_event_survey_responses` (with a `CHECK` constraint that forbids an anonymous row from carrying `profile_id` or `invitation_id` — the anonymity promise is enforced at the DB, not just the app).
+- **Admin attendance** at `/dashboard/admin/events/[id]/attendance`: filterable list of every active ordinand with mark-all-visible / clear-visible helpers; sticky save bar surfaces the attended count and a "Next: Survey →" link.
+- **Survey composer** at `/dashboard/admin/events/[id]/survey`: pre-loads a versioned seed (`lib/surveys/*`), editable title/intro, read-only question preview (locking question text to a git-reviewable source), `datetime-local` picker defaulting to tomorrow 08:00 Regina, Schedule and Send-now actions. Refuses to create the survey if zero attendees are marked.
+- **Token-gated ordinand form** at `/survey/[token]` (no login required): renders scale / single-select / multi-select / text questions from the frozen JSONB, optional "Submit anonymously" toggle. Submitted invitations are locked so the link can't be reused; closed surveys short-circuit to a clean state.
+- **Single idempotent dispatcher** (`lib/survey-dispatch.ts`) used by both the Send-now button and the daily cron at `/api/cron/dispatch-surveys` (`0 14 * * *` UTC = 08:00 Regina; daily is the floor on the project's Vercel plan, hourly was rejected at deploy time). Re-runs skip already-sent surveys and already-sent invitations.
+- **Survey seed**: `lib/surveys/intercultural-fluency-2026-05-27.ts` — centred on whether days like this are worth doing more often (frequency · duration · value-drivers), with content questions scoped to only the three segments Cres actually got through.
+- **Results dashboard** at `/dashboard/admin/events/[id]/survey/results`: headline metrics (responses, response rate, identified vs anonymous), scale histograms with averages, single/multi bar charts with percentages, text responses as a timeline with respondent name or "Anonymous". Linked from the admin events list and the composer header. PRs [#5](https://github.com/revchrissmith-png/cmd-ordination-agent/pull/5) and [#6](https://github.com/revchrissmith-png/cmd-ordination-agent/pull/6).
+
 ### 2026-05-27 — Cohort event enhancements: time, council teams, calendar export, T-50/T-30/T-3 reminders
 
 - **Schema** (migration `20260527144218_add_cohort_event_enhancements.sql`): adds `cohort_events.event_time` (Regina wall-clock, no DST), `cohort_events.team` + `profiles.council_team` (`preaching` / `papers` / `reading_discussions`), `cohort_event_council_assignments` join table (RLS: admins manage, council reads, ordinands read for their cohort), and `cohort_event_notifications_sent` log with `UNIQUE(event_id, kind)` for idempotent cron sweeps.
