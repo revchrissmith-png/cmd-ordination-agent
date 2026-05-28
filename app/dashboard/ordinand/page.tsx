@@ -11,6 +11,7 @@ import SubmissionPauseBanner from '../../components/SubmissionPauseBanner'
 import { PageSkeleton } from '../../components/Skeleton'
 import { C, STATUS_CONFIG, type Status } from '../../../lib/theme'
 import { renderMarkdown } from '../../../utils/markdown'
+import AttestationsSection from './_components/AttestationsSection'
 
 // Semi-annual commitment cycles begin on June 1 and December 1. Before this
 // epoch, no commitment modal fires (the feature was not in production prior).
@@ -89,6 +90,7 @@ function OrdinandDashboardContent() {
   const [cohortMembers, setCohortMembers] = useState<any[]>([])
   const [showCohortPopover, setShowCohortPopover] = useState(false)
   const [interview, setInterview] = useState<any>(null)
+  const [isViewAs, setIsViewAs] = useState(false)
   const [loading, setLoading] = useState(true)
   // Commitment-modal local state: which reqs are checked, what date each has.
   const [cycleDrafts, setCycleDrafts] = useState<Record<string, string>>({})
@@ -110,6 +112,7 @@ function OrdinandDashboardContent() {
         const { data: myProfile } = await supabase.from('profiles').select('roles').eq('id', user.id).single()
         if (myProfile?.roles?.includes('admin')) {
           targetId = viewAsId
+          setIsViewAs(true)
         }
         // Non-admins silently fall back to their own data
       }
@@ -930,6 +933,14 @@ function OrdinandDashboardContent() {
             <p className="text-slate-400 font-bold">No requirements found.</p>
             <p className="text-slate-300 text-sm font-medium mt-1">Contact your administrator if this seems incorrect.</p>
           </div>
+        )}
+
+        {profile?.id && (
+          <AttestationsSection
+            profileId={profile.id}
+            fullName={profile.full_name ?? null}
+            isViewAs={isViewAs}
+          />
         )}
 
       </div>
