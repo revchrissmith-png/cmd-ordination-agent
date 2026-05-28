@@ -1332,6 +1332,7 @@ function AdminPageContent() {
                             <>
                               <Link href={`/dashboard/admin/events/${ev.id}/attendance`} className="text-emerald-500 hover:text-emerald-700 font-bold text-sm transition-colors whitespace-nowrap">Attendance</Link>
                               <Link href={`/dashboard/admin/events/${ev.id}/survey`} className="text-purple-500 hover:text-purple-700 font-bold text-sm transition-colors whitespace-nowrap">Survey</Link>
+                              <Link href={`/dashboard/admin/events/${ev.id}/survey/results`} className="text-amber-500 hover:text-amber-700 font-bold text-sm transition-colors whitespace-nowrap">Results</Link>
                             </>
                           )}
                           <button onClick={() => startEditEvent(ev)} className="text-blue-400 hover:text-blue-600 font-bold text-sm transition-colors whitespace-nowrap">Edit</button>
