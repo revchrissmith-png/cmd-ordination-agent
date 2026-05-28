@@ -254,7 +254,7 @@ export default function SurveyComposerPage() {
             onChange={e => setSendAtLocal(e.target.value)}
           />
           <p className="text-xs text-slate-500 mt-2">
-            The hourly cron sweeps for surveys due within the past hour. Set a time at least 5 minutes in the future.
+            The cron sweeps for due surveys once a day at 08:00 Regina. Anything scheduled before then will go out at the next 08:00 sweep — use “Send now” if you need it out sooner.
           </p>
         </div>
       </div>

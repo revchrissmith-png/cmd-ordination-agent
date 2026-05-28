@@ -1,6 +1,8 @@
 // app/api/cron/dispatch-surveys/route.ts
-// Hourly sweep: dispatch every cohort_event_surveys row whose send_at has
-// passed and sent_at is still NULL.
+// Daily sweep (08:00 Regina / 14:00 UTC): dispatch every cohort_event_surveys
+// row whose send_at has passed and sent_at is still NULL. Daily cadence is
+// the floor of all Vercel plan tiers; finer scheduling can use the Send-now
+// admin button.
 //
 // Idempotent — dispatchSurvey() short-circuits on already-sent surveys
 // and on already-sent invitations, so re-runs are safe.
