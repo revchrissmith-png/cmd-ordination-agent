@@ -16,6 +16,7 @@ import SelfAssessmentModal from './_components/SelfAssessmentModal'
 import EvalInviteModal from './_components/EvalInviteModal'
 import EvalResponseModal from './_components/EvalResponseModal'
 import CustomizeTrackModal from './_components/CustomizeTrackModal'
+import AttestationsPanel from './_components/AttestationsPanel'
 import ProgressEmailModal from './_components/ProgressEmailModal'
 import InterviewBriefSection from './_components/InterviewBriefSection'
 import InterviewSection from './_components/InterviewSection'
@@ -911,6 +912,8 @@ export default function CandidateDetailPage() {
               <p className="text-slate-300 text-sm font-medium mt-1">Requirements are generated automatically when a cohort is assigned during registration.</p>
             </div>
           )}
+
+          {candidate?.id && <AttestationsPanel profileId={candidate.id} />}
 
           {/* External Evaluations */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
