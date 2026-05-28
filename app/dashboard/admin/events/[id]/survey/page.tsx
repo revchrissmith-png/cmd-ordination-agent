@@ -184,9 +184,12 @@ export default function SurveyComposerPage() {
           Survey · {event.title}
         </h1>
         <p className="text-sm text-slate-500 mt-1">{event.event_date}</p>
-        <div className="mt-3 flex items-center gap-3 text-sm">
+        <div className="mt-3 flex items-center gap-4 text-sm">
           <Link href={`/dashboard/admin/events/${eventId}/attendance`} className="font-bold text-blue-700 hover:text-blue-900">
             ← Attendance ({attendedCount} marked)
+          </Link>
+          <Link href={`/dashboard/admin/events/${eventId}/survey/results`} className="font-bold text-amber-600 hover:text-amber-800">
+            Results →
           </Link>
         </div>
       </div>
