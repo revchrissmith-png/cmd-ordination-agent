@@ -245,13 +245,22 @@ export default function CandidateDetailPage() {
     if (denyObserver()) return
     if (!candidate) return
     setIsSavingProfile(true)
+
+    const newEmail = editEmail.trim().toLowerCase()
+    const emailChanged = !!newEmail && newEmail !== (candidate.email ?? '').toLowerCase()
+
+    // 1) Update the non-email fields directly. profiles.email is intentionally
+    //    excluded from this update — when the email changes it must flow
+    //    through the admin endpoint so auth.users stays in sync. If it didn't,
+    //    profiles and auth.users would silently diverge (e.g. Daniel Biswell
+    //    2026-05-28: portal profile daniel@kilcona.org vs auth login still on
+    //    danieljbiswell@gmail.com — OTP sign-ins went to the old address).
     const { error } = await supabase
       .from('profiles')
       .update({
         first_name: editFirst.trim(),
         last_name: editLast.trim(),
         full_name: `${editFirst.trim()} ${editLast.trim()}`,
-        email: editEmail.trim().toLowerCase(),
         cohort_id: editCohortId || null,
         mentor_name: editMentorName.trim() || null,
         mentor_email: editMentorEmail.trim().toLowerCase() || null,
@@ -259,11 +268,39 @@ export default function CandidateDetailPage() {
       .eq('id', id)
     if (error) {
       flash('Error updating profile: ' + error.message, 'error')
-    } else {
-      flash('Profile updated.', 'success')
-      setEditingProfile(false)
-      fetchData()
+      setIsSavingProfile(false)
+      return
     }
+
+    // 2) If the email changed, route it through the admin endpoint so it
+    //    updates both auth.users (via auth.admin.updateUserById) and
+    //    profiles.email atomically. Same path the council edit page uses.
+    if (emailChanged) {
+      const { data: { session } } = await supabase.auth.getSession()
+      try {
+        const res = await fetch('/api/admin/update-user-email', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+          body: JSON.stringify({ userId: id, email: newEmail }),
+        })
+        if (!res.ok) {
+          const { error: apiError } = await res.json().catch(() => ({ error: 'unknown' }))
+          flash('Name saved, but email sync failed: ' + apiError, 'error')
+          setIsSavingProfile(false)
+          fetchData()
+          return
+        }
+      } catch {
+        flash('Name saved, but email sync failed — network error.', 'error')
+        setIsSavingProfile(false)
+        fetchData()
+        return
+      }
+    }
+
+    flash('Profile updated.', 'success')
+    setEditingProfile(false)
+    fetchData()
     setIsSavingProfile(false)
   }
 
