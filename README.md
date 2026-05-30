@@ -296,6 +296,13 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-05-30 — Weekly digest fix: CRON_SECRET, dead-route removal, accuracy bugs
+
+- **Root cause of silent crons**: `CRON_SECRET` was never set in the Vercel production env. All three cron routes (`weekly-digest`, `event-notifications`, `dispatch-surveys`) guard with `if (!cronSecret || authHeader !== Bearer ...)`, which returns 401 to Vercel's *own* cron when the secret is missing — so every scheduled fire sent nothing since the daily→weekly switch (May 19). Set `CRON_SECRET` in Production; Vercel now injects it as the Bearer token. Verified all three routes return 200 with the token / 401 without.
+- **Removed dead public route** ([#10](https://github.com/revchrissmith-png/cmd-ordination-agent/pull/10)): `/api/admin/daily-report` (superseded by the weekly digest but never deleted) used the looser `if (cronSecret && ...)` guard, so with the secret unset it answered 200 to anonymous callers — an open, unauthenticated email-trigger endpoint. Now 404.
+- **Digest accuracy** ([#11](https://github.com/revchrissmith-png/cmd-ordination-agent/pull/11)): (a) added `.neq('status','deleted')` to every profile query so soft-deleted ordinands no longer leak into the digest (matches the admin console's canonical filter); (b) rewrote `queryCriticallyOverdue` to use `ordinand_requirements.status` (`submitted`/`under_review` + latest submission 60+ days) instead of a `grades`-table join, which had falsely flagged completed and waived requirements. Corrected counts: critically-overdue 13→5, no-mentor-report 26→23, inactive 16→15.
+- **Data cleanup**: deleted a duplicate scheduled survey row for the Intercultural Fluency Seminar that the cron fix would otherwise have double-sent to all 16 attendees (the live send-now survey was left intact).
+
 ### 2026-05-28 — Cohort-event feedback surveys (attendance check-off → schedule → dispatch → results)
 
 - **Schema** (migration `20260528025217_add_event_attendance_and_surveys.sql`): four tables — `cohort_event_attendance` (per-attendee check-off), `cohort_event_surveys` (frozen JSONB questions + `send_at` / `sent_at`), `cohort_event_survey_invitations` (one tokenised row per attendee), `cohort_event_survey_responses` (with a `CHECK` constraint that forbids an anonymous row from carrying `profile_id` or `invitation_id` — the anonymity promise is enforced at the DB, not just the app).
