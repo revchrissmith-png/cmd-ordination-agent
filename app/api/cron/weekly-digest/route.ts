@@ -132,15 +132,17 @@ async function querySubmittedThisWeek(): Promise<SubmittedRow[]> {
     getProfileNames(ordinandIds),
   ])
 
-  // Filter demo accounts — need profile is_demo flag
+  // Exclude demo and soft-deleted accounts (match admin console: is_demo=false, status<>'deleted')
   const { data: profiles } = await serviceClient
     .from('profiles')
-    .select('id, is_demo')
+    .select('id, is_demo, status')
     .in('id', ordinandIds)
-  const demoIds = new Set((profiles ?? []).filter((p: any) => p.is_demo).map((p: any) => p.id))
+  const excludeIds = new Set(
+    (profiles ?? []).filter((p: any) => p.is_demo || p.status === 'deleted').map((p: any) => p.id)
+  )
 
   return subs
-    .filter(s => !demoIds.has(s.ordinand_id))
+    .filter(s => !excludeIds.has(s.ordinand_id))
     .map(s => ({
       ordinandName:     names.get(s.ordinand_id) ?? 'Unknown',
       requirementTitle: reqTitles.get(s.ordinand_requirement_id) ?? 'Unknown',
@@ -186,17 +188,19 @@ async function queryGradedThisWeek(): Promise<GradedRow[]> {
     getProfileNames(allProfileIds),
   ])
 
-  // Filter demo ordinands
+  // Exclude demo and soft-deleted ordinands
   const { data: profiles } = await serviceClient
     .from('profiles')
-    .select('id, is_demo')
+    .select('id, is_demo, status')
     .in('id', ordinandIds)
-  const demoIds = new Set((profiles ?? []).filter((p: any) => p.is_demo).map((p: any) => p.id))
+  const excludeIds = new Set(
+    (profiles ?? []).filter((p: any) => p.is_demo || p.status === 'deleted').map((p: any) => p.id)
+  )
 
   return grades
     .filter(g => {
       const ordinandId = gaToOrdinandId.get(g.grading_assignment_id)
-      return ordinandId && !demoIds.has(ordinandId)
+      return ordinandId && !excludeIds.has(ordinandId)
     })
     .map(g => {
       const reqId = gaToReqId.get(g.grading_assignment_id) ?? ''
@@ -218,6 +222,7 @@ async function queryInactiveUsers(): Promise<InactiveRow[]> {
     .select('id, first_name, last_name, email, roles')
     .overlaps('roles', ['ordinand', 'council'])
     .eq('is_demo', false)
+    .neq('status', 'deleted')
 
   if (!candidates?.length) return []
 
@@ -249,62 +254,68 @@ async function queryInactiveUsers(): Promise<InactiveRow[]> {
 async function queryCriticallyOverdue(): Promise<OverdueRow[]> {
   const since60 = isoAgo(60)
 
-  const { data: oldSubs } = await serviceClient
+  // Source of truth for "awaiting council action" is the requirement status —
+  // not the grades table. A requirement marked complete/waived/revision_required
+  // is NOT overdue, even if an old submission row still exists. (Deriving this
+  // from grades produced false positives for complete-but-not-grade-rowed and
+  // waived requirements.)
+  const { data: pendingReqs } = await serviceClient
+    .from('ordinand_requirements')
+    .select('id, ordinand_id')
+    .in('status', ['submitted', 'under_review'])
+
+  if (!pendingReqs?.length) return []
+
+  const reqIds = pendingReqs.map(r => r.id)
+  const { data: subs } = await serviceClient
     .from('submissions')
-    .select('id, submitted_at, ordinand_requirement_id, ordinand_id')
-    .lt('submitted_at', since60)
-
-  if (!oldSubs?.length) return []
-
-  // Find which of these ordinand_requirement_ids have a final grade
-  const reqIds = Array.from(new Set(oldSubs.map(s => s.ordinand_requirement_id)))
-  const { data: gasRaw } = await serviceClient
-    .from('grading_assignments')
-    .select('id, ordinand_requirement_id')
+    .select('ordinand_requirement_id, submitted_at')
     .in('ordinand_requirement_id', reqIds)
 
-  const gaIds = (gasRaw ?? []).map(ga => ga.id)
-  const gaToReqId = new Map((gasRaw ?? []).map(ga => [ga.id, ga.ordinand_requirement_id]))
+  if (!subs?.length) return []
 
-  const { data: finalGrades } = gaIds.length
-    ? await serviceClient
-        .from('grades')
-        .select('grading_assignment_id')
-        .in('grading_assignment_id', gaIds)
-        .eq('is_draft', false)
-    : { data: [] }
+  // Most recent submission per requirement = the one council is sitting on
+  const latestByReq = new Map<string, string>()
+  for (const s of subs) {
+    const prev = latestByReq.get(s.ordinand_requirement_id)
+    if (!prev || s.submitted_at > prev) latestByReq.set(s.ordinand_requirement_id, s.submitted_at)
+  }
 
-  const gradedGaIds = new Set((finalGrades ?? []).map(g => g.grading_assignment_id))
-  const gradedReqIds = new Set(
-    Array.from(gradedGaIds).map(gaId => gaToReqId.get(gaId)).filter(Boolean) as string[]
-  )
+  // Keep requirements whose latest submission has been waiting 60+ days
+  const overdueReqs = pendingReqs.filter(r => {
+    const latest = latestByReq.get(r.id)
+    return latest != null && latest < since60
+  })
+  if (!overdueReqs.length) return []
 
-  const ungradedSubs = oldSubs.filter(s => !gradedReqIds.has(s.ordinand_requirement_id))
-  if (!ungradedSubs.length) return []
-
-  // Filter demos
-  const ordinandIds = Array.from(new Set(ungradedSubs.map(s => s.ordinand_id)))
+  // Exclude demo and soft-deleted ordinands
+  const ordinandIds = Array.from(new Set(overdueReqs.map(r => r.ordinand_id)))
   const { data: profiles } = await serviceClient
     .from('profiles')
-    .select('id, is_demo')
+    .select('id, is_demo, status')
     .in('id', ordinandIds)
-  const demoIds = new Set((profiles ?? []).filter((p: any) => p.is_demo).map((p: any) => p.id))
+  const excludeIds = new Set(
+    (profiles ?? []).filter((p: any) => p.is_demo || p.status === 'deleted').map((p: any) => p.id)
+  )
 
-  const nonDemoSubs = ungradedSubs.filter(s => !demoIds.has(s.ordinand_id))
-  if (!nonDemoSubs.length) return []
+  const visibleReqs = overdueReqs.filter(r => !excludeIds.has(r.ordinand_id))
+  if (!visibleReqs.length) return []
 
   const [reqTitles, names] = await Promise.all([
-    getRequirementTitles(Array.from(new Set(nonDemoSubs.map(s => s.ordinand_requirement_id)))),
-    getProfileNames(Array.from(new Set(nonDemoSubs.map(s => s.ordinand_id)))),
+    getRequirementTitles(visibleReqs.map(r => r.id)),
+    getProfileNames(Array.from(new Set(visibleReqs.map(r => r.ordinand_id)))),
   ])
 
-  return nonDemoSubs
-    .map(s => ({
-      ordinandName:     names.get(s.ordinand_id) ?? 'Unknown',
-      requirementTitle: reqTitles.get(s.ordinand_requirement_id) ?? 'Unknown',
-      submittedAt:      s.submitted_at,
-      daysWaiting:      daysSince(s.submitted_at),
-    }))
+  return visibleReqs
+    .map(r => {
+      const submittedAt = latestByReq.get(r.id)!
+      return {
+        ordinandName:     names.get(r.ordinand_id) ?? 'Unknown',
+        requirementTitle: reqTitles.get(r.id) ?? 'Unknown',
+        submittedAt,
+        daysWaiting:      daysSince(submittedAt),
+      }
+    })
     .sort((a, b) => b.daysWaiting - a.daysWaiting)
 }
 
@@ -316,6 +327,7 @@ async function queryNoMentorReport(): Promise<NoReportRow[]> {
     .select('id, first_name, last_name, email')
     .contains('roles', ['ordinand'])
     .eq('is_demo', false)
+    .neq('status', 'deleted')
 
   if (!ordinands?.length) return []
 
