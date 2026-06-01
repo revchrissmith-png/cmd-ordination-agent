@@ -5,7 +5,6 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../../utils/supabase/client'
 import Link from 'next/link'
-import BetaBanner from '../../components/BetaBanner'
 import ViewAsUserModal from '../../components/ViewAsUserModal'
 import { CardSkeleton, TableSkeleton } from '../../components/Skeleton'
 import ArchiveReportModal from './_components/ArchiveReportModal'
@@ -677,8 +676,6 @@ function AdminPageContent() {
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
-
-      <BetaBanner />
 
     <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20 overflow-x-hidden">
       <div className="max-w-5xl mx-auto">

@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 import { logActivity } from '../../../utils/logActivity'
-import BetaBanner from '../../components/BetaBanner'
 import { PageSkeleton } from '../../components/Skeleton'
 import { C, STATUS_CONFIG, type Status } from '../../../lib/theme'
 
@@ -134,8 +133,6 @@ function CouncilDashboardContent() {
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
-
-      <BetaBanner />
 
       {viewAsId && profile && (
         <div style={{ backgroundColor: '#7c3aed', padding: '0.6rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>

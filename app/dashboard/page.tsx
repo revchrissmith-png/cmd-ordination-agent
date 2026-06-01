@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../../utils/supabase/client'
 import { logActivity } from '../../utils/logActivity'
 import Link from 'next/link'
-import BetaBanner from '../components/BetaBanner'
 import { PageSkeleton } from '../components/Skeleton'
 import { C } from '../../lib/theme'
 
@@ -68,8 +67,6 @@ export default function DashboardHome() {
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
-
-      <BetaBanner />
 
       {/* Main content */}
       <main style={{ maxWidth: '900px', margin: '2rem auto', padding: '0 1rem' }}>
