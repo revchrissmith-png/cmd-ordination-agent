@@ -6,7 +6,6 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../utils/supabase/client'
 import { logActivity } from '../../../utils/logActivity'
-import BetaBanner from '../../components/BetaBanner'
 import SubmissionPauseBanner from '../../components/SubmissionPauseBanner'
 import { PageSkeleton } from '../../components/Skeleton'
 import { C, STATUS_CONFIG, type Status } from '../../../lib/theme'
@@ -416,8 +415,6 @@ function OrdinandDashboardContent() {
           </div>
         </div>
       )}
-
-      <BetaBanner />
 
       <div className="px-5 sm:px-10 md:px-14 lg:px-20 pt-4">
         <div className="max-w-5xl mx-auto">
