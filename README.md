@@ -296,6 +296,12 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-06-01 — Go-live: beta banner removed
+
+- **Portal is live.** Removed the `Beta Build · v1.1 · Testing in progress` banner now that the ordinand go-live comm has gone out and submissions are open.
+- The banner (`app/components/BetaBanner.tsx`) was hardcoded and mounted **unconditionally** in the four dashboard pages (`dashboard`, `ordinand`, `council`, `admin`) — never gated to a date or flag, so go-live had no automatic effect on it. Removed the four `<BetaBanner />` mounts + imports (PR #13).
+- Component file left in place (unused). **Note:** the bug/feature-request feedback modal lived inside the banner, so the portal currently has no feedback entry point — re-home the modal (e.g. footer/header) if feedback collection should continue.
+
 ### 2026-05-30 — Weekly digest fix: CRON_SECRET, dead-route removal, accuracy bugs
 
 - **Root cause of silent crons**: `CRON_SECRET` was never set in the Vercel production env. All three cron routes (`weekly-digest`, `event-notifications`, `dispatch-surveys`) guard with `if (!cronSecret || authHeader !== Bearer ...)`, which returns 401 to Vercel's *own* cron when the secret is missing — so every scheduled fire sent nothing since the daily→weekly switch (May 19). Set `CRON_SECRET` in Production; Vercel now injects it as the Bearer token. Verified all three routes return 200 with the token / 401 without.
