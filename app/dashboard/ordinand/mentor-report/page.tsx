@@ -1,74 +1,15 @@
 // app/dashboard/ordinand/mentor-report/page.tsx
-// Monthly ordinand report — fillable form that compiles into a pre-filled email to mentor
+// Monthly ordinand report — fillable form. Submitting sends the report to the
+// ordinand's mentor through the portal (Resend) and records the send.
 'use client'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../utils/supabase/client'
 import { C } from '../../../../lib/theme'
+import { SECTIONS } from '../../../../lib/mentor-report-sections'
 
-const SECTIONS = [
-  {
-    title: 'Spiritual Formation and Relationship with God',
-    icon: '🙏',
-    questions: [
-      'What meaningful spiritual practices did you engage in this month? What was your frequency rhythm?',
-      'What spiritual practices would you like to explore?',
-      'How is God speaking to you right now? What is God\'s invitation to you in the area of personal growth and transformation?',
-    ],
-  },
-  {
-    title: 'Preaching / Teaching Ministry',
-    icon: '📖',
-    questions: [
-      'How have you had the opportunity to minister in this way this month? Please list the events and frequency.',
-      'What are some examples of encouragements or challenges you experienced in this area?',
-      'How have you had the opportunity to receive training or learning in this area?',
-      'How would you like to grow and develop in your preaching/teaching ministry?',
-    ],
-  },
-  {
-    title: 'Shepherding Ministry',
-    icon: '🤝',
-    questions: [
-      'What are some examples of how you were able to minister to others in this way? This may include visitation, counselling, evangelism, baptisms, hospital visits, etc.',
-      'What did you learn about your own shepherding practices?',
-      'In what ways do you hope to grow in this area? In what ways have you seen growth?',
-      'Within the context in which you serve, both vocationally and within the congregation, who are examples of a shepherding heart and what can you learn from their example?',
-    ],
-  },
-  {
-    title: 'Administrative Ministry',
-    icon: '📋',
-    questions: [
-      'What types of meetings have you been part of this month? (examples: committee meetings, staff meetings, ministerial, ministry events)',
-      'What was your participation in those meetings?',
-      'What are areas of effectiveness in how you were part of the team? What are areas in which you can grow as a team member?',
-      'Were there areas of conflict? How did you engage in those areas?',
-    ],
-  },
-  {
-    title: 'Personal Development',
-    icon: '🌱',
-    questions: [
-      'How have you engaged your mind in worship this month? What books have you read, etc.?',
-      'What theological issue is present for you personally or in your ministry context?',
-      'How is your attention to your physical health?',
-      'Do you have healthy rhythms of Sabbath? Explain.',
-      'Any problems or challenges in your personal life that are limiting your ability to be fully engaged with your ministry?',
-    ],
-  },
-  {
-    title: 'Mentor / Mentee Relationship',
-    icon: '💬',
-    questions: [
-      'How can your mentor support you in prayer this month?',
-      'Do you need advice or assistance with a particular issue or area?',
-      'What do you hope to discuss at your next meeting with your mentor?',
-    ],
-  },
-]
-
-export default function MentorReportPage() {
+function MentorReportContent() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   // answers keyed by "sectionIndex-questionIndex"
@@ -79,24 +20,51 @@ export default function MentorReportPage() {
   const currentMonth = useRef<string>(new Date().toISOString().slice(0, 7)) // "YYYY-MM"
   const userId = useRef<string | null>(null)
   const initialLoad = useRef(true)
+  // Distinguishes "profile failed to load" from "profile loaded, no mentor on file"
+  const [loadError, setLoadError] = useState(false)
+  // Admin "View as User" preview — read-only; never write the ordinand's report
+  const [isViewAs, setIsViewAs] = useState(false)
+  const isViewAsRef = useRef(false)
+  const searchParams = useSearchParams()
+  const viewAsId = searchParams?.get('viewAs') ?? null
+  // Server-side send state (the portal emails the mentor + records the send)
+  const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [sendError, setSendError] = useState<string>('')
 
   useEffect(() => {
     async function fetchProfile() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      userId.current = user.id
-      const { data: prof } = await supabase
+      if (!user) { setLoadError(true); setLoading(false); return }
+
+      // viewAs is admin-only — verify before using (mirrors the ordinand dashboard).
+      // Without this, an admin previewing an ordinand loaded their OWN (mentor-less)
+      // profile and the page wrongly reported "no mentor assigned".
+      let targetId = user.id
+      if (viewAsId && viewAsId !== user.id) {
+        const { data: myProfile } = await supabase
+          .from('profiles').select('roles').eq('id', user.id).single()
+        if (myProfile?.roles?.includes('admin')) {
+          targetId = viewAsId
+          setIsViewAs(true)
+          isViewAsRef.current = true
+        }
+        // Non-admins silently fall back to their own data
+      }
+      userId.current = targetId
+
+      const { data: prof, error: profErr } = await supabase
         .from('profiles')
         .select('full_name, mentor_name, mentor_email')
-        .eq('id', user.id)
+        .eq('id', targetId)
         .single()
+      if (profErr || !prof) { setLoadError(true); setLoading(false); return }
       setProfile(prof)
 
       // Load existing draft for this month
       const { data: existing } = await supabase
         .from('mentor_reports')
         .select('answers, is_draft, submitted_at')
-        .eq('ordinand_id', user.id)
+        .eq('ordinand_id', targetId)
         .eq('month', currentMonth.current)
         .maybeSingle()
       if (existing?.answers) {
@@ -111,6 +79,7 @@ export default function MentorReportPage() {
 
   // Auto-save draft to DB after 3 seconds of inactivity
   const saveDraft = useCallback(async () => {
+    if (isViewAsRef.current) return // admin preview is read-only — never write the ordinand's report
     if (!userId.current || submitted) return
     const hasContent = Object.values(answers).some(v => v.trim().length > 0)
     if (!hasContent) return
@@ -160,43 +129,49 @@ export default function MentorReportPage() {
     return Object.values(answers).filter(v => v.trim().length > 0).length
   }
 
-  function buildMailto(): string {
-    const name = profile?.full_name || 'Your Ordinand'
-    const mentor = profile?.mentor_name || 'Pastor'
-    const mentorEmail = profile?.mentor_email || ''
-    const now = new Date()
-    const monthYear = now.toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })
+  // Send the report THROUGH the portal: a server route emails the mentor via
+  // Resend and records the send (so the Council/admin can confirm it went out).
+  // Replaces the old mailto: handoff that left from the ordinand's own mail
+  // client and could silently never reach the mentor.
+  async function handleSend() {
+    if (isViewAsRef.current || !canSubmit || sendStatus === 'sending') return
+    setSendStatus('sending')
+    setSendError('')
 
-    const subject = encodeURIComponent(`Monthly Mentor Report — ${name} — ${monthYear}`)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) {
+      setSendStatus('error')
+      setSendError('Your session has expired. Please refresh the page and sign in again.')
+      return
+    }
 
-    let bodyLines: string[] = [
-      `Dear ${mentor},`,
-      ``,
-      `Here is my monthly report for ${monthYear}.`,
-      ``,
-    ]
-
-    SECTIONS.forEach((section, si) => {
-      const sectionAnswers = section.questions
-        .map((q, qi) => ({ q, a: getAnswer(si, qi).trim() }))
-        .filter(({ a }) => a.length > 0)
-
-      if (sectionAnswers.length === 0) return
-
-      bodyLines.push(`— ${section.title.toUpperCase()} —`)
-      bodyLines.push(``)
-      sectionAnswers.forEach(({ q, a }) => {
-        bodyLines.push(`» ${q}`)
-        bodyLines.push(a)
-        bodyLines.push(``)
+    let res: Response
+    try {
+      res = await fetch('/api/mentor-report/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ month: currentMonth.current, answers }),
       })
-    })
+    } catch {
+      setSendStatus('error')
+      setSendError('We couldn’t reach the server. Check your connection and try again.')
+      return
+    }
 
-    bodyLines.push(`In Christ,`)
-    bodyLines.push(name)
+    const data = await res.json().catch(() => ({} as any))
+    if (res.ok && data?.sent) {
+      setSendStatus('sent')
+      setSubmitted(true)
+      return
+    }
 
-    const body = encodeURIComponent(bodyLines.join('\n'))
-    return `mailto:${mentorEmail}?subject=${subject}&body=${body}`
+    setSendStatus('error')
+    setSendError(
+      data?.reason === 'No mentor email on file'
+        ? 'No mentor email is on file, so the report could not be sent. Contact the District Ministry Centre to have it added.'
+        : 'Something went wrong sending your report. Please try again, or contact the District Ministry Centre if it keeps happening.'
+    )
   }
 
   const sectionsWithAnswers = SECTIONS.filter((_, si) => sectionHasAnyAnswer(si)).length
@@ -204,6 +179,13 @@ export default function MentorReportPage() {
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
+
+      {isViewAs && profile && (
+        <div style={{ backgroundColor: '#7c3aed', padding: '0.6rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <span style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}>👁 Viewing as {profile.full_name} — read-only preview</span>
+          <a href="/dashboard/admin" style={{ color: '#ddd6fe', fontSize: '0.8rem', fontWeight: 700, textDecoration: 'underline' }}>Exit view</a>
+        </div>
+      )}
 
       <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
         <div className="max-w-3xl mx-auto">
@@ -221,13 +203,20 @@ export default function MentorReportPage() {
               )}
             </div>
             <p className="text-slate-500 font-medium mt-2 leading-relaxed">
-              Fill in your responses below, then click <strong>Submit Monthly Report</strong> to open a pre-addressed email to your mentor. You are expected to answer <strong>at least one question from each section</strong> — you do not need to answer every question every month.
+              Fill in your responses below, then click <strong>Submit Monthly Report</strong> to send it to your mentor. You are expected to answer <strong>at least one question from each section</strong> — you do not need to answer every question every month.
               Your progress is saved automatically.
             </p>
           </div>
 
+          {/* Profile failed to load — do NOT mislabel this as "no mentor" */}
+          {!loading && loadError && (
+            <div className="rounded-2xl border px-6 py-4 mb-8 bg-amber-50 border-amber-100">
+              <p className="text-sm font-bold text-amber-700">We couldn&apos;t load your profile just now. Please refresh the page or sign in again. If it keeps happening, contact the District Ministry Centre.</p>
+            </div>
+          )}
+
           {/* Mentor info card */}
-          {!loading && (
+          {!loading && !loadError && (
             <div className={`rounded-2xl border px-6 py-4 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${profile?.mentor_email ? 'bg-blue-50 border-blue-100' : 'bg-amber-50 border-amber-100'}`}>
               {profile?.mentor_name || profile?.mentor_email ? (
                 <>
@@ -306,7 +295,7 @@ export default function MentorReportPage() {
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Ready to send?</p>
                 <p className="text-sm text-slate-600 font-medium leading-relaxed">
                   {canSubmit
-                    ? `${totalAnswered()} question${totalAnswered() !== 1 ? 's' : ''} answered across ${sectionsWithAnswers} section${sectionsWithAnswers !== 1 ? 's' : ''}. Click the button to open a pre-addressed email in your mail client.`
+                    ? `${totalAnswered()} question${totalAnswered() !== 1 ? 's' : ''} answered across ${sectionsWithAnswers} section${sectionsWithAnswers !== 1 ? 's' : ''}. Click the button to send this report to your mentor.`
                     : 'Fill in at least one response above to enable the submit button.'}
                 </p>
                 {canSubmit && sectionsWithAnswers < SECTIONS.length && (
@@ -315,27 +304,22 @@ export default function MentorReportPage() {
                   </p>
                 )}
               </div>
-              {canSubmit ? (
-                <a
-                  href={buildMailto()}
-                  onClick={async () => {
-                    setSubmitted(true)
-                    // Mark as submitted in DB
-                    if (userId.current) {
-                      await supabase.from('mentor_reports').upsert({
-                        ordinand_id: userId.current,
-                        month: currentMonth.current,
-                        answers,
-                        is_draft: false,
-                        submitted_at: new Date().toISOString(),
-                      }, { onConflict: 'ordinand_id,month' })
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 text-sm font-black px-6 py-3 rounded-xl whitespace-nowrap flex-shrink-0"
+              {isViewAs ? (
+                <span
+                  className="inline-flex items-center gap-2 text-sm font-black px-6 py-3 rounded-xl whitespace-nowrap flex-shrink-0 opacity-40 cursor-not-allowed"
+                  style={{ backgroundColor: '#7c3aed', color: C.white }}
+                >
+                  👁 Preview only
+                </span>
+              ) : canSubmit ? (
+                <button
+                  onClick={handleSend}
+                  disabled={sendStatus === 'sending'}
+                  className="inline-flex items-center gap-2 text-sm font-black px-6 py-3 rounded-xl whitespace-nowrap flex-shrink-0 disabled:opacity-60 disabled:cursor-wait"
                   style={{ backgroundColor: C.deepSea, color: C.white }}
                 >
-                  ✉ Submit Monthly Report
-                </a>
+                  {sendStatus === 'sending' ? 'Sending…' : '✉ Submit Monthly Report'}
+                </button>
               ) : (
                 <span
                   className="inline-flex items-center gap-2 text-sm font-black px-6 py-3 rounded-xl whitespace-nowrap flex-shrink-0 opacity-40 cursor-not-allowed"
@@ -345,9 +329,19 @@ export default function MentorReportPage() {
                 </span>
               )}
             </div>
-            {submitted && (
+            {sendStatus === 'sent' && (
               <div className="mt-4 pt-4 border-t border-slate-100">
-                <p className="text-sm font-bold text-green-700">✓ Your email client should have opened. You can add to or edit the message before sending.</p>
+                <p className="text-sm font-bold text-green-700">✓ Your report was sent to {profile?.mentor_name || 'your mentor'}{profile?.mentor_email ? ` (${profile.mentor_email})` : ''}. A copy of your answers is saved here.</p>
+              </div>
+            )}
+            {submitted && sendStatus !== 'sent' && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <p className="text-sm font-bold text-green-700">✓ This month&apos;s report has been submitted.</p>
+              </div>
+            )}
+            {sendStatus === 'error' && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <p className="text-sm font-bold text-red-700">{sendError}</p>
               </div>
             )}
           </div>
@@ -362,5 +356,13 @@ export default function MentorReportPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function MentorReportPage() {
+  return (
+    <Suspense>
+      <MentorReportContent />
+    </Suspense>
   )
 }
