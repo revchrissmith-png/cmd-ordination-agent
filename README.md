@@ -296,6 +296,13 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-06-02 — Mentor reports send through the portal (tracked); view-as + load-error fixes
+
+- **Mentor report now sends server-side (was `mailto:`).** Submitting a monthly report previously opened the *ordinand's own* mail client — so reports could show "submitted" while the mentor received nothing (this is what happened: a report was marked submitted but the mentor got no email). New `app/api/mentor-report/send` route emails the mentor via **Resend** (From = portal, Reply-To = the ordinand), and records the send. The page Submit button now shows real sending/sent/error states and names the mentor on success.
+- **Metadata-only tracking, privacy preserved.** Report *content* stays in `mentor_reports` (ordinand + admin RLS, never Council). New **`mentor_report_sends`** table records send metadata only — when, which mentor address, Resend id — as the Council/admin-visible "it went out" surface. No answer text. (`SECTIONS` extracted to `lib/mentor-report-sections.ts`; email builder in `lib/mentor-report-email.ts`.)
+- **View-as fix.** The mentor-report page now honors `?viewAs=` (verified admin) so previewing an ordinand loads *their* data, read-only — previously it loaded the admin's own (mentor-less) profile and wrongly said "no mentor assigned."
+- **Load-error fix.** Distinguishes "couldn't load your profile" from "no mentor assigned" instead of mislabeling a failed fetch.
+
 ### 2026-06-01 — Go-live: beta banner removed
 
 - **Portal is live.** Removed the `Beta Build · v1.1 · Testing in progress` banner now that the ordinand go-live comm has gone out and submissions are open.
