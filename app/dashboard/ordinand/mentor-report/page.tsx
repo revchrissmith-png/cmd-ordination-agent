@@ -1,7 +1,8 @@
 // app/dashboard/ordinand/mentor-report/page.tsx
 // Monthly ordinand report — fillable form that compiles into a pre-filled email to mentor
 'use client'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../utils/supabase/client'
 import { C } from '../../../../lib/theme'
@@ -68,7 +69,7 @@ const SECTIONS = [
   },
 ]
 
-export default function MentorReportPage() {
+function MentorReportContent() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   // answers keyed by "sectionIndex-questionIndex"
@@ -79,24 +80,48 @@ export default function MentorReportPage() {
   const currentMonth = useRef<string>(new Date().toISOString().slice(0, 7)) // "YYYY-MM"
   const userId = useRef<string | null>(null)
   const initialLoad = useRef(true)
+  // Distinguishes "profile failed to load" from "profile loaded, no mentor on file"
+  const [loadError, setLoadError] = useState(false)
+  // Admin "View as User" preview — read-only; never write the ordinand's report
+  const [isViewAs, setIsViewAs] = useState(false)
+  const isViewAsRef = useRef(false)
+  const searchParams = useSearchParams()
+  const viewAsId = searchParams?.get('viewAs') ?? null
 
   useEffect(() => {
     async function fetchProfile() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      userId.current = user.id
-      const { data: prof } = await supabase
+      if (!user) { setLoadError(true); setLoading(false); return }
+
+      // viewAs is admin-only — verify before using (mirrors the ordinand dashboard).
+      // Without this, an admin previewing an ordinand loaded their OWN (mentor-less)
+      // profile and the page wrongly reported "no mentor assigned".
+      let targetId = user.id
+      if (viewAsId && viewAsId !== user.id) {
+        const { data: myProfile } = await supabase
+          .from('profiles').select('roles').eq('id', user.id).single()
+        if (myProfile?.roles?.includes('admin')) {
+          targetId = viewAsId
+          setIsViewAs(true)
+          isViewAsRef.current = true
+        }
+        // Non-admins silently fall back to their own data
+      }
+      userId.current = targetId
+
+      const { data: prof, error: profErr } = await supabase
         .from('profiles')
         .select('full_name, mentor_name, mentor_email')
-        .eq('id', user.id)
+        .eq('id', targetId)
         .single()
+      if (profErr || !prof) { setLoadError(true); setLoading(false); return }
       setProfile(prof)
 
       // Load existing draft for this month
       const { data: existing } = await supabase
         .from('mentor_reports')
         .select('answers, is_draft, submitted_at')
-        .eq('ordinand_id', user.id)
+        .eq('ordinand_id', targetId)
         .eq('month', currentMonth.current)
         .maybeSingle()
       if (existing?.answers) {
@@ -111,6 +136,7 @@ export default function MentorReportPage() {
 
   // Auto-save draft to DB after 3 seconds of inactivity
   const saveDraft = useCallback(async () => {
+    if (isViewAsRef.current) return // admin preview is read-only — never write the ordinand's report
     if (!userId.current || submitted) return
     const hasContent = Object.values(answers).some(v => v.trim().length > 0)
     if (!hasContent) return
@@ -205,6 +231,13 @@ export default function MentorReportPage() {
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
 
+      {isViewAs && profile && (
+        <div style={{ backgroundColor: '#7c3aed', padding: '0.6rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <span style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}>👁 Viewing as {profile.full_name} — read-only preview</span>
+          <a href="/dashboard/admin" style={{ color: '#ddd6fe', fontSize: '0.8rem', fontWeight: 700, textDecoration: 'underline' }}>Exit view</a>
+        </div>
+      )}
+
       <main className="py-6 md:py-10 px-5 sm:px-10 md:px-14 lg:px-20">
         <div className="max-w-3xl mx-auto">
 
@@ -226,8 +259,15 @@ export default function MentorReportPage() {
             </p>
           </div>
 
+          {/* Profile failed to load — do NOT mislabel this as "no mentor" */}
+          {!loading && loadError && (
+            <div className="rounded-2xl border px-6 py-4 mb-8 bg-amber-50 border-amber-100">
+              <p className="text-sm font-bold text-amber-700">We couldn&apos;t load your profile just now. Please refresh the page or sign in again. If it keeps happening, contact the District Ministry Centre.</p>
+            </div>
+          )}
+
           {/* Mentor info card */}
-          {!loading && (
+          {!loading && !loadError && (
             <div className={`rounded-2xl border px-6 py-4 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${profile?.mentor_email ? 'bg-blue-50 border-blue-100' : 'bg-amber-50 border-amber-100'}`}>
               {profile?.mentor_name || profile?.mentor_email ? (
                 <>
@@ -315,7 +355,14 @@ export default function MentorReportPage() {
                   </p>
                 )}
               </div>
-              {canSubmit ? (
+              {isViewAs ? (
+                <span
+                  className="inline-flex items-center gap-2 text-sm font-black px-6 py-3 rounded-xl whitespace-nowrap flex-shrink-0 opacity-40 cursor-not-allowed"
+                  style={{ backgroundColor: '#7c3aed', color: C.white }}
+                >
+                  👁 Preview only
+                </span>
+              ) : canSubmit ? (
                 <a
                   href={buildMailto()}
                   onClick={async () => {
@@ -362,5 +409,13 @@ export default function MentorReportPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function MentorReportPage() {
+  return (
+    <Suspense>
+      <MentorReportContent />
+    </Suspense>
   )
 }
