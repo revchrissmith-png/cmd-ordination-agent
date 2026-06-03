@@ -296,6 +296,13 @@ This portal was built for the CMD but the architecture is generic enough to adap
 
 ## Recent Changes
 
+### 2026-06-02 — Periodic mentor evaluations ("progress check-ins")
+
+- **Two early, narrative mentor check-ins** added alongside the existing summative evaluation, anchored to the cohort deadline D (round 1 ≈ D−23mo, round 2 ≈ D−11mo; final summative stays at D+1mo). Spec: `Specs/cmd-mentor-progress-evaluations-spec.md`.
+- **Automated dispatch** — daily cron `/api/cron/mentor-progress-evals` seeds frozen due-dates from each cohort deadline (skipping past-dated rounds for late entrants) and emails mentors a tokenized, no-login form (`/progress-checkin/[token]`). Idempotent via `UNIQUE(ordinand_id, round)`.
+- **Privacy (Pardington model)** — raw check-in text is **admin/DMC-only** (`mentor_progress_checkins`, `is_admin()` RLS; the anon form goes through service-role routes). The Council never sees specifics; the AI interview brief synthesizes the *arc* (and is instructed not to quote verbatim).
+- **Admin surfacing** — candidate page gains a check-in timeline (with a prominent flag when a mentor asks to meet) and a **Church Covenant** upload slot (`church_covenant_acknowledgments`); the admin dashboard shows a "check-in ready for review" alert.
+
 ### 2026-06-02 — Mentor reports send through the portal (tracked); view-as + load-error fixes
 
 - **Mentor report now sends server-side (was `mailto:`).** Submitting a monthly report previously opened the *ordinand's own* mail client — so reports could show "submitted" while the mentor received nothing (this is what happened: a report was marked submitted but the mentor got no email). New `app/api/mentor-report/send` route emails the mentor via **Resend** (From = portal, Reply-To = the ordinand), and records the send. The page Submit button now shows real sending/sent/error states and names the mentor on success.

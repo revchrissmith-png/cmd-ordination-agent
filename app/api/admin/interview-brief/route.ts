@@ -43,6 +43,9 @@ For each paper where self-assessment data exists: note where the ordinand's self
 PARDINGTON STUDY PATTERNS
 What topics did this ordinand wrestle with in their AI study sessions with Pardington? What did they return to repeatedly? What questions suggest genuine theological wrestling vs. surface-level curiosity? What does this suggest about their growth edge or deepest interests? If no sessions are recorded, note this and suggest the council may wish to ask how they approached independent theological study.
 
+MENTOR JOURNEY (LONGITUDINAL)
+If mentor progress check-ins are provided, summarize the ARC of the mentoring relationship over time — the trajectory of engagement, pace, and any recurring concerns or growth the mentor surfaced. This is sensitive, mentor-supplied context: synthesize the shape across the check-ins; do NOT quote the mentor's words verbatim or attribute specific phrases. If a check-in noted the mentor wished to speak with the District, you may mention that a conversation was requested. Omit this section entirely if no check-ins are provided.
+
 SUGGESTED INTERVIEW PROBES
 5–6 specific questions tailored to this candidate, drawn from the evidence above. These should open conversation, not corner the candidate. Mix affirmation-based questions ("We noticed real strength in X — tell us about your journey there") with growth-oriented ones. Make each question feel personal, not generic.`
 
@@ -98,6 +101,7 @@ function buildContext(
   evalTokens: any[] | null,
   evaluations: any[] | null,
   councilMembers: any[] | null,
+  checkins: any[] | null,
 ): string {
   const lines: string[] = []
 
@@ -339,6 +343,23 @@ function buildContext(
     lines.push(`(No evaluations submitted yet)`, ``)
   }
 
+  // ── Mentor progress check-ins (the longitudinal "why") ──
+  // RESTRICTED raw input (admin/DMC only). The Council must NOT see this text
+  // verbatim — synthesize the trajectory across the check-ins. See SYSTEM_PROMPT.
+  const submittedCheckins = (checkins ?? []).filter(c => c.status === 'submitted')
+  if (submittedCheckins.length > 0) {
+    lines.push(`--- MENTOR PROGRESS CHECK-INS (longitudinal — SYNTHESIZE the arc; do NOT quote verbatim) ---`, ``)
+    for (const c of submittedCheckins) {
+      const when = c.submitted_at ? new Date(c.submitted_at).toLocaleDateString('en-CA', { month: 'long', year: 'numeric' }) : ''
+      lines.push(`CHECK-IN ${c.round}${when ? ` — ${when}` : ''}${c.requested_meeting ? ' — (mentor requested a conversation with the District)' : ''}`)
+      if (c.q_meeting_diligence) lines.push(`Meeting diligence: "${c.q_meeting_diligence}"`)
+      if (c.q_pace)              lines.push(`Pace (the "why"): "${c.q_pace}"`)
+      if (c.q_struggles)         lines.push(`Struggles / intervention: "${c.q_struggles}"`)
+      if (c.additional_comments) lines.push(`Other: "${c.additional_comments}"`)
+      lines.push(``)
+    }
+  }
+
   return lines.join('\n')
 }
 
@@ -369,6 +390,7 @@ export async function POST(req: NextRequest) {
     { data: pardingtonLogs },
     { data: evalTokens },
     { data: councilMembers },
+    { data: checkins },
   ] = await Promise.all([
     supabaseAdmin
       .from('profiles')
@@ -399,6 +421,11 @@ export async function POST(req: NextRequest) {
       .from('profiles')
       .select('id, first_name, last_name')
       .contains('roles', ['council']),
+    supabaseAdmin
+      .from('mentor_progress_checkins')
+      .select('round, status, requested_meeting, q_meeting_diligence, q_pace, q_struggles, additional_comments, submitted_at')
+      .eq('ordinand_id', ordinandId)
+      .order('round'),
   ])
 
   // Fetch cohort if candidate has one
@@ -423,7 +450,7 @@ export async function POST(req: NextRequest) {
     evaluations = data ?? []
   }
 
-  const context = buildContext(candidate, cohort, requirements, pardingtonLogs, evalTokens, evaluations, councilMembers)
+  const context = buildContext(candidate, cohort, requirements, pardingtonLogs, evalTokens, evaluations, councilMembers, checkins)
 
   // Stream the brief
   const stream = new ReadableStream({
