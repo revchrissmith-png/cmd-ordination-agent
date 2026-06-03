@@ -1,14 +1,8 @@
 // app/api/cron/send-launch-comm/route.ts
-// Sends one of the three launch-comms emails on its scheduled date.
-// Vercel Cron fires this daily at 16:00 UTC (= 10:00 Regina, CST year-round).
-// The route checks today's Regina date against the launch schedule and:
-//   - 2026-05-14 → council_prep to admin+council
-//   - 2026-05-15 → ordinand_prep to admin+ordinand
-//   - 2026-06-01 → ordinand_go_live to admin+ordinand
-//   - Any other date → 204 No Content (cron no-op).
-//
-// Auth: Vercel Cron injects `Authorization: Bearer $CRON_SECRET`. Admin
-// callers may also POST to manually fire a specific key (recovery path).
+// Sends one of the three launch-comms emails to its recipient role union.
+// Manual-only: an admin POSTs { key } from the Launch Comms admin page. There
+// is no cron schedule — launch comms are sent by hand from the dashboard — so
+// the former date-dispatched GET handler was removed once launch was complete.
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, serviceClient } from '../../../../lib/api-auth'
 import { LAUNCH_COMMS, LaunchCommsKey } from '../../../../lib/launch-comms'
@@ -24,14 +18,6 @@ const RECIPIENT_ROLES: Record<LaunchCommsKey, string[]> = {
   ordinand_go_live: ['admin', 'ordinand'],
 }
 
-// Regina-date → launch comm. Regina is CST year-round (UTC-6, no DST).
-// 16:00 UTC = 10:00 Regina, same calendar date on both sides.
-const SCHEDULE: Record<string, LaunchCommsKey> = {
-  '2026-05-14': 'council_prep',
-  '2026-05-15': 'ordinand_prep',
-  '2026-06-01': 'ordinand_go_live',
-}
-
 type Recipient = {
   id:         string
   email:      string
@@ -43,12 +29,6 @@ type SendResultRow = {
   email:   string
   ok:      boolean
   detail?: string
-}
-
-function reginaDateString(now: Date = new Date()): string {
-  // Regina = UTC-6 year-round. Shift the UTC instant by -6h and read the date.
-  const shifted = new Date(now.getTime() - 6 * 60 * 60 * 1000)
-  return shifted.toISOString().slice(0, 10)
 }
 
 async function loadRecipients(roles: string[]): Promise<Recipient[]> {
@@ -106,37 +86,8 @@ async function sendLaunchComm(key: LaunchCommsKey, resendKey: string) {
   return { key, recipientCount: recipients.length, results }
 }
 
-// Vercel Cron uses GET. Date-dispatched: today's Regina date decides the comm.
-export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('Authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const resendKey = process.env.RESEND_API_KEY
-  if (!resendKey) {
-    return NextResponse.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 })
-  }
-
-  const today = reginaDateString()
-  const key = SCHEDULE[today]
-  if (!key) {
-    return new NextResponse(null, { status: 204 })
-  }
-
-  const summary = await sendLaunchComm(key, resendKey)
-  const allOk = summary.results.every(r => r.ok)
-  return NextResponse.json({
-    firedBy: 'cron',
-    firedAt: new Date().toISOString(),
-    reginaDate: today,
-    ...summary,
-  }, { status: allOk ? 200 : 207 })
-}
-
-// Manual recovery path: admin POST with { key } in body to fire any comm
-// on demand (e.g. cron missed, or partial-failure resend).
+// Admin POST with { key } in body to fire any comm on demand from the
+// Launch Comms admin page.
 export async function POST(req: NextRequest) {
   const auth = await requireRole(req, 'admin')
   if (auth.error) return auth.error

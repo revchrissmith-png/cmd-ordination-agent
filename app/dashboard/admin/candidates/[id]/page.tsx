@@ -68,6 +68,10 @@ export default function CandidateDetailPage() {
   const [evalInviteModal, setEvalInviteModal] = useState<{ type: 'mentor' | 'church'; name: string; email: string } | null>(null)
   const [viewingEval, setViewingEval]         = useState<any>(null)
 
+  // Monthly mentor report SEND tracking (metadata only — report content stays
+  // private to the ordinand & mentor; this is just "a report went out").
+  const [mentorReportSends, setMentorReportSends] = useState<any[]>([])
+
   // Grader exclusions
   const [exclusions, setExclusions] = useState<any[]>([])
   const [isAutoAssigning, setIsAutoAssigning] = useState(false)
@@ -191,6 +195,13 @@ export default function CandidateDetailPage() {
       .eq('ordinand_id', id)
       .order('created_at', { ascending: false })
     setEvalTokens(tokens || [])
+
+    const { data: reportSends } = await supabase
+      .from('mentor_report_sends')
+      .select('id, month, mentor_name, mentor_email, sent_at')
+      .eq('ordinand_id', id)
+      .order('month', { ascending: false })
+    setMentorReportSends(reportSends || [])
 
     if (!silent) setLoading(false)
   }
@@ -977,6 +988,45 @@ export default function CandidateDetailPage() {
                 )
               })}
             </div>
+          </div>
+
+          {/* Monthly Mentor Reports — send tracking. Metadata only; the report's
+              contents stay private between the ordinand and their mentor. */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-8 py-5 border-b border-slate-100">
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Monthly Mentor Reports</h2>
+              <p className="text-xs text-slate-400 font-medium mt-1">Confirms a report was emailed to the mentor each month. The contents stay private between the ordinand and their mentor — only the send is tracked here.</p>
+            </div>
+            {mentorReportSends.length === 0 ? (
+              <div className="px-8 py-5">
+                <p className="text-xs text-slate-400 font-medium">No mentor reports sent yet.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {mentorReportSends.map(s => {
+                  const [y, m] = String(s.month).split('-').map(Number)
+                  const monthLabel = (y && m)
+                    ? new Date(y, m - 1, 1).toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })
+                    : s.month
+                  return (
+                    <div key={s.id} className="px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="flex items-start gap-3">
+                        <span className="text-xl mt-0.5">✉️</span>
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm">{monthLabel}</p>
+                          <p className="text-xs text-slate-400 font-medium mt-0.5">
+                            to {s.mentor_name || 'mentor'}{s.mentor_email ? ` (${s.mentor_email})` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 flex-shrink-0">
+                        ✓ Sent {new Date(s.sent_at).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <InterviewSection
