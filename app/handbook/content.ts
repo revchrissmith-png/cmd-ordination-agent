@@ -351,6 +351,17 @@ export const WIKI_SECTIONS: WikiSection[] = [
           { type: 'callout', variant: 'tip', text: 'The sermon evaluation rubric is visible on each sermon requirement page in the Portal. Review it before you preach so you know what the council is looking for. See also Appendix A.11.' },
         ]
       },
+      {
+        id: '4-4',
+        heading: '4.4 Completion as a Condition of Licence',
+        blocks: [
+          { type: 'p', text: 'Ordination is not an optional honour added on top of a licence — it is a requirement of holding one. The portable Official Worker License is granted on the licensee\'s commitment to the successful completion of the requirements of the Ordination Policy (Licensing Policy, A08 §5.1.4). This stands in the same class as the other conditions of licence, such as completing the Alliance History and Thought course for credit within one year (A08 §5.1.3) and the criminal record check (A08 §6.1.1).' },
+          { type: 'p', text: 'These requirements are to be completed within three years of placement in ministry (Ordination Policy, A13 §6). The oral examination follows a minimum of two years of service.' },
+          { type: 'p', text: 'Licences are issued annually, with a January 1 anniversary date, and are subject to revocation by the issuing authority if the conditions leading to licensing are not met (A08 §3.1, §3.7). Because completion of the ordination requirements is one such condition, failure to complete them — as with failure to meet any other condition of licence — is grounds for the licence to be revoked or not renewed by the District Superintendent. A worker who is not relicensed for reasons other than discipline may appeal to the District Executive Committee (A08 §3.7).' },
+          { type: 'p', text: 'The licensing authority may grant an extension, at its sole discretion (A13 §6). That discretion is real and is exercised pastorally — but it is the exception, not the rule. Where the requirements are not met and no extension is granted, the licence does not continue. Because ministry in the Alliance is exercised under licence, this bears directly on a worker\'s standing and employment, which is why it is stated plainly and in advance.' },
+          { type: 'callout', variant: 'warning', text: 'Because this consequence affects the local church as well, the church (through its board) is asked to acknowledge in writing that it understands ordination completion as a condition of the worker\'s licence. The church endorsed the worker for licensing in the first place, and remains a partner in seeing the requirement through.' },
+        ]
+      },
     ]
   },
   {
@@ -401,15 +412,15 @@ export const WIKI_SECTIONS: WikiSection[] = [
       },
       {
         id: '5-4',
-        heading: '5.4 Mentor Check-ins and Feedback',
+        heading: '5.4 Mentor Evaluations of the Ordinand',
         blocks: [
-          { type: 'p', text: 'Each mentor will receive two check-in contacts per year from a member of the Ordaining Council. These check-ins serve to:' },
+          { type: 'p', text: 'Across the ordination journey, the mentor completes three formal evaluations of the ordinand. The first two are brief, early progress check-ins; the third is the comprehensive evaluation that prepares the Ordaining Council for the oral interview.' },
           { type: 'ul', items: [
-            'Clarify expectations and answer questions',
-            'Support the mentor-ordinand relationship',
-            'Ensure consistent understanding of the process',
+            'Progress check-ins (two): roughly twenty-four and twelve months before the ordinand\'s final submission deadline, the mentor receives a short, narrative check-in — how faithfully the ordinand is keeping mentoring meetings, how they are keeping pace with assignments, whether any struggles call for early attention, and whether the mentor would value a conversation with the District. Their purpose is formative: to surface concerns early enough to respond with support or course-correction while there is still time.',
+            'Final evaluation (one): in the months leading up to the oral interview, the mentor completes the full evaluation of the ordinand\'s readiness, which helps the Council prepare and highlights strengths and areas for growth.',
           ]},
-          { type: 'p', text: 'Mentors also complete a formal evaluation of the ordinand in the months leading up to the oral interview. This form helps the council prepare for the interview and highlights areas of strength and further growth.' },
+          { type: 'p', text: 'The progress check-ins are received by the Chair of the Ordaining Council and the District Ministry Centre, who hold them in confidence and use them to support the ordinand at the right moments. As with the monthly reports (§5.3), the Council as a whole does not read the raw check-ins; what comes before the Council is the overall shape of the mentor\'s account, drawn together in the final summation alongside the mentor\'s formal evaluation. This mirrors the protected-space principle of §5.3: early candour is invited so that formation is supported, not penalized.' },
+          { type: 'p', text: 'Separately, each mentor continues to receive two relationship check-in contacts per year from a member of the Ordaining Council — to clarify expectations, support the relationship, and ensure a consistent understanding of the process.' },
         ]
       },
       {
