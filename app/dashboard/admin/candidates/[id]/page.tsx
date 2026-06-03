@@ -72,6 +72,12 @@ export default function CandidateDetailPage() {
   // private to the ordinand & mentor; this is just "a report went out").
   const [mentorReportSends, setMentorReportSends] = useState<any[]>([])
 
+  // Mentor progress check-ins (admin/DMC only) + church covenant
+  const [mentorCheckins, setMentorCheckins] = useState<any[]>([])
+  const [covenant, setCovenant] = useState<any | null>(null)
+  const [covenantUploading, setCovenantUploading] = useState(false)
+  const [covenantDate, setCovenantDate] = useState('')
+
   // Grader exclusions
   const [exclusions, setExclusions] = useState<any[]>([])
   const [isAutoAssigning, setIsAutoAssigning] = useState(false)
@@ -149,6 +155,23 @@ export default function CandidateDetailPage() {
     })
   }
 
+  async function handleCovenantUpload(file: File) {
+    if (denyObserver()) return
+    setCovenantUploading(true)
+    const ext = file.name.split('.').pop()
+    const path = `covenants/${id}/covenant-${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('submissions').upload(path, file, { upsert: true })
+    if (upErr) { flash('Upload failed: ' + upErr.message, 'error'); setCovenantUploading(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('submissions').getPublicUrl(path)
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('church_covenant_acknowledgments').upsert({
+      ordinand_id: id, file_url: publicUrl, letter_date: covenantDate || null, uploaded_by: user?.id, uploaded_at: new Date().toISOString(),
+    }, { onConflict: 'ordinand_id' })
+    if (error) flash('Save failed: ' + error.message, 'error')
+    else { flash('Covenant uploaded.', 'success'); fetchData(true) }
+    setCovenantUploading(false)
+  }
+
 
   async function fetchData(silent = false) {
     if (!silent) setLoading(true)
@@ -202,6 +225,30 @@ export default function CandidateDetailPage() {
       .eq('ordinand_id', id)
       .order('month', { ascending: false })
     setMentorReportSends(reportSends || [])
+
+    const { data: checkins } = await supabase
+      .from('mentor_progress_checkins')
+      .select('id, round, status, due_date, mentor_name, mentor_email, q_meeting_diligence, q_pace, q_struggles, requested_meeting, additional_comments, sent_at, submitted_at, reviewed_at')
+      .eq('ordinand_id', id)
+      .order('round')
+    setMentorCheckins(checkins || [])
+
+    const { data: cov } = await supabase
+      .from('church_covenant_acknowledgments')
+      .select('id, file_url, letter_date, uploaded_at')
+      .eq('ordinand_id', id)
+      .maybeSingle()
+    setCovenant(cov || null)
+
+    // Opening an ordinand's page counts as viewing: clear the dashboard alert by
+    // marking any submitted-but-unreviewed check-ins reviewed.
+    const unreviewed = (checkins || []).filter((c: any) => c.status === 'submitted' && !c.reviewed_at)
+    if (unreviewed.length > 0) {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('mentor_progress_checkins')
+        .update({ reviewed_at: new Date().toISOString(), reviewed_by: user?.id })
+        .in('id', unreviewed.map((c: any) => c.id))
+    }
 
     if (!silent) setLoading(false)
   }
@@ -1027,6 +1074,89 @@ export default function CandidateDetailPage() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* Mentor Progress Check-ins — admin/DMC only; Council sees only the synthesized arc */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-8 py-5 border-b border-slate-100">
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Mentor Progress Check-ins</h2>
+              <p className="text-xs text-slate-400 font-medium mt-1">Early formative check-ins — the narrative &quot;why&quot; behind the portal&apos;s pace data. Visible to you + the DMC only; the Council sees only the synthesized arc in the final report.</p>
+            </div>
+            {mentorCheckins.length === 0 ? (
+              <div className="px-8 py-5"><p className="text-xs text-slate-400 font-medium">No progress check-ins scheduled yet — they&apos;re created automatically from the cohort deadline (≈24 and ≈12 months before).</p></div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {mentorCheckins.map(c => {
+                  const due = new Date(c.due_date).toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })
+                  const badge = c.status === 'submitted'
+                    ? { cls: 'bg-green-100 text-green-700', txt: `✓ Received ${c.submitted_at ? new Date(c.submitted_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}` }
+                    : c.status === 'sent' ? { cls: 'bg-amber-100 text-amber-700', txt: '⏳ Awaiting mentor' }
+                    : { cls: 'bg-slate-100 text-slate-500', txt: 'Scheduled' }
+                  return (
+                    <div key={c.id} className="px-8 py-5">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-bold text-slate-900 text-sm">Check-in {c.round} of 2 <span className="font-medium text-slate-400">· due {due}</span></p>
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${badge.cls}`}>{badge.txt}</span>
+                      </div>
+                      {c.status === 'submitted' && (
+                        <div className="mt-3 space-y-3">
+                          {c.requested_meeting && (
+                            <div className="px-3 py-2 rounded-lg bg-purple-50 border border-purple-200">
+                              <p className="text-xs font-black text-purple-700">🗣 {c.mentor_name || 'The mentor'} asked to speak with you about this ordinand.</p>
+                            </div>
+                          )}
+                          {([['Meeting diligence', c.q_meeting_diligence], ['Pace — the "why"', c.q_pace], ['Struggles / early intervention', c.q_struggles], ['Additional comments', c.additional_comments]] as const)
+                            .filter(([, v]) => v)
+                            .map(([label, v]) => (
+                              <div key={label}>
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-wide">{label}</p>
+                                <p className="text-sm text-slate-700 whitespace-pre-wrap mt-0.5">{v}</p>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Church Covenant — scanned signed acknowledgment (spec §7b, Option C) */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-8 py-5 border-b border-slate-100">
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Church Covenant</h2>
+              <p className="text-xs text-slate-400 font-medium mt-1">The church&apos;s signed acknowledgment of the completion requirement and its consequences. Scan the signed letter and upload it here for the record.</p>
+            </div>
+            <div className="px-8 py-5">
+              {covenant ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl mt-0.5">📄</span>
+                    <div>
+                      <p className="font-bold text-slate-900 text-sm">Covenant on file</p>
+                      <p className="text-xs text-slate-400 font-medium mt-0.5">
+                        {covenant.letter_date ? `Letter dated ${new Date(covenant.letter_date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })} · ` : ''}uploaded {new Date(covenant.uploaded_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                  <a href={covenant.file_url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all whitespace-nowrap flex-shrink-0">View / Download</a>
+                </div>
+              ) : (
+                <p className="text-sm font-bold text-amber-700 mb-4">No covenant on file yet.</p>
+              )}
+              <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <div>
+                  <label className={labelClass}>Date on letter</label>
+                  <input type="date" value={covenantDate} onChange={e => setCovenantDate(e.target.value)} className={inputClass} />
+                </div>
+                <label className={`${btnPrimary} cursor-pointer text-center ${covenantUploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                  {covenantUploading ? 'Uploading…' : (covenant ? 'Replace covenant' : 'Upload signed covenant')}
+                  <input type="file" accept="application/pdf,image/*" className="hidden" disabled={covenantUploading}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleCovenantUpload(f) }} />
+                </label>
+              </div>
+            </div>
           </div>
 
           <InterviewSection

@@ -35,6 +35,16 @@ function AdminPageContent() {
     return (t && VALID_TABS.includes(t as Tab)) ? t as Tab : 'council'
   })
   const [message, setMessage] = useState({ text: '', type: '' })
+  const [checkinAlerts, setCheckinAlerts] = useState<any[]>([])
+
+  useEffect(() => {
+    supabase
+      .from('mentor_progress_checkins')
+      .select('id, round, requested_meeting, ordinand_id, profiles!ordinand_id(first_name, last_name)')
+      .eq('status', 'submitted').is('reviewed_at', null)
+      .order('submitted_at', { ascending: false })
+      .then(({ data }) => setCheckinAlerts(data || []))
+  }, [])
 
   const [councilMembers, setCouncilMembers] = useState<any[]>([])
   const [councilLoading, setCouncilLoading] = useState(true)
@@ -692,6 +702,23 @@ function AdminPageContent() {
             </div>
           )}
         </div>
+
+        {checkinAlerts.length > 0 && (
+          <div className="mb-8 rounded-2xl border border-blue-200 bg-blue-50 px-6 py-4">
+            <p className="text-sm font-black text-blue-800">📨 {checkinAlerts.length} mentor progress check-in{checkinAlerts.length !== 1 ? 's' : ''} ready for review</p>
+            <div className="mt-2 flex flex-col gap-1">
+              {checkinAlerts.map(a => {
+                const prof = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles
+                const nm = prof ? `${prof.first_name ?? ''} ${prof.last_name ?? ''}`.trim() : 'Ordinand'
+                return (
+                  <Link key={a.id} href={`/dashboard/admin/candidates/${a.ordinand_id}`} className="text-sm font-bold text-blue-700 hover:underline">
+                    {a.requested_meeting && <span className="mr-1">🗣</span>}{nm} — check-in {a.round}{a.requested_meeting ? ' · asked to speak with you' : ''}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-8">
           {(['council','cohorts','candidates','calendar','activity'] as Tab[]).map(key => (
